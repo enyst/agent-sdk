@@ -3,7 +3,6 @@
 How to run:
 
 - uv run python -m examples.echo_offline
-- uv run python -m examples.tools_quickstart
 - uv run python -m examples.persistence_local
 - LITELLM_API_KEY=... uv run python -m examples.hello_world
 
