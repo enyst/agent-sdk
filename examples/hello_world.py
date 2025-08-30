@@ -25,14 +25,42 @@ from openhands.tools import (
 
 logger = get_logger(__name__)
 
-# Configure LLM
-api_key = os.getenv("LITELLM_API_KEY")
-assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
-llm = LLM(config=LLMConfig(
-    model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
-    base_url="https://llm-proxy.eval.all-hands.dev",
-    api_key=SecretStr(api_key),
-))
+"""
+Run this example with a valid API key. It tries, in order:
+  1) LITELLM_API_KEY (for litellm proxy)
+  2) GEMINI_API_KEY  (for gemini models)
+  3) OPENAI_API_KEY  (for openai models)
+
+Usage:
+  uv run python -m examples.hello_world
+"""
+
+# Configure LLM (fallbacks)
+api_key = (
+    os.getenv("LITELLM_API_KEY")
+    or os.getenv("GEMINI_API_KEY")
+    or os.getenv("OPENAI_API_KEY")
+)
+assert api_key is not None, "No API key found. Set LITELLM_API_KEY, GEMINI_API_KEY, or OPENAI_API_KEY."
+
+# Default to litellm proxy if LITELLM_API_KEY is set; else pick provider by env
+if os.getenv("LITELLM_API_KEY"):
+    model = "litellm_proxy/anthropic/claude-sonnet-4-20250514"
+    base_url = "https://llm-proxy.eval.all-hands.dev"
+elif os.getenv("GEMINI_API_KEY"):
+    model = "gemini-2.5-pro"
+    base_url = None
+else:
+    model = "gpt-4o-mini"
+    base_url = None
+
+llm = LLM(
+    config=LLMConfig(
+        model=model,
+        base_url=base_url,
+        api_key=SecretStr(api_key),
+    )
+)
 
 # Tools
 cwd = os.getcwd()
