@@ -1,9 +1,9 @@
 """Test for FunctionCallingConverter."""
 
-
+import pytest
 from litellm import ChatCompletionToolParam
 
-from openhands.core.llm.exceptions import FunctionCallConversionError
+from openhands.core.llm.exceptions import FunctionCallConversionError, FunctionCallValidationError
 from openhands.core.llm.utils.fn_call_converter import (
     STOP_WORDS,
     convert_fncall_messages_to_non_fncall_messages,
@@ -101,7 +101,7 @@ def test_convert_non_fncall_to_fncall_basic():
         },
         {
             'role': 'assistant',
-            'content': 'I\'ll run the ls command for you.\n\n<function=execute_bash>\n<parameter name="command">ls</parameter>\n</function>'
+            'content': 'I\'ll run the ls command for you.\n\n<function=execute_bash>\n<parameter=command>ls</parameter>\n</function>'
         }
     ]
     
@@ -173,7 +173,7 @@ def test_convert_fncall_to_non_fncall_without_in_context_learning():
 
 
 def test_convert_with_multiple_tool_calls():
-    """Test conversion with multiple tool calls in one message."""
+    """Test that multiple tool calls in one message raise an error."""
     fncall_messages = [
         {
             'role': 'user',
@@ -203,22 +203,9 @@ def test_convert_with_multiple_tool_calls():
         }
     ]
     
-    non_fncall_messages = convert_fncall_messages_to_non_fncall_messages(
-        fncall_messages, FNCALL_TOOLS
-    )
-    
-    assert isinstance(non_fncall_messages, list)
-    
-    # Check that both tool calls are represented
-    assistant_content = None
-    for msg in non_fncall_messages:
-        if msg.get('role') == 'assistant' and 'execute_bash' in str(msg.get('content', '')):
-            assistant_content = msg['content']
-            break
-    
-    assert assistant_content is not None
-    # Both commands should be present in some form
-    assert 'ls' in assistant_content or 'pwd' in assistant_content
+    # Agent-SDK doesn't support multiple tool calls per message
+    with pytest.raises(FunctionCallConversionError, match="Expected exactly one tool call"):
+        convert_fncall_messages_to_non_fncall_messages(fncall_messages, FNCALL_TOOLS)
 
 
 def test_convert_with_tool_response():
@@ -325,7 +312,7 @@ def test_convert_with_invalid_function_call():
         },
         {
             'role': 'assistant',
-            'content': 'I\'ll run the ls command.\n\n<function=invalid_function>\n<parameter name="command">ls</parameter>\n</function>'
+            'content': 'I\'ll run the ls command.\n\n<function=invalid_function>\n<parameter=command>ls</parameter>\n</function>'
         }
     ]
     
@@ -336,7 +323,7 @@ def test_convert_with_invalid_function_call():
         )
         # If no exception, check that result is reasonable
         assert isinstance(fncall_messages, list)
-    except (FunctionCallConversionError, ValueError, KeyError):
+    except (FunctionCallConversionError, FunctionCallValidationError, ValueError, KeyError):
         # These exceptions are acceptable for invalid function calls
         pass
 
@@ -350,7 +337,7 @@ def test_convert_with_malformed_parameters():
         },
         {
             'role': 'assistant',
-            'content': 'I\'ll run the ls command.\n\n<function=execute_bash>\n<parameter name="invalid_param">ls</parameter>\n</function>'
+            'content': 'I\'ll run the ls command.\n\n<function=execute_bash>\n<parameter=invalid_param>ls</parameter>\n</function>'
         }
     ]
     
@@ -360,7 +347,7 @@ def test_convert_with_malformed_parameters():
             non_fncall_messages, FNCALL_TOOLS
         )
         assert isinstance(fncall_messages, list)
-    except (FunctionCallConversionError, ValueError, KeyError):
+    except (FunctionCallConversionError, FunctionCallValidationError, ValueError, KeyError):
         # These exceptions are acceptable for malformed parameters
         pass
 

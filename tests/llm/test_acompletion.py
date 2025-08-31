@@ -15,7 +15,7 @@ def create_mock_response(content: str = "Test response", response_id: str = "tes
     mock_response.choices = [MagicMock()]
     mock_response.choices[0].message.content = content
     
-    # Create a more complete usage mock
+    # Create usage mock
     mock_usage = MagicMock()
     mock_usage.get.side_effect = lambda key, default=None: {
         'prompt_tokens': 10,
@@ -24,27 +24,16 @@ def create_mock_response(content: str = "Test response", response_id: str = "tes
     }.get(key, default)
     mock_usage.prompt_tokens_details = None
     
-    # Mock the response.get() method
-    def mock_get(key, default=None):
-        if key == 'choices':
-            return mock_response.choices
-        elif key == 'usage':
-            return mock_usage
-        elif key == 'id':
-            return response_id
-        return default
+    # Response data mapping
+    response_data = {
+        'choices': mock_response.choices,
+        'usage': mock_usage,
+        'id': response_id
+    }
     
-    mock_response.get = mock_get
-    
-    # Also support dict-like access
-    def mock_getitem(self, key):
-        return {
-            'choices': mock_response.choices,
-            'usage': mock_usage,
-            'id': response_id
-        }[key]
-    
-    mock_response.__getitem__ = mock_getitem
+    # Mock both .get() and dict-like access (LLM code uses both patterns inconsistently)
+    mock_response.get.side_effect = lambda key, default=None: response_data.get(key, default)
+    mock_response.__getitem__ = lambda self, key: response_data[key]
     
     return mock_response
 
