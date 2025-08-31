@@ -139,17 +139,19 @@ def test_convert_fncall_to_non_fncall_with_in_context_learning():
     )
     
     assert isinstance(non_fncall_messages, list)
-    assert len(non_fncall_messages) > len(fncall_messages)
+    # Agent-sdk may combine examples into existing messages rather than creating new ones
+    assert len(non_fncall_messages) >= len(fncall_messages)
     
-    # Check that examples are added
+    # Check that examples are added to the content
     has_example = False
     for msg in non_fncall_messages:
-        if 'example' in str(msg.get('content', '')).lower():
+        content = str(msg.get('content', '')).lower()
+        if 'example' in content or 'start of example' in content:
             has_example = True
             break
     
-    # Examples might be added, but not required for basic functionality
-    assert isinstance(has_example, bool)
+    # Examples should be present when requested
+    assert has_example, "In-context learning examples should be added to message content"
 
 
 def test_convert_fncall_to_non_fncall_without_in_context_learning():
