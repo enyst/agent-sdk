@@ -1,5 +1,6 @@
 """Test MCP config merging functionality."""
 
+import pytest
 
 from openhands.core.config import MCPConfig
 from openhands.core.config.mcp_config import (
@@ -251,3 +252,20 @@ def test_mcp_config_merge_complex_scenario():
     assert len(merged.shttp_servers) == 1
     assert merged.shttp_servers[0].url == 'http://shttp1:8080'
     assert merged.shttp_servers[0].api_key == 'shttp-key1'
+
+
+def test_mcp_config_merge_validation_on_merged_config():
+    """Test that validate_servers() works correctly on merged configurations."""
+    config1 = MCPConfig(
+        sse_servers=[MCPSSEServerConfig(url='http://server1:8080')]
+    )
+    
+    config2 = MCPConfig(
+        sse_servers=[MCPSSEServerConfig(url='http://server1:8080')]  # Same URL
+    )
+    
+    merged = config1.merge(config2)
+    
+    # The merged config should have duplicate URLs and validation should fail
+    with pytest.raises(ValueError, match="Duplicate MCP server URLs are not allowed"):
+        merged.validate_servers()

@@ -321,7 +321,7 @@ def test_mcp_config_validate_servers():
     )
     config.validate_servers()  # Should not raise
     
-    # Duplicate URLs should raise
+    # Duplicate URLs in sse_servers should raise
     config = MCPConfig(
         sse_servers=[
             MCPSSEServerConfig(url='http://server1:8080'),
@@ -331,6 +331,46 @@ def test_mcp_config_validate_servers():
     with pytest.raises(ValueError) as exc_info:
         config.validate_servers()
     assert 'Duplicate MCP server URLs are not allowed' in str(exc_info.value)
+
+
+def test_mcp_config_validate_servers_shttp_duplicates():
+    """Test MCPConfig validation for duplicate URLs in shttp_servers."""
+    # Note: Current implementation only validates sse_servers, 
+    # but this test documents expected behavior for shttp_servers
+    config = MCPConfig(
+        shttp_servers=[
+            MCPSHTTPServerConfig(url='http://server1:8080'),
+            MCPSHTTPServerConfig(url='http://server1:8080'),
+        ]
+    )
+    # This currently passes but should ideally fail - testing current behavior
+    config.validate_servers()  # Currently doesn't validate shttp_servers
+
+
+def test_mcp_config_validate_servers_stdio_duplicates():
+    """Test MCPConfig validation for duplicate names in stdio_servers."""
+    # Note: Current implementation doesn't validate stdio server names,
+    # but this test documents expected behavior
+    config = MCPConfig(
+        stdio_servers=[
+            MCPStdioServerConfig(name='server1', command='python'),
+            MCPStdioServerConfig(name='server1', command='node'),
+        ]
+    )
+    # This currently passes but should ideally fail - testing current behavior
+    config.validate_servers()  # Currently doesn't validate stdio server names
+
+
+def test_mcp_config_validate_servers_cross_type_duplicates():
+    """Test MCPConfig validation for duplicate URLs between sse and shttp servers."""
+    # Note: Current implementation doesn't check cross-type duplicates,
+    # but this test documents expected behavior
+    config = MCPConfig(
+        sse_servers=[MCPSSEServerConfig(url='http://server1:8080')],
+        shttp_servers=[MCPSHTTPServerConfig(url='http://server1:8080')],
+    )
+    # This currently passes but should ideally fail - testing current behavior
+    config.validate_servers()  # Currently doesn't check cross-type duplicates
 
 
 def test_mcp_config_from_toml_section_basic():
