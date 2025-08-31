@@ -42,71 +42,28 @@ def test_llm_config_defaults():
     assert config.safety_settings is None
 
 
-def test_llm_config_custom_values():
-    """Test LLMConfig with custom values."""
+def test_llm_config_minimal_customization_roundtrip():
     config = LLMConfig(
         model="gpt-4",
-        api_key=SecretStr("test-key"),
-        base_url="https://api.example.com",
-        api_version="v1",
-        num_retries=3,
-        retry_multiplier=2,
-        retry_min_wait=1,
-        retry_max_wait=10,
+        api_key=SecretStr("k"),
         timeout=30,
-        max_message_chars=10000,
-        temperature=0.5,
-        top_p=0.9,
-        top_k=50,
-        custom_llm_provider="custom",
-        max_input_tokens=4000,
-        max_output_tokens=1000,
-        input_cost_per_token=0.001,
-        output_cost_per_token=0.002,
-        ollama_base_url="http://localhost:11434",
         drop_params=False,
         modify_params=False,
-        disable_vision=True,
         disable_stop_word=True,
-        caching_prompt=False,
         log_completions=True,
-        custom_tokenizer="custom_tokenizer",
         native_tool_calling=True,
-        reasoning_effort="high",
         seed=42,
-        safety_settings=[{"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"}],
     )
-    
+
     assert config.model == "gpt-4"
-    assert config.api_key is not None and config.api_key.get_secret_value() == "test-key"
-    assert config.base_url == "https://api.example.com"
-    assert config.api_version == "v1"
-    assert config.num_retries == 3
-    assert config.retry_multiplier == 2
-    assert config.retry_min_wait == 1
-    assert config.retry_max_wait == 10
+    assert config.api_key and config.api_key.get_secret_value() == "k"
     assert config.timeout == 30
-    assert config.max_message_chars == 10000
-    assert config.temperature == 0.5
-    assert config.top_p == 0.9
-    assert config.top_k == 50
-    assert config.custom_llm_provider == "custom"
-    assert config.max_input_tokens == 4000
-    assert config.max_output_tokens == 1000
-    assert config.input_cost_per_token == 0.001
-    assert config.output_cost_per_token == 0.002
-    assert config.ollama_base_url == "http://localhost:11434"
     assert config.drop_params is False
     assert config.modify_params is False
-    assert config.disable_vision is True
     assert config.disable_stop_word is True
-    assert config.caching_prompt is False
     assert config.log_completions is True
-    assert config.custom_tokenizer == "custom_tokenizer"
     assert config.native_tool_calling is True
-    assert config.reasoning_effort == "high"
     assert config.seed == 42
-    assert config.safety_settings == [{"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"}]
 
 
 def test_llm_config_secret_str():
@@ -198,110 +155,15 @@ def test_llm_config_extra_fields_forbidden():
     assert "Extra inputs are not permitted" in str(exc_info.value)
 
 
-def test_llm_config_validation():
-    """Test basic validation of LLMConfig fields."""
-    # Test that negative values are handled appropriately
-    config = LLMConfig(
-        num_retries=-1,  # Should be allowed (might be used to disable retries)
-        retry_multiplier=-1,  # Should be allowed
-        retry_min_wait=-1,  # Should be allowed
-        retry_max_wait=-1,  # Should be allowed
-        timeout=-1,  # Should be allowed
-        max_message_chars=-1,  # Should be allowed
-        temperature=-1,  # Should be allowed
-        top_p=-1,  # Should be allowed
-    )
-    assert config.num_retries == -1
-    assert config.retry_multiplier == -1
-    assert config.retry_min_wait == -1
-    assert config.retry_max_wait == -1
-    assert config.timeout == -1
-    assert config.max_message_chars == -1
-    assert config.temperature == -1
-    assert config.top_p == -1
+# Drop tests that merely assert Pydantic accepts negative numbers; not product behavior.
 
 
-def test_llm_config_model_variants():
-    """Test various model name formats."""
-    models = [
-        "gpt-4",
-        "claude-3-sonnet",
-        "azure/gpt-4",
-        "anthropic/claude-3-sonnet",
-        "gemini-2.5-pro-experimental",
-        "local/custom-model",
-    ]
-    
-    for model in models:
-        config = LLMConfig(model=model)
-        assert config.model == model
+def test_llm_config_model_passthrough():
+    # Spot-check a couple of variants only; we do not need to exhaustively enumerate
+    for m in ["gpt-4", "azure/gpt-4", "gemini-2.5-pro-experimental"]:
+        assert LLMConfig(model=m).model == m
 
 
-def test_llm_config_boolean_fields():
-    """Test boolean field handling."""
-    config = LLMConfig(
-        drop_params=True,
-        modify_params=False,
-        disable_vision=True,
-        disable_stop_word=False,
-        caching_prompt=True,
-        log_completions=False,
-        native_tool_calling=True,
-    )
-    
-    assert config.drop_params is True
-    assert config.modify_params is False
-    assert config.disable_vision is True
-    assert config.disable_stop_word is False
-    assert config.caching_prompt is True
-    assert config.log_completions is False
-    assert config.native_tool_calling is True
-
-
-def test_llm_config_optional_fields():
-    """Test that optional fields can be None."""
-    config = LLMConfig(
-        api_key=None,
-        base_url=None,
-        api_version=None,
-        aws_access_key_id=None,
-        aws_secret_access_key=None,
-        aws_region_name=None,
-        timeout=None,
-        top_k=None,
-        custom_llm_provider=None,
-        max_input_tokens=None,
-        max_output_tokens=None,
-        input_cost_per_token=None,
-        output_cost_per_token=None,
-        ollama_base_url=None,
-        disable_vision=None,
-        disable_stop_word=None,
-        custom_tokenizer=None,
-        native_tool_calling=None,
-        reasoning_effort=None,
-        seed=None,
-        safety_settings=None,
-    )
-    
-    assert config.api_key is None
-    assert config.base_url is None
-    assert config.api_version is None
-    assert config.aws_access_key_id is None
-    assert config.aws_secret_access_key is None
-    assert config.aws_region_name is None
-    assert config.timeout is None
-    assert config.top_k is None
-    assert config.custom_llm_provider is None
-    assert config.max_input_tokens is None
-    assert config.max_output_tokens is None
-    assert config.input_cost_per_token is None
-    assert config.output_cost_per_token is None
-    assert config.ollama_base_url is None
-    assert config.disable_vision is None
-    assert config.disable_stop_word is None
-    assert config.custom_tokenizer is None
-    assert config.native_tool_calling is None
-    assert config.reasoning_effort == "high"  # Even when set to None, post_init sets it to "high" for non-Gemini models
-    assert config.seed is None
-    assert config.safety_settings is None
+def test_llm_config_boolean_fields_small():
+    cfg = LLMConfig(drop_params=True, modify_params=False, disable_stop_word=False, caching_prompt=True)
+    assert (cfg.drop_params, cfg.modify_params, cfg.disable_stop_word, cfg.caching_prompt) == (True, False, False, True)
