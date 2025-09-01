@@ -178,7 +178,8 @@ def test_mcp_validate_servers_duplicates_shttp_desired():
             MCPSHTTPServerConfig(url='http://server1:8080'),
         ]
     )
-    cfg.validate_servers()
+    with pytest.raises(ValueError):
+        cfg.validate_servers()
 
 
 @pytest.mark.xfail(reason="Desired: detect cross-type duplicate URLs. Current implementation does not.")
@@ -187,7 +188,8 @@ def test_mcp_validate_servers_cross_type_duplicates_desired():
         sse_servers=[MCPSSEServerConfig(url='http://server1:8080')],
         shttp_servers=[MCPSHTTPServerConfig(url='http://server1:8080')],
     )
-    cfg.validate_servers()
+    with pytest.raises(ValueError):
+        cfg.validate_servers()
 
 
 def test_mcp_config_from_toml_section_basic():
