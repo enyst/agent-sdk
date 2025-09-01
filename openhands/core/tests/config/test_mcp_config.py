@@ -25,7 +25,7 @@ def test_mcp_server_url_valid(cls, url):
     assert cfg.url == url
 
 
-@pytest.mark.parametrize("bad", ["", "not_a_url", "ftp://server", "file://server", "tcp://server"]) 
+@pytest.mark.parametrize("bad", ["", "not_a_url", "ftp://server", "file://server", "tcp://server"])
 @pytest.mark.parametrize("cls", [MCPSSEServerConfig, MCPSHTTPServerConfig])
 def test_mcp_server_url_invalid(cls, bad):
     with pytest.raises(ValidationError):
