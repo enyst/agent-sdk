@@ -1,4 +1,4 @@
-"""Test for async completion functionality (if available)."""
+"""Tests for LLM completion functionality, configuration, and metrics tracking."""
 
 from unittest.mock import MagicMock, patch
 
@@ -299,5 +299,5 @@ def test_llm_openhands_provider_rewrite():
     assert llm.config.base_url == 'https://llm-proxy.app.all-hands.dev/'
 
 
-# Note: Async tests would go here if AsyncLLM is available in agent-sdk
-# For now, we focus on the synchronous LLM functionality that we know exists
+# This file focuses on LLM completion functionality, configuration options,
+# and metrics tracking for the synchronous LLM implementation
