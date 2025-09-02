@@ -47,15 +47,6 @@ def test_merge_all_types_and_preserve_inputs():
 
 
 
-def test_merge_then_validate_duplicates_desired():
-    c1 = MCPConfig(sse_servers=[MCPSSEServerConfig(url='http://x:1')])
-    c2 = MCPConfig(sse_servers=[MCPSSEServerConfig(url='http://x:1')])
-    merged = c1.merge(c2)
-
-    # Desired: validation should flag duplicates post-merge; current impl does not catch via merge.
-    pytest.xfail("Desired: validate duplicates post-merge across SSE as well.")
-    merged.validate_servers()
-
 
 def test_mcp_config_merge_validation_on_merged_config():
     """Test that validate_servers() works correctly on merged configurations."""
