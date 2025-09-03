@@ -13,73 +13,74 @@ def create_mock_response(content: str = "Test response", response_id: str = "tes
     mock_response = MagicMock()
     mock_response.choices = [MagicMock()]
     mock_response.choices[0].message.content = content
-    
+
     # Create a more complete usage mock
     mock_usage = MagicMock()
     mock_usage.get.side_effect = lambda key, default=None: {
-        'prompt_tokens': 10,
-        'completion_tokens': 5,
-        'model_extra': {}
+        "prompt_tokens": 10,
+        "completion_tokens": 5,
+        "model_extra": {},
     }.get(key, default)
     mock_usage.prompt_tokens_details = None
-    
+
     # Mock the response.get() method
     def mock_get(key, default=None):
-        if key == 'choices':
+        if key == "choices":
             return mock_response.choices
-        elif key == 'usage':
+        elif key == "usage":
             return mock_usage
-        elif key == 'id':
+        elif key == "id":
             return response_id
         return default
-    
+
     mock_response.get = mock_get
-    
+
     # Also support dict-like access
     def mock_getitem(self, key):
         return {
-            'choices': mock_response.choices,
-            'usage': mock_usage,
-            'id': response_id
+            "choices": mock_response.choices,
+            "usage": mock_usage,
+            "id": response_id,
         }[key]
-    
+
     mock_response.__getitem__ = mock_getitem
-    
+
     return mock_response
 
 
 @pytest.fixture
 def default_config():
     return LLMConfig(
-        model='gpt-4o',
-        api_key=SecretStr('test_key'),
+        model="gpt-4o",
+        api_key=SecretStr("test_key"),
         num_retries=2,
         retry_min_wait=1,
         retry_max_wait=2,
     )
 
 
-@patch('openhands.core.llm.llm.litellm_completion')
+@patch("openhands.core.llm.llm.litellm_completion")
 def test_completion_retries_api_connection_error(
     mock_litellm_completion, default_config
 ):
     """Test that APIConnectionError is properly retried."""
-    mock_response = create_mock_response('Retry successful')
-    
-    # Mock the litellm_completion to first raise an APIConnectionError, then return a successful response
+    mock_response = create_mock_response("Retry successful")
+
+    # Mock the litellm_completion to first raise an APIConnectionError,
+    # then return a successful response
     mock_litellm_completion.side_effect = [
         APIConnectionError(
-            message='API connection error',
-            llm_provider='test_provider',
-            model='test_model',
+            message="API connection error",
+            llm_provider="test_provider",
+            model="test_model",
         ),
         mock_response,
     ]
 
     # Create an LLM instance and call completion
-    llm = LLM(config=default_config, service_id='test-service')
+    llm = LLM(config=default_config, service_id="test-service")
     response = llm.completion(
-        messages=[{'role': 'user', 'content': 'Hello!'}],
+        messages=[{"role": "user", "content": "Hello!"}],
     )
 
     # Verify that the retry was successful
@@ -87,7 +88,7 @@ def test_completion_retries_api_connection_error(
     assert mock_litellm_completion.call_count == 2  # Initial call + 1 retry
 
 
-@patch('openhands.core.llm.llm.litellm_completion')
+@patch("openhands.core.llm.llm.litellm_completion")
 def test_completion_max_retries_api_connection_error(
     mock_litellm_completion, default_config
 ):
@@ -95,29 +96,29 @@ def test_completion_max_retries_api_connection_error(
     # Mock the litellm_completion to raise APIConnectionError multiple times
     mock_litellm_completion.side_effect = [
         APIConnectionError(
-            message='API connection error 1',
-            llm_provider='test_provider',
-            model='test_model',
+            message="API connection error 1",
+            llm_provider="test_provider",
+            model="test_model",
         ),
         APIConnectionError(
-            message='API connection error 2',
-            llm_provider='test_provider',
-            model='test_model',
+            message="API connection error 2",
+            llm_provider="test_provider",
+            model="test_model",
         ),
         APIConnectionError(
-            message='API connection error 3',
-            llm_provider='test_provider',
-            model='test_model',
+            message="API connection error 3",
+            llm_provider="test_provider",
+            model="test_model",
         ),
     ]
 
     # Create an LLM instance and call completion
-    llm = LLM(config=default_config, service_id='test-service')
+    llm = LLM(config=default_config, service_id="test-service")
 
     # The completion should raise an APIConnectionError after exhausting all retries
     with pytest.raises(APIConnectionError) as excinfo:
         llm.completion(
-            messages=[{'role': 'user', 'content': 'Hello!'}],
+            messages=[{"role": "user", "content": "Hello!"}],
         )
 
     # Verify that the correct number of retries were attempted
@@ -125,19 +126,19 @@ def test_completion_max_retries_api_connection_error(
     assert mock_litellm_completion.call_count == default_config.num_retries
 
     # The exception should contain connection error information
-    assert 'API connection error' in str(excinfo.value)
+    assert "API connection error" in str(excinfo.value)
 
 
-@patch('openhands.core.llm.llm.litellm_completion')
+@patch("openhands.core.llm.llm.litellm_completion")
 def test_completion_no_retry_on_success(mock_litellm_completion, default_config):
     """Test that successful calls don't trigger retries."""
-    mock_response = create_mock_response('Success on first try')
+    mock_response = create_mock_response("Success on first try")
     mock_litellm_completion.return_value = mock_response
 
     # Create an LLM instance and call completion
-    llm = LLM(config=default_config, service_id='test-service')
+    llm = LLM(config=default_config, service_id="test-service")
     response = llm.completion(
-        messages=[{'role': 'user', 'content': 'Hello!'}],
+        messages=[{"role": "user", "content": "Hello!"}],
     )
 
     # Verify that no retries were needed
@@ -145,41 +146,43 @@ def test_completion_no_retry_on_success(mock_litellm_completion, default_config)
     assert mock_litellm_completion.call_count == 1  # Only the initial call
 
 
-@patch('openhands.core.llm.llm.litellm_completion')
-def test_completion_no_retry_on_non_retryable_error(mock_litellm_completion, default_config):
+@patch("openhands.core.llm.llm.litellm_completion")
+def test_completion_no_retry_on_non_retryable_error(
+    mock_litellm_completion, default_config
+):
     """Test that non-retryable errors don't trigger retries."""
     # Mock a non-retryable error (e.g., ValueError)
     mock_litellm_completion.side_effect = ValueError("Invalid input")
 
     # Create an LLM instance and call completion
-    llm = LLM(config=default_config, service_id='test-service')
+    llm = LLM(config=default_config, service_id="test-service")
 
     # The completion should raise the ValueError immediately without retries
     with pytest.raises(ValueError) as excinfo:
         llm.completion(
-            messages=[{'role': 'user', 'content': 'Hello!'}],
+            messages=[{"role": "user", "content": "Hello!"}],
         )
 
     # Verify that no retries were attempted
     assert mock_litellm_completion.call_count == 1  # Only the initial call
-    assert 'Invalid input' in str(excinfo.value)
+    assert "Invalid input" in str(excinfo.value)
 
 
 def test_retry_configuration_validation():
     """Test that retry configuration is properly validated."""
     # Test with zero retries
     config_no_retry = LLMConfig(
-        model='gpt-4o',
-        api_key=SecretStr('test_key'),
+        model="gpt-4o",
+        api_key=SecretStr("test_key"),
         num_retries=0,
     )
     llm_no_retry = LLM(config=config_no_retry)
     assert llm_no_retry.config.num_retries == 0
-    
+
     # Test with custom retry settings
     config_custom = LLMConfig(
-        model='gpt-4o',
-        api_key=SecretStr('test_key'),
+        model="gpt-4o",
+        api_key=SecretStr("test_key"),
         num_retries=5,
         retry_min_wait=2,
         retry_max_wait=10,
@@ -192,21 +195,21 @@ def test_retry_configuration_validation():
     assert llm_custom.config.retry_multiplier == 2.0
 
 
-@patch('openhands.core.llm.llm.litellm_completion')
+@patch("openhands.core.llm.llm.litellm_completion")
 def test_retry_listener_callback(mock_litellm_completion, default_config):
     """Test that retry listener callback is called during retries."""
     retry_calls = []
-    
+
     def retry_listener(attempt: int, max_attempts: int):
         retry_calls.append((attempt, max_attempts))
-    
-    mock_response = create_mock_response('Success after retry')
-    
+
+    mock_response = create_mock_response("Success after retry")
+
     mock_litellm_completion.side_effect = [
         APIConnectionError(
-            message='Connection failed',
-            llm_provider='test_provider',
-            model='test_model',
+            message="Connection failed",
+            llm_provider="test_provider",
+            model="test_model",
         ),
         mock_response,
     ]
@@ -214,13 +217,13 @@ def test_retry_listener_callback(mock_litellm_completion, default_config):
     # Create an LLM instance with retry listener
     llm = LLM(config=default_config, retry_listener=retry_listener)
     response = llm.completion(
-        messages=[{'role': 'user', 'content': 'Hello!'}],
+        messages=[{"role": "user", "content": "Hello!"}],
     )
 
     # Verify that the retry listener was called
     assert response == mock_response
     assert len(retry_calls) >= 1  # At least one retry attempt should be logged
-    
+
     # Check that retry listener received correct parameters
     if retry_calls:
         attempt, max_attempts = retry_calls[0]
