@@ -36,10 +36,10 @@ classDiagram
   }
   AgentBase <|-- CodeActAgent
   class CodeActAgent {
-    +prompt_manager: PromptManager
     +system_message: TextContent
     +max_iterations: int
-    +_handle_tool_call(tool_call, state, on_event)
+    - _get_action_events(tool_call, state, on_event)
+    - _execute_action_events(state, action_event, on_event)
   }
   class Conversation {
     +state: ConversationState
@@ -49,9 +49,9 @@ classDiagram
   Conversation --> ConversationState
   Conversation --> AgentBase
   class ConversationState {
-    +history: History
-    +agent_initialized: bool
+    +events: list[Event]
     +agent_finished: bool
+    +initial_message_sent: bool
   }
   class LLM {
     +completion(messages, tools, extra_body)
