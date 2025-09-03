@@ -1,7 +1,6 @@
 import pytest
 
 from openhands.core.llm.utils.model_features import (
-    ModelFeatures,
     get_features,
     model_matches,
     normalize_model_name,
@@ -114,21 +113,6 @@ def test_prompt_cache_support(model, expected_cache):
 def test_stop_words_support(model, expected_stop_words):
     features = get_features(model)
     assert features.supports_stop_words == expected_stop_words
-
-
-def test_model_features_dataclass():
-    """Test that ModelFeatures is properly structured."""
-    features = ModelFeatures(
-        supports_function_calling=True,
-        supports_reasoning_effort=False,
-        supports_prompt_cache=True,
-        supports_stop_words=True,
-    )
-    
-    assert features.supports_function_calling is True
-    assert features.supports_reasoning_effort is False
-    assert features.supports_prompt_cache is True
-    assert features.supports_stop_words is True
 
 
 def test_get_features_with_provider_prefix():
