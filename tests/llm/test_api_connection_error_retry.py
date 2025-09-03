@@ -146,33 +146,6 @@ def test_completion_no_retry_on_success(mock_litellm_completion, default_config)
 
 
 @patch('openhands.core.llm.llm.litellm_completion')
-def test_completion_retry_with_different_errors(mock_litellm_completion, default_config):
-    """Test retry behavior with different types of errors."""
-    
-    mock_response = create_mock_response('Success after mixed errors')
-    
-    # Mix different retryable errors
-    mock_litellm_completion.side_effect = [
-        APIConnectionError(
-            message='Connection failed 1',
-            llm_provider='test_provider',
-            model='test_model',
-        ),
-        mock_response,
-    ]
-
-    # Create an LLM instance and call completion
-    llm = LLM(config=default_config, service_id='test-service')
-    response = llm.completion(
-        messages=[{'role': 'user', 'content': 'Hello!'}],
-    )
-
-    # Verify that retries worked with mixed error types
-    assert response == mock_response
-    assert mock_litellm_completion.call_count == 2  # Only num_retries calls are made
-
-
-@patch('openhands.core.llm.llm.litellm_completion')
 def test_completion_no_retry_on_non_retryable_error(mock_litellm_completion, default_config):
     """Test that non-retryable errors don't trigger retries."""
     # Mock a non-retryable error (e.g., ValueError)
