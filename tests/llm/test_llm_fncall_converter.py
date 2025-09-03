@@ -1,5 +1,7 @@
 """Test for FunctionCallingConverter."""
 
+import json
+
 import pytest
 from litellm import ChatCompletionToolParam
 
@@ -8,6 +10,7 @@ from openhands.core.llm.utils.fn_call_converter import (
     STOP_WORDS,
     convert_fncall_messages_to_non_fncall_messages,
     convert_non_fncall_messages_to_fncall_messages,
+    convert_tool_call_to_string,
 )
 
 
@@ -501,3 +504,168 @@ def test_convert_with_finish_tool():
             break
     
     assert has_finish
+    
+
+@pytest.mark.parametrize(
+    'tool_call, expected',
+    [
+        # Basic single parameter
+        (
+            {
+                'id': 'test_id',
+                'type': 'function',
+                'function': {
+                    'name': 'execute_bash',
+                    'arguments': '{"command": "ls -la"}'
+                }
+            },
+            '<function=execute_bash>\n<parameter=command>ls -la</parameter>\n</function>'
+        ),
+        # Multiple parameters with different types
+        (
+            {
+                'id': 'test_id',
+                'type': 'function',
+                'function': {
+                    'name': 'str_replace_editor',
+                    'arguments': '{"command": "view", "path": "/test/file.py", "view_range": [1, 10]}'
+                }
+            },
+            '<function=str_replace_editor>\n<parameter=command>view</parameter>\n<parameter=path>/test/file.py</parameter>\n<parameter=view_range>[1, 10]</parameter>\n</function>'
+        ),
+        # Indented code blocks (whitespace preservation)
+        (
+            {
+                'id': 'test_id',
+                'type': 'function',
+                'function': {
+                    'name': 'str_replace_editor',
+                    'arguments': json.dumps({
+                        "command": "str_replace",
+                        "path": "/test/file.py",
+                        "old_str": "def example():\n    pass",
+                        "new_str": "def example():\n    # This is indented\n    print(\"hello\")\n    return True"
+                    })
+                }
+            },
+            '<function=str_replace_editor>\n<parameter=command>str_replace</parameter>\n<parameter=path>/test/file.py</parameter>\n<parameter=old_str>\ndef example():\n    pass\n</parameter>\n<parameter=new_str>\ndef example():\n    # This is indented\n    print("hello")\n    return True\n</parameter>\n</function>'
+        ),
+        # List parameter values
+        (
+            {
+                'id': 'test_id',
+                'type': 'function',
+                'function': {
+                    'name': 'test_function',
+                    'arguments': '{"command": "test", "path": "/test/file.py", "tags": ["tag1", "tag2", "tag with spaces"]}'
+                }
+            },
+            '<function=test_function>\n<parameter=command>test</parameter>\n<parameter=path>/test/file.py</parameter>\n<parameter=tags>["tag1", "tag2", "tag with spaces"]</parameter>\n</function>'
+        ),
+        # Dictionary parameter values
+        (
+            {
+                'id': 'test_id',
+                'type': 'function',
+                'function': {
+                    'name': 'test_function',
+                    'arguments': json.dumps({
+                        "command": "test",
+                        "path": "/test/file.py",
+                        "metadata": {"key1": "value1", "key2": 42, "nested": {"subkey": "subvalue"}}
+                    })
+                }
+            },
+            '<function=test_function>\n<parameter=command>test</parameter>\n<parameter=path>/test/file.py</parameter>\n<parameter=metadata>{"key1": "value1", "key2": 42, "nested": {"subkey": "subvalue"}}</parameter>\n</function>'
+        ),
+    ],
+)
+def test_convert_tool_call_to_string_parameterized(tool_call, expected):
+    """Test tool call to string conversion with various parameter types and formats."""
+    converted = convert_tool_call_to_string(tool_call)
+    assert converted == expected
+
+
+def test_convert_fncall_messages_with_cache_control():
+    """Test that cache_control is properly handled in tool messages."""
+    messages = [
+        {
+            'role': 'tool',
+            'name': 'test_tool',
+            'content': [{'type': 'text', 'text': 'test content'}],
+            'cache_control': {'type': 'ephemeral'},
+            'tool_call_id': 'call_123'
+        }
+    ]
+
+    result = convert_fncall_messages_to_non_fncall_messages(messages, FNCALL_TOOLS)
+
+    # Verify the result
+    assert len(result) == 1
+    assert result[0]['role'] == 'user'
+    
+    # Check that cache_control is preserved in the converted message
+    assert 'cache_control' in result[0]['content'][-1]
+    assert result[0]['content'][-1]['cache_control'] == {'type': 'ephemeral'}
+    
+    # Check that the tool result content is properly formatted
+    assert result[0]['content'][0]['text'] == 'EXECUTION RESULT of [test_tool]:\ntest content'
+
+
+def test_convert_fncall_messages_without_cache_control():
+    """Test that tool messages without cache_control work as expected."""
+    messages = [
+        {
+            'role': 'tool',
+            'name': 'test_tool',
+            'content': [{'type': 'text', 'text': 'test content'}],
+            'tool_call_id': 'call_123'
+        }
+    ]
+
+    result = convert_fncall_messages_to_non_fncall_messages(messages, FNCALL_TOOLS)
+
+    # Verify the result
+    assert len(result) == 1
+    assert result[0]['role'] == 'user'
+    
+    # Check that no cache_control is added when not present
+    assert 'cache_control' not in result[0]['content'][-1]
+    
+    # Check that the tool result content is properly formatted
+    assert result[0]['content'][0]['text'] == 'EXECUTION RESULT of [test_tool]:\ntest content'
+
+
+def test_convert_fncall_messages_with_image_url():
+    """Test that convert_fncall_messages_to_non_fncall_messages handles image URLs correctly."""
+    messages = [
+        {
+            'role': 'tool',
+            'name': 'browser',
+            'content': [
+                {
+                    'type': 'text',
+                    'text': 'some browser tool results',
+                },
+                {
+                    'type': 'image_url',
+                    'image_url': {'url': 'data:image/gif;base64,R0lGODlhAQABAAAAACw='},
+                },
+            ],
+            'tool_call_id': 'call_123'
+        }
+    ]
+    
+    converted_messages = convert_fncall_messages_to_non_fncall_messages(messages, FNCALL_TOOLS)
+    
+    assert len(converted_messages) == 1
+    assert converted_messages[0]['role'] == 'user'
+    assert len(converted_messages[0]['content']) == len(messages[0]['content'])
+    
+    # Check that text content is properly formatted with tool execution result
+    text_content = next(c for c in converted_messages[0]['content'] if c['type'] == 'text')
+    assert text_content['text'] == f'EXECUTION RESULT of [{messages[0]["name"]}]:\n{messages[0]["content"][0]["text"]}'
+    
+    # Check that image URL is preserved
+    image_content = next(c for c in converted_messages[0]['content'] if c['type'] == 'image_url')
+    assert image_content['image_url']['url'] == 'data:image/gif;base64,R0lGODlhAQABAAAAACw='

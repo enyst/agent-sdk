@@ -330,6 +330,16 @@ def test_llm_local_detection_based_on_base_url():
     assert remote_llm._is_local() is False
 
 
+def test_llm_openhands_provider_rewrite():
+    """Test OpenHands provider rewriting."""
+    openhands_config = LLMConfig(model='openhands/gpt-4o')
+    llm = LLM(config=openhands_config)
+    
+    # Model should be rewritten to litellm_proxy format
+    assert llm.config.model == 'litellm_proxy/gpt-4o'
+    assert llm.config.base_url == 'https://llm-proxy.app.all-hands.dev/'
+
+
 def test_llm_message_formatting(default_config):
     """Test LLM message formatting for different message types."""
     llm = LLM(default_config)

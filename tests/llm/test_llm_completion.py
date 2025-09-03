@@ -250,15 +250,6 @@ def test_llm_completion_with_custom_params(mock_completion, default_config):
     assert call_kwargs.get('top_p') == 0.9
 
 
-def test_llm_openhands_provider_rewrite():
-    """Test OpenHands provider rewriting."""
-    openhands_config = LLMConfig(model='openhands/gpt-4o')
-    llm = LLM(config=openhands_config)
-    
-    # Model should be rewritten to litellm_proxy format
-    assert llm.config.model == 'litellm_proxy/gpt-4o'
-    assert llm.config.base_url == 'https://llm-proxy.app.all-hands.dev/'
-
 
 # This file focuses on LLM completion functionality, configuration options,
 # and metrics tracking for the synchronous LLM implementation
