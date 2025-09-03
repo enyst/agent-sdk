@@ -1,4 +1,3 @@
-import copy
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -298,14 +297,14 @@ def test_llm_local_detection_based_on_model_name(default_config):
     assert not llm._is_local()
 
     # Test with localhost base_url
-    local_config = copy.deepcopy(default_config)
-    local_config.base_url = "http://localhost:8000"
+    local_config = default_config.model_copy(
+        update={"base_url": "http://localhost:8000"}
+    )
     local_llm = LLM(local_config)
     assert local_llm._is_local()
 
     # Test with ollama model
-    ollama_config = copy.deepcopy(default_config)
-    ollama_config.model = "ollama/llama2"
+    ollama_config = default_config.model_copy(update={"model": "ollama/llama2"})
     ollama_llm = LLM(ollama_config)
     assert ollama_llm._is_local()
 
