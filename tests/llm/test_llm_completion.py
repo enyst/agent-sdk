@@ -49,13 +49,6 @@ def default_config():
     )
 
 
-def test_llm_basic_functionality(default_config):
-    """Test basic LLM functionality (sync version)."""
-    llm = LLM(config=default_config, service_id='test-service')
-    assert llm.config.model == 'gpt-4o'
-    assert llm.config.api_key is not None and llm.config.api_key.get_secret_value() == 'test_key'
-
-
 @patch('openhands.core.llm.llm.litellm_completion')
 def test_llm_completion_basic(mock_completion, default_config):
     """Test basic LLM completion functionality."""
@@ -255,38 +248,6 @@ def test_llm_completion_with_custom_params(mock_completion, default_config):
     assert call_kwargs.get('temperature') == 0.8
     assert call_kwargs.get('max_completion_tokens') == 500
     assert call_kwargs.get('top_p') == 0.9
-
-
-def test_llm_local_model_detection():
-    """Test local model detection."""
-    # Test with localhost base_url
-    local_config = LLMConfig(
-        model='gpt-4o',
-        base_url='http://localhost:8000'
-    )
-    local_llm = LLM(config=local_config)
-    assert local_llm._is_local() is True
-    
-    # Test with 127.0.0.1 base_url
-    local_config_ip = LLMConfig(
-        model='gpt-4o',
-        base_url='http://127.0.0.1:8000'
-    )
-    local_llm_ip = LLM(config=local_config_ip)
-    assert local_llm_ip._is_local() is True
-    
-    # Test with ollama model
-    ollama_config = LLMConfig(model='ollama/llama2')
-    ollama_llm = LLM(config=ollama_config)
-    assert ollama_llm._is_local() is True
-    
-    # Test with remote model
-    remote_config = LLMConfig(
-        model='gpt-4o',
-        base_url='https://api.openai.com/v1'
-    )
-    remote_llm = LLM(config=remote_config)
-    assert remote_llm._is_local() is False
 
 
 def test_llm_openhands_provider_rewrite():

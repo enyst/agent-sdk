@@ -283,8 +283,8 @@ def test_llm_string_representation(default_config):
     assert repr_str == str_repr
 
 
-def test_llm_local_detection(default_config):
-    """Test LLM local model detection."""
+def test_llm_local_detection_based_on_model_name(default_config):
+    """Test LLM local model detection based on model name."""
     llm = LLM(default_config)
     
     # Default config should not be detected as local
@@ -301,6 +301,33 @@ def test_llm_local_detection(default_config):
     ollama_config.model = "ollama/llama2"
     ollama_llm = LLM(ollama_config)
     assert ollama_llm._is_local()
+
+
+def test_llm_local_detection_based_on_base_url():
+    """Test local model detection based on base_url."""
+    # Test with localhost base_url
+    local_config = LLMConfig(
+        model='gpt-4o',
+        base_url='http://localhost:8000'
+    )
+    local_llm = LLM(config=local_config)
+    assert local_llm._is_local() is True
+    
+    # Test with 127.0.0.1 base_url
+    local_config_ip = LLMConfig(
+        model='gpt-4o',
+        base_url='http://127.0.0.1:8000'
+    )
+    local_llm_ip = LLM(config=local_config_ip)
+    assert local_llm_ip._is_local() is True
+    
+    # Test with remote model
+    remote_config = LLMConfig(
+        model='gpt-4o',
+        base_url='https://api.openai.com/v1'
+    )
+    remote_llm = LLM(config=remote_config)
+    assert remote_llm._is_local() is False
 
 
 def test_llm_message_formatting(default_config):
