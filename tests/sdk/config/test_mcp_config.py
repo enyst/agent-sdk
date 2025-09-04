@@ -1,8 +1,8 @@
 import pytest
 from pydantic import ValidationError
 
-from openhands.core.config import MCPConfig
-from openhands.core.config.mcp_config import (
+from openhands.sdk.config import MCPConfig
+from openhands.sdk.config.mcp_config import (
     MCPSHTTPServerConfig,
     MCPSSEServerConfig,
     MCPStdioServerConfig,
