@@ -125,7 +125,7 @@ This repo has two python packages, with unit tests specifically written for each
 ├── examples
 ├── openhands
 │   ├── __init__.py
-│   ├── core
+│   ├── sdk
 │   │   ├── __init__.py
 │   │   ├── agent
 │   │   ├── config
@@ -134,21 +134,49 @@ This repo has two python packages, with unit tests specifically written for each
 │   │   ├── llm
 │   │   ├── logger.py
 │   │   ├── pyproject.toml
-│   │   ├── tests  # <- unit test for openhands/core
 │   │   ├── tool
 │   │   └── utils
 │   └── tools
 │       ├── __init__.py
 │       ├── execute_bash
+│       │   ├── tool.py  # <- BashTool subclass
 │       ├── pyproject.toml
 │       ├── str_replace_editor
-│       ├── tests  # <- unit test for openhands/tools
+│       │   ├── tool.py  # <- FileEditorTool subclass
 │       └── utils
 ├── pyproject.toml
-├── tests  # <- integration test that involves both openhands/core and openhands/tools
-│   ├── __init__.py
+├── tests
+│   ├── integration # <- integration test that involves both openhands/sdk and openhands/tools
+│   ├── sdk
+│   ├── tools
 └── uv.lock
 ```
+
+## Tool Architecture
+
+The tools package now provides two patterns for tool usage:
+
+### Simplified Pattern (Recommended)
+```python
+from openhands.tools import BashTool, FileEditorTool
+
+# Direct instantiation with simplified API
+tools = [
+    BashTool(working_dir=os.getcwd()),
+    FileEditorTool(),
+]
+```
+
+### Advanced Pattern (For Custom Tools)
+```python
+from openhands.tools import BashExecutor, execute_bash_tool
+
+# Explicit executor creation for reuse or customization
+bash_executor = BashExecutor(working_dir=os.getcwd())
+bash_tool = execute_bash_tool.set_executor(executor=bash_executor)
+```
+
+The simplified pattern eliminates the need for manual executor instantiation and `set_executor()` calls, making tool usage more intuitive and reducing boilerplate code.
 
 
 <DEV_SETUP>
@@ -177,5 +205,5 @@ This repo has two python packages, with unit tests specifically written for each
 - AFTER you edit ONE file, you should run pre-commit hook on that file via `uv run pre-commit run --files [filepath]` to make sure you didn't break it.
 - Don't write TOO MUCH test, you should write just enough to cover edge cases.
 - Check how we perform tests in .github/workflows/tests.yml
-- You should put unit tests in the corresponding test folder. For example, to test `openhands/core/tool/tool.py`, you should put tests under `openhands/core/tests/tool/test_tool.py`.
+- You should put unit tests in the corresponding test folder. For example, to test `openhands.sdk.tool/tool.py`, you should put tests under `openhands.sdk.tests/tool/test_tool.py`.
 </TESTING>

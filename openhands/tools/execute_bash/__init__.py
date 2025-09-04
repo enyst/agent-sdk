@@ -1,5 +1,10 @@
-from .definition import ExecuteBashAction, ExecuteBashObservation, execute_bash_tool
-from .impl import BashExecutor
+from openhands.tools.execute_bash.definition import (
+    BashTool,
+    ExecuteBashAction,
+    ExecuteBashObservation,
+    execute_bash_tool,
+)
+from openhands.tools.execute_bash.impl import BashExecutor
 
 
 __all__ = [
@@ -7,4 +12,5 @@ __all__ = [
     "ExecuteBashAction",
     "ExecuteBashObservation",
     "BashExecutor",
+    "BashTool",
 ]
