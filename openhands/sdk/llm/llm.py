@@ -221,10 +221,6 @@ class LLM(BaseModel, RetryMixin):
             "Safety settings for models that support them (like Mistral AI and Gemini)"
         ),
     )
-    expose_reasoning: bool = Field(
-        default=True,
-        description="Whether to expose reasoning content from models that support it",
-    )
 
     # =========================================================================
     # Internal fields (excluded from dumps)
@@ -387,11 +383,7 @@ class LLM(BaseModel, RetryMixin):
                 resp = self._post_response_prompt_mock(
                     resp, nonfncall_msgs=messages, tools=tools
                 )
-            # 6) extract reasoning content if enabled
-            if self.expose_reasoning:
-                self._extract_reasoning_content(resp)
-
-            # 7) telemetry
+            # 6) telemetry
             self._telemetry.on_response(resp, raw_resp=raw_resp)
 
             # Ensure at least one choice
@@ -558,30 +550,6 @@ class LLM(BaseModel, RetryMixin):
             last = LiteLLMMessage(**last)
         resp.choices[0].message = last
         return resp
-
-    def _extract_reasoning_content(self, resp: ModelResponse) -> None:
-        """Extract reasoning content from LLM response and add to message.
-
-        This method extracts reasoning_content and thinking_blocks from the
-        response and adds them to the message object for reasoning-capable models.
-        """
-        if not resp.get("choices") or len(resp["choices"]) < 1:
-            return
-
-        choice = resp["choices"][0]
-        message = choice.get("message")
-        if not message:
-            return
-
-        # Extract reasoning_content (available across all reasoning providers)
-        reasoning_content = getattr(message, "reasoning_content", None)
-        if reasoning_content:
-            message["reasoning_content"] = reasoning_content
-
-        # Extract thinking_blocks (Anthropic-specific)
-        thinking_blocks = getattr(message, "thinking_blocks", None)
-        if thinking_blocks:
-            message["thinking_blocks"] = thinking_blocks
 
     # =========================================================================
     # Capabilities, formatting, and info

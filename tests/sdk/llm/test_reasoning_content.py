@@ -111,123 +111,21 @@ def test_message_from_litellm_message_without_reasoning():
     assert message.thinking_blocks is None
 
 
-def test_llm_expose_reasoning_default():
-    """Test LLM expose_reasoning default value."""
+@patch("openhands.sdk.llm.llm.litellm_completion")
+def test_llm_completion_basic(mock_completion):
+    """Test basic LLM.completion functionality."""
     from openhands.sdk.llm.llm import LLM
 
     llm = LLM(model="claude-sonnet-4-20250514")
-    assert llm.expose_reasoning is True
 
-
-def test_llm_expose_reasoning_disabled():
-    """Test LLM with expose_reasoning disabled."""
-    from openhands.sdk.llm.llm import LLM
-
-    llm = LLM(model="claude-sonnet-4-20250514", expose_reasoning=False)
-    assert llm.expose_reasoning is False
-
-
-def test_llm_extract_reasoning_content_enabled():
-    """Test LLM._extract_reasoning_content when expose_reasoning is True."""
-    from openhands.sdk.llm.llm import LLM
-
-    llm = LLM(model="claude-sonnet-4-20250514", expose_reasoning=True)
-
-    # Create a mock response with reasoning content
-    mock_response = create_mock_response()
-    # Add reasoning content to the message
-    mock_response.choices[0].message.reasoning_content = "I need to think about this..."  # type: ignore
-    mock_response.choices[0].message.thinking_blocks = [  # type: ignore
-        {"type": "thinking", "thinking": "Step 1..."}
-    ]
-
-    # Call the extraction method
-    llm._extract_reasoning_content(mock_response)
-
-    # Verify reasoning content exists on the message
-    assert hasattr(mock_response.choices[0].message, "reasoning_content")  # type: ignore
-    assert hasattr(mock_response.choices[0].message, "thinking_blocks")  # type: ignore
-
-
-def test_llm_extract_reasoning_content_no_choices():
-    """Test LLM._extract_reasoning_content with no choices."""
-    from openhands.sdk.llm.llm import LLM
-
-    llm = LLM(model="claude-sonnet-4-20250514", expose_reasoning=True)
-
-    mock_response = create_mock_response()
-    mock_response.choices = []  # type: ignore
-
-    # Should not raise an error
-    llm._extract_reasoning_content(mock_response)
-
-
-def test_llm_extract_reasoning_content_no_message():
-    """Test LLM._extract_reasoning_content with no message."""
-    from openhands.sdk.llm.llm import LLM
-
-    llm = LLM(model="claude-sonnet-4-20250514", expose_reasoning=True)
-
-    mock_response = create_mock_response()
-    # Remove the message from the choice
-    delattr(mock_response.choices[0], "message")  # type: ignore
-
-    # Should not raise an error
-    llm._extract_reasoning_content(mock_response)
-
-
-def test_llm_extract_reasoning_content_no_reasoning():
-    """Test LLM._extract_reasoning_content with no reasoning content."""
-    from openhands.sdk.llm.llm import LLM
-
-    llm = LLM(model="claude-sonnet-4-20250514", expose_reasoning=True)
-
-    mock_response = create_mock_response()
-    # The message won't have reasoning_content or thinking_blocks attributes by default
-
-    # Should not raise an error
-    llm._extract_reasoning_content(mock_response)
-
-
-@patch("openhands.sdk.llm.llm.litellm_completion")
-def test_llm_completion_with_reasoning_enabled(mock_completion):
-    """Test LLM.completion with reasoning content extraction enabled."""
-    from openhands.sdk.llm.llm import LLM
-
-    llm = LLM(model="claude-sonnet-4-20250514", expose_reasoning=True)
-
-    # Mock the response with reasoning content
+    # Mock the response
     mock_response = create_mock_response()
     mock_completion.return_value = mock_response
 
     messages = [{"role": "user", "content": "Hello"}]
 
-    with patch.object(llm, "_extract_reasoning_content") as mock_extract:
-        result = llm.completion(messages)
-
-        # Verify reasoning extraction was called
-        mock_extract.assert_called_once_with(mock_response)
-        assert result == mock_response
-
-
-@patch("openhands.sdk.llm.llm.litellm_completion")
-def test_llm_completion_with_reasoning_disabled(mock_completion):
-    """Test LLM.completion with reasoning content extraction disabled."""
-    from openhands.sdk.llm.llm import LLM
-
-    llm = LLM(model="claude-sonnet-4-20250514", expose_reasoning=False)
-
-    mock_response = create_mock_response()
-    mock_completion.return_value = mock_response
-
-    messages = [{"role": "user", "content": "Hello"}]
-
-    with patch.object(llm, "_extract_reasoning_content") as mock_extract:
-        result = llm.completion(messages)
-
-        # Verify reasoning extraction was NOT called
-        mock_extract.assert_not_called()
-        assert result == mock_response
+    result = llm.completion(messages)
+    assert result == mock_response
 
 
 def test_message_serialization_with_reasoning():
@@ -257,3 +155,48 @@ def test_message_serialization_without_reasoning():
 
     assert serialized["reasoning_content"] is None
     assert serialized["thinking_blocks"] is None
+
+
+def test_action_event_with_reasoning_content():
+    """Test ActionEvent with reasoning content fields."""
+    from litellm import ChatCompletionMessageToolCall
+    from litellm.types.utils import Function
+
+    from openhands.sdk.event.llm_convertible import ActionEvent
+    from openhands.sdk.llm.message import TextContent
+    from openhands.sdk.tool import ActionBase
+
+    # Create a simple action for testing
+    class TestAction(ActionBase):
+        action: str = "test"
+
+    # Create a tool call
+    tool_call = ChatCompletionMessageToolCall(
+        id="test-id",
+        function=Function(name="test_tool", arguments='{"arg": "value"}'),
+        type="function",
+    )
+
+    action_event = ActionEvent(
+        thought=[TextContent(text="I need to test this")],
+        action=TestAction(),
+        tool_name="test_tool",
+        tool_call_id="test-id",
+        tool_call=tool_call,
+        llm_response_id="response-123",
+        reasoning_content="Let me think about this step by step...",
+        thinking_blocks=[
+            {"type": "thinking", "thinking": "First, I need to understand the problem"}
+        ],
+    )
+
+    # Test that reasoning content is preserved
+    assert action_event.reasoning_content == "Let me think about this step by step..."
+    assert action_event.thinking_blocks is not None
+    assert len(action_event.thinking_blocks) == 1
+
+    # Test that reasoning content is included in the LLM message
+    llm_message = action_event.to_llm_message()
+    assert llm_message.reasoning_content == "Let me think about this step by step..."
+    assert llm_message.thinking_blocks is not None
+    assert len(llm_message.thinking_blocks) == 1
