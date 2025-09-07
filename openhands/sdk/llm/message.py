@@ -186,16 +186,13 @@ class Message(BaseModel):
         """Convert a litellm LiteLLMMessage to our Message class."""
         assert message.role != "function", "Function role is not supported"
 
-        # Extract reasoning content if present
-        reasoning_content = getattr(message, "reasoning_content", None)
-
         return Message(
             role=message.role,
             content=[TextContent(text=message.content)]
             if isinstance(message.content, str)
             else [],
             tool_calls=message.tool_calls,
-            reasoning_content=reasoning_content,
+            reasoning_content=message.reasoning_content,
         )
 
 
