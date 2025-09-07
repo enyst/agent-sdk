@@ -20,19 +20,19 @@ logger = get_logger(__name__)
 
 def main() -> None:
     # Configure LLM from env, defaulting to a reasoning-capable model
-    api_key = os.getenv("LITELLM_API_KEY")
-    assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
+    api_key = os.getenv("DEEPSEEK_KEY")
+    assert api_key is not None, "DEEPSEEK_KEY environment variable is not set."
 
     model = os.getenv(
         "REASONING_MODEL",
         # DeepSeek Reasoner returns `reasoning_content` via Chat Completions
-        "litellm_proxy/deepseek/deepseek-reasoner",
+        "deepseek/deepseek-reasoner",
     )
-    base_url = os.getenv("LITELLM_BASE_URL", "https://llm-proxy.eval.all-hands.dev")
+    # base_url = os.getenv("LITELLM_BASE_URL", "https://llm-proxy.eval.all-hands.dev")
 
     llm = LLM(
         model=model,
-        base_url=base_url,
+        # base_url=base_url,
         api_key=SecretStr(api_key),
     )
 
