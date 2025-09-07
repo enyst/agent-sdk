@@ -47,6 +47,9 @@ class TokenUsage(BaseModel):
     cache_write_tokens: int = Field(
         default=0, ge=0, description="Cache write tokens must be non-negative"
     )
+    reasoning_tokens: int = Field(
+        default=0, ge=0, description="Reasoning tokens must be non-negative"
+    )
     context_window: int = Field(
         default=0, ge=0, description="Context window must be non-negative"
     )
@@ -157,6 +160,7 @@ class Metrics(MetricsSnapshot):
         completion_tokens: int,
         cache_read_tokens: int,
         cache_write_tokens: int,
+        reasoning_tokens: int,
         context_window: int,
         response_id: str,
     ) -> None:
@@ -170,6 +174,7 @@ class Metrics(MetricsSnapshot):
             completion_tokens=completion_tokens,
             cache_read_tokens=cache_read_tokens,
             cache_write_tokens=cache_write_tokens,
+            reasoning_tokens=reasoning_tokens,
             context_window=context_window,
             per_turn_token=per_turn_token,
             response_id=response_id,

@@ -122,16 +122,23 @@ class Telemetry(BaseModel):
         prompt_tokens = usage.prompt_tokens or 0
         completion_tokens = usage.completion_tokens or 0
         cache_write = usage._cache_creation_input_tokens or 0
+
         cache_read = 0
-        details = usage.prompt_tokens_details or None
-        if details and details.cached_tokens:
-            cache_read = details.cached_tokens
+        prompt_token_details = usage.prompt_tokens_details or None
+        if prompt_token_details and prompt_token_details.cached_tokens:
+            cache_read = prompt_token_details.cached_tokens
+
+        reasoning_tokens = 0
+        completion_tokens_details = usage.completion_tokens_details or None
+        if completion_tokens_details and completion_tokens_details.reasoning_tokens:
+            reasoning_tokens = completion_tokens_details.reasoning_tokens
 
         self.metrics.add_token_usage(
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
             cache_read_tokens=cache_read,
             cache_write_tokens=cache_write,
+            reasoning_tokens=reasoning_tokens,
             context_window=context_window,
             response_id=response_id,
         )
