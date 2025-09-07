@@ -140,6 +140,12 @@ class ConversationVisualizer:
         """Create a Rich Panel for ActionEvent with complete content."""
         content = Text()
 
+        # Display reasoning content first if available (common to all three types)
+        if event.reasoning_content:
+            content.append("Reasoning:\n", style="bold magenta")
+            content.append(event.reasoning_content, style="white")
+            content.append("\n\n")
+
         # Display complete thought content
         thought_text = " ".join([t.text for t in event.thought])
         if thought_text:
@@ -266,6 +272,13 @@ class ConversationVisualizer:
     def _create_error_panel(self, event: AgentErrorEvent) -> Panel:
         """Create a Rich Panel for AgentErrorEvent with complete content."""
         content = Text()
+
+        # Display reasoning content first if available (common to all three types)
+        if event.reasoning_content:
+            content.append("Reasoning:\n", style="bold magenta")
+            content.append(event.reasoning_content, style="white")
+            content.append("\n\n")
+
         content.append("Error Details:\n", style="bold red")
         content.append(event.error, style="bright_red")
 

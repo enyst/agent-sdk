@@ -2,7 +2,7 @@ import copy
 from typing import cast
 
 from litellm import ChatCompletionMessageToolCall, ChatCompletionToolParam
-from pydantic import Field
+from pydantic import Field, computed_field
 
 from openhands.sdk.event.base import N_CHAR_PREVIEW, LLMConvertibleEvent
 from openhands.sdk.event.types import EventType, SourceType
@@ -147,10 +147,6 @@ class MessageEvent(LLMConvertibleEvent):
 
     kind: EventType = "message"
     source: SourceType
-    reasoning_content: str | None = Field(
-        default=None,
-        description="Intermediate reasoning/thinking content from reasoning models",
-    )
     llm_message: Message = Field(
         ..., description="The exact LLM message for this message event"
     )
@@ -170,10 +166,13 @@ class MessageEvent(LLMConvertibleEvent):
         default_factory=list, description="List of content added by agent context"
     )
 
+    @computed_field
+    def reasoning_content(self) -> str:
+        return self.llm_message.reasoning_content or ""
+
     def to_llm_message(self) -> Message:
         msg = copy.deepcopy(self.llm_message)
         msg.content.extend(self.extended_content)
-        msg.reasoning_content = self.reasoning_content
         return msg
 
     def __str__(self) -> str:

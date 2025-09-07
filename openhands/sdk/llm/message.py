@@ -192,7 +192,9 @@ class Message(BaseModel):
             if isinstance(message.content, str)
             else [],
             tool_calls=message.tool_calls,
-            reasoning_content=message.reasoning_content,
+            reasoning_content=message.reasoning_content
+            if hasattr(message, "reasoning_content")
+            else None,
         )
 
 
