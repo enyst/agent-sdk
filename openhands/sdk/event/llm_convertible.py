@@ -1,5 +1,5 @@
 import copy
-from typing import Any, cast
+from typing import cast
 
 from litellm import ChatCompletionMessageToolCall, ChatCompletionToolParam
 from pydantic import Field
@@ -70,9 +70,6 @@ class ActionEvent(LLMConvertibleEvent):
         default=None,
         description="Intermediate reasoning/thinking content from reasoning models",
     )
-    thinking_blocks: list[dict[str, Any]] | None = Field(
-        default=None, description="Structured thinking blocks (Anthropic-specific)"
-    )
 
     def to_llm_message(self) -> Message:
         """Individual message - may be incomplete for multi-action batches"""
@@ -84,7 +81,6 @@ class ActionEvent(LLMConvertibleEvent):
             content=content,
             tool_calls=[self.tool_call],
             reasoning_content=self.reasoning_content,
-            thinking_blocks=self.thinking_blocks,
         )
 
     def __str__(self) -> str:

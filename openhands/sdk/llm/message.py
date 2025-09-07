@@ -86,9 +86,6 @@ class Message(BaseModel):
         default=None,
         description="Intermediate reasoning/thinking content from reasoning models",
     )
-    thinking_blocks: list[dict[str, Any]] | None = Field(
-        default=None, description="Structured thinking blocks (Anthropic-specific)"
-    )
 
     @property
     def contains_image(self) -> bool:
@@ -191,7 +188,6 @@ class Message(BaseModel):
 
         # Extract reasoning content if present
         reasoning_content = getattr(message, "reasoning_content", None)
-        thinking_blocks = getattr(message, "thinking_blocks", None)
 
         return Message(
             role=message.role,
@@ -200,7 +196,6 @@ class Message(BaseModel):
             else [],
             tool_calls=message.tool_calls,
             reasoning_content=reasoning_content,
-            thinking_blocks=thinking_blocks,
         )
 
 

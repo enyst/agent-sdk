@@ -38,19 +38,9 @@ def test_message_with_reasoning_content():
         role="assistant",
         content=[TextContent(text="The answer is 42.")],
         reasoning_content="Let me think about this step by step...",
-        thinking_blocks=[
-            {
-                "type": "thinking",
-                "thinking": "The user is asking about the meaning of life.",
-                "signature": "abc123",
-            }
-        ],
     )
 
     assert message.reasoning_content == "Let me think about this step by step..."
-    assert message.thinking_blocks is not None
-    assert len(message.thinking_blocks) == 1
-    assert message.thinking_blocks[0]["type"] == "thinking"
 
 
 def test_message_without_reasoning_content():
@@ -60,7 +50,6 @@ def test_message_without_reasoning_content():
     message = Message(role="assistant", content=[TextContent(text="The answer is 42.")])
 
     assert message.reasoning_content is None
-    assert message.thinking_blocks is None
 
 
 def test_message_from_litellm_message_with_reasoning():
@@ -71,13 +60,6 @@ def test_message_from_litellm_message_with_reasoning():
     litellm_message = LiteLLMMessage(role="assistant", content="The answer is 42.")
     # Add reasoning content as attributes
     litellm_message.reasoning_content = "Let me think about this..."
-    litellm_message.thinking_blocks = [
-        {
-            "type": "thinking",
-            "thinking": "The user is asking about math.",
-            "signature": "def456",
-        }
-    ]
 
     message = Message.from_litellm_message(litellm_message)
 
@@ -88,9 +70,6 @@ def test_message_from_litellm_message_with_reasoning():
     assert isinstance(message.content[0], TextContent)
     assert message.content[0].text == "The answer is 42."
     assert message.reasoning_content == "Let me think about this..."
-    assert message.thinking_blocks is not None
-    assert len(message.thinking_blocks) == 1
-    assert message.thinking_blocks[0]["type"] == "thinking"
 
 
 def test_message_from_litellm_message_without_reasoning():
@@ -108,7 +87,6 @@ def test_message_from_litellm_message_without_reasoning():
     assert isinstance(message.content[0], TextContent)
     assert message.content[0].text == "The answer is 42."
     assert message.reasoning_content is None
-    assert message.thinking_blocks is None
 
 
 @patch("openhands.sdk.llm.llm.litellm_completion")
@@ -136,13 +114,11 @@ def test_message_serialization_with_reasoning():
         role="assistant",
         content=[TextContent(text="Answer")],
         reasoning_content="Thinking process...",
-        thinking_blocks=[{"type": "thinking", "thinking": "Step 1"}],
     )
 
     serialized = message.model_dump()
 
     assert serialized["reasoning_content"] == "Thinking process..."
-    assert serialized["thinking_blocks"] == [{"type": "thinking", "thinking": "Step 1"}]
 
 
 def test_message_serialization_without_reasoning():
@@ -154,7 +130,6 @@ def test_message_serialization_without_reasoning():
     serialized = message.model_dump()
 
     assert serialized["reasoning_content"] is None
-    assert serialized["thinking_blocks"] is None
 
 
 def test_action_event_with_reasoning_content():
@@ -185,18 +160,11 @@ def test_action_event_with_reasoning_content():
         tool_call=tool_call,
         llm_response_id="response-123",
         reasoning_content="Let me think about this step by step...",
-        thinking_blocks=[
-            {"type": "thinking", "thinking": "First, I need to understand the problem"}
-        ],
     )
 
     # Test that reasoning content is preserved
     assert action_event.reasoning_content == "Let me think about this step by step..."
-    assert action_event.thinking_blocks is not None
-    assert len(action_event.thinking_blocks) == 1
 
     # Test that reasoning content is included in the LLM message
     llm_message = action_event.to_llm_message()
     assert llm_message.reasoning_content == "Let me think about this step by step..."
-    assert llm_message.thinking_blocks is not None
-    assert len(llm_message.thinking_blocks) == 1
