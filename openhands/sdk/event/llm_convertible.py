@@ -44,6 +44,10 @@ class ActionEvent(LLMConvertibleEvent):
     thought: list[TextContent] = Field(
         ..., description="The thought process of the agent before taking this action"
     )
+    reasoning_content: str | None = Field(
+        default=None,
+        description="Intermediate reasoning/thinking content from reasoning models",
+    )
     action: ActionBase = Field(
         ..., description="Single action (tool call) returned by LLM"
     )
@@ -65,11 +69,6 @@ class ActionEvent(LLMConvertibleEvent):
             "and managing results of parallel function calling from the same LLM "
             "response."
         ),
-    )
-    # reasoning content (from reasoning models like o1, Claude thinking, DeepSeek R1)
-    reasoning_content: str | None = Field(
-        default=None,
-        description="Intermediate reasoning/thinking content from reasoning models",
     )
     metrics: MetricsSnapshot | None = Field(
         default=None,
@@ -148,16 +147,12 @@ class MessageEvent(LLMConvertibleEvent):
 
     kind: EventType = "message"
     source: SourceType
+    reasoning_content: str | None = Field(
+        default=None,
+        description="Intermediate reasoning/thinking content from reasoning models",
+    )
     llm_message: Message = Field(
         ..., description="The exact LLM message for this message event"
-    )
-
-    # context extensions stuff / microagent can go here
-    activated_microagents: list[str] = Field(
-        default_factory=list, description="List of activated microagent name"
-    )
-    extended_content: list[TextContent] = Field(
-        default_factory=list, description="List of content added by agent context"
     )
     metrics: MetricsSnapshot | None = Field(
         default=None,
@@ -167,9 +162,18 @@ class MessageEvent(LLMConvertibleEvent):
         ),
     )
 
+    # context extensions stuff / microagent can go here
+    activated_microagents: list[str] = Field(
+        default_factory=list, description="List of activated microagent name"
+    )
+    extended_content: list[TextContent] = Field(
+        default_factory=list, description="List of content added by agent context"
+    )
+
     def to_llm_message(self) -> Message:
         msg = copy.deepcopy(self.llm_message)
         msg.content.extend(self.extended_content)
+        msg.reasoning_content = self.reasoning_content
         return msg
 
     def __str__(self) -> str:
@@ -242,6 +246,14 @@ class AgentErrorEvent(LLMConvertibleEvent):
     kind: EventType = "agent_error"
     source: SourceType = "agent"
     error: str = Field(..., description="The error message from the scaffold")
+    thought: list[TextContent] = Field(
+        default_factory=list,
+        description="The thought process of the agent when the error happened",
+    )
+    reasoning_content: str | None = Field(
+        default=None,
+        description="Intermediate reasoning/thinking content from reasoning models",
+    )
     metrics: MetricsSnapshot | None = Field(
         default=None,
         description=(
