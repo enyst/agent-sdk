@@ -70,6 +70,7 @@ class ActionEvent(LLMConvertibleEvent):
     reasoning_content: str | None = Field(
         default=None,
         description="Intermediate reasoning/thinking content from reasoning models",
+    )
     metrics: MetricsSnapshot | None = Field(
         default=None,
         description=(
