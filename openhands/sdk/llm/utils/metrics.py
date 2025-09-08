@@ -162,9 +162,9 @@ class Metrics(MetricsSnapshot):
         completion_tokens: int,
         cache_read_tokens: int,
         cache_write_tokens: int,
-        reasoning_tokens: int,
         context_window: int,
         response_id: str,
+        reasoning_tokens: int = 0,
     ) -> None:
         """Add a single usage record."""
         # Token each turn for calculating context usage.

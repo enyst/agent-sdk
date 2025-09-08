@@ -2,7 +2,7 @@ import copy
 from typing import cast
 
 from litellm import ChatCompletionMessageToolCall, ChatCompletionToolParam
-from pydantic import Field, computed_field
+from pydantic import ConfigDict, Field, computed_field
 
 from openhands.sdk.event.base import N_CHAR_PREVIEW, LLMConvertibleEvent
 from openhands.sdk.event.types import SourceType
@@ -139,6 +139,8 @@ class MessageEvent(LLMConvertibleEvent):
     """Message from either agent or user.
 
     This is originally the "MessageAction", but it suppose not to be tool call."""
+
+    model_config = ConfigDict(extra="ignore")
 
     source: SourceType
     llm_message: Message = Field(
