@@ -276,12 +276,6 @@ class ConversationVisualizer:
         """Create a Rich Panel for AgentErrorEvent with complete content."""
         content = Text()
 
-        # Display reasoning content first if available (common to all three types)
-        if event.reasoning_content:
-            content.append("Reasoning:\n", style="bold magenta")
-            content.append(event.reasoning_content, style="white")
-            content.append("\n\n")
-
         content.append("Error Details:\n", style="bold red")
         content.append(event.error, style="bright_red")
 

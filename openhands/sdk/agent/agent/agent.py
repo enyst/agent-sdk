@@ -277,8 +277,6 @@ class Agent(AgentBase):
             event = AgentErrorEvent(
                 error=err,
                 metrics=metrics,
-                thought=thought,
-                reasoning_content=reasoning_content,
             )
             on_event(event)
             state.agent_finished = True
@@ -297,8 +295,6 @@ class Agent(AgentBase):
             event = AgentErrorEvent(
                 error=err,
                 metrics=metrics,
-                thought=thought,
-                reasoning_content=reasoning_content,
             )
             on_event(event)
             return

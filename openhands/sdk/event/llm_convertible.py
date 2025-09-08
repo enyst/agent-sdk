@@ -235,18 +235,14 @@ class UserRejectObservation(LLMConvertibleEvent):
 
 
 class AgentErrorEvent(LLMConvertibleEvent):
-    """Error triggered by the agent."""
+    """Error triggered by the agent.
+
+    Note: This event should not contain model "thought" or "reasoning_content". It
+    represents an error produced by the agent/scaffold, not model output.
+    """
 
     source: SourceType = "agent"
     error: str = Field(..., description="The error message from the scaffold")
-    thought: list[TextContent] = Field(
-        default_factory=list,
-        description="The thought process of the agent when the error happened",
-    )
-    reasoning_content: str | None = Field(
-        default=None,
-        description="Intermediate reasoning/thinking content from reasoning models",
-    )
     metrics: MetricsSnapshot | None = Field(
         default=None,
         description=(
