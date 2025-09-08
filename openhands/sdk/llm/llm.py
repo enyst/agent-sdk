@@ -370,10 +370,7 @@ class LLM(BaseModel, RetryMixin):
 
         # 3) normalize provider params
         kwargs["tools"] = tools  # we might remove this field in _normalize_call_kwargs
-        has_tools_flag = (
-            bool(tools) and use_native_fc
-        )  # only keep tools when native FC is active
-        call_kwargs = self._normalize_call_kwargs(kwargs, has_tools=has_tools_flag)
+        call_kwargs = self._normalize_call_kwargs(kwargs, has_tools=bool(tools))
 
         # 4) optional request logging context (kept small)
         assert self._telemetry is not None
