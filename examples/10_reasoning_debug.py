@@ -26,20 +26,30 @@ logger = get_logger(__name__)
 def _default_model_entries(proxy_base: str) -> list[dict[str, str | None]]:
     deepseek_base = "https://api.deepseek.com"
     return [
-        # Keep defaults minimal to focus on DeepSeek R1 for debugging.
         {
-            "label": "deepseek-direct/r1-0528",
-            "model": "deepseek/deepseek-r1-0528",
+            "label": "deepseek-direct/reasoner",
+            "model": "deepseek/deepseek-reasoner",
             "base_url": deepseek_base,
             "api_key_env": "DEEPSEEK_API_KEY",
         },
         {
-            "label": "proxy/deepseek-r1-0528",
-            "model": "litellm_proxy/deepseek/deepseek-r1-0528",
+            "label": "proxy/deepseek-reasoner",
+            "model": "litellm_proxy/deepseek/deepseek-reasoner",
             "base_url": proxy_base,
             "api_key_env": "LITELLM_API_KEY",
         },
-        # Other models can be enabled via REASONING_MODEL(S) env variables.
+        {
+            "label": "proxy/gemini-2.5-pro",
+            "model": "litellm_proxy/gemini/gemini-2.5-pro",
+            "base_url": proxy_base,
+            "api_key_env": "LITELLM_API_KEY",
+        },
+        {
+            "label": "gemini-direct/gemini-2.5-pro",
+            "model": "gemini/gemini-2.5-pro",
+            "base_url": None,
+            "api_key_env": "GEMINI_API_KEY",
+        },
     ]
 
 
