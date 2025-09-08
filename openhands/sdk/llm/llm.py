@@ -498,7 +498,11 @@ class LLM(BaseModel, RetryMixin):
             # Anthropic/OpenAI reasoning models ignore temp/top_p
             out.pop("temperature", None)
             out.pop("top_p", None)
-            # Skip explicit Gemini 'thinking' param; rely on provider defaults
+            # Gemini 2.5-pro default to low if not set
+            # otherwise litellm doesn't send reasoning, even though it happens
+            if "gemini-2.5-pro" in self.model:
+                if self.reasoning_effort in {None, "none"}:
+                    out["reasoning_effort"] = "low"
 
         # Anthropic Opus 4.1: prefer temperature when
         # both provided; disable extended thinking

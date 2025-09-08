@@ -10,7 +10,7 @@ from openhands.sdk import (
     LLM,
     Agent,
     Conversation,
-    EventType,
+    Event,
     Message,
     TextContent,
     Tool,
@@ -98,7 +98,7 @@ def test_reasoning_content_oh() -> None:
         "REASONING_TASK",
         (
             "Solve this carefully and show your internal reasoning as available: "
-            "78*964 + 17. Respond with the final integer answer."
+            "78*964 + 17."
         ),
     )
 
@@ -114,14 +114,6 @@ def test_reasoning_content_oh() -> None:
         model = str(entry["model"])  # type: ignore[index]
         base_url = entry["base_url"]  # type: ignore[index]
         api_key_env = str(entry["api_key_env"])  # type: ignore[index]
-
-        # Remove o3 family from defaults (OpenAI uses a different API)
-        if (
-            "o3" in model
-            and not os.getenv("REASONING_MODELS")
-            and not os.getenv("REASONING_MODEL")
-        ):
-            continue
 
         api_key_val = os.getenv(api_key_env)
         if not api_key_val:
@@ -146,7 +138,7 @@ def test_reasoning_content_oh() -> None:
         saw_reasoning = False
         last_reasoning_tokens = 0
 
-        def on_event(event: EventType) -> None:
+        def on_event(event: Event) -> None:
             nonlocal saw_reasoning
             visualizer.on_event(event)
 
@@ -339,4 +331,4 @@ def test_reasoning_litellm() -> None:
 
 if __name__ == "__main__":
     test_reasoning_content_oh()
-    test_reasoning_litellm()
+    # test_reasoning_litellm() # uncomment to run both probes
