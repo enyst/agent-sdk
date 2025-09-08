@@ -442,9 +442,6 @@ class LLM(BaseModel, RetryMixin):
                     message=r".*content=.*upload.*",
                     category=DeprecationWarning,
                 )
-                # LiteLLM verbose logging can be enabled via env/logging; avoid
-                # direct attribute to satisfy type checkers. Some providers need
-                # renames handled in _normalize_call_kwargs.
                 # Some providers need renames handled in _normalize_call_kwargs.
                 ret = litellm_completion(
                     model=self.model,
