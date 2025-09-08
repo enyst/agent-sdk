@@ -119,6 +119,7 @@ REASONING_EFFORT_PATTERNS: list[str] = [
     # DeepSeek reasoning family
     "deepseek-r1-0528*",
     "deepseek-reasoner",
+    "deepseek-chat",
 ]
 
 PROMPT_CACHE_PATTERNS: list[str] = [
