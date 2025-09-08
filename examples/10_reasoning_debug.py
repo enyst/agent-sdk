@@ -56,7 +56,7 @@ def main() -> None:
         },
         {
             "label": "proxy/gemini-2.5-pro",
-            "model": "litellm_proxy/google/gemini-2.5-pro",
+            "model": "litellm_proxy/gemini/gemini-2.5-pro",
             "base_url": proxy_base,
             "api_key_env": "LITELLM_API_KEY",
         },
