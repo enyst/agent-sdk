@@ -118,6 +118,7 @@ REASONING_EFFORT_PATTERNS: list[str] = [
     "gpt-5-2025-08-07",
     # DeepSeek reasoning family
     "deepseek-r1-0528*",
+    "deepseek-reasoner",
 ]
 
 PROMPT_CACHE_PATTERNS: list[str] = [
