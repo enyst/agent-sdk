@@ -584,12 +584,7 @@ class LLM(BaseModel, RetryMixin):
                     last["provider_specific_fields"] = psf
             except Exception:
                 pass
-            try:
-                tb = getattr(orig_msg, "thinking_blocks", None)
-                if tb is not None:
-                    last["thinking_blocks"] = tb
-            except Exception:
-                pass
+
             last = LiteLLMMessage(**last)
         else:
             # If conversion already produced a LiteLLMMessage, attach fields directly
@@ -605,12 +600,7 @@ class LLM(BaseModel, RetryMixin):
                     setattr(last, "provider_specific_fields", psf)
             except Exception:
                 pass
-            try:
-                tb = getattr(orig_msg, "thinking_blocks", None)
-                if tb is not None:
-                    setattr(last, "thinking_blocks", tb)
-            except Exception:
-                pass
+
         resp.choices[0].message = last
         return resp
 
