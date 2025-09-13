@@ -8,7 +8,7 @@ Objective
 Non-goals
 - No new storage layers.
 - No streaming in v1.
-- Do not change the public Agent API surface; Agent continues to call llm.completion().
+- Agent is minimally aware of Responses and will call llm.responses() on supported models; Chat Completions path remains for other models.
 
 Scope (MVP)
 - Non-streaming Responses only.
@@ -24,7 +24,7 @@ Agreed decisions
 
 Gating and mode detection
 - Add supports_responses: bool to model_features with patterns ["gpt-5*", "gpt-5-mini*"].
-- is_responses on a given turn = supports_responses(model) or (state.previous_response_id is not None).
+- is_responses on a given turn = supports_responses(model) or (state.previous_response_id is not None). Agent decides the path and calls llm.responses() directly when true.
 
 Tools
 - Add Tool.to_responses_tool() that emits the Responses function tool schema (typed FunctionToolParam) matching our MCP-derived input_schema/description.
@@ -33,26 +33,25 @@ Tools
   - Chat path: [t.to_openai_tool()].
 
 Transport and inputs (Responses)
-- Add LLM._transport_call_responses(...) using litellm.responses with typed args:
-  - model, api_key, base_url, api_version, timeout, seed, drop_params (+ standard provider args we pass today).
+- Agent calls llm.responses(...) directly when in Responses mode. LLM.responses returns the typed OpenAI Response object; we do not adapt it to ModelResponse.
+- LLM exposes a responses(...) method that wraps litellm.responses with typed args; it does not alter the returned type.
   - previous_response_id=state.previous_response_id (if any), store=True, parallel_tool_calls=True.
 - Input construction for Responses calls (non-streaming):
-  - First turn: map the first system message to instructions; map the latest user content to an input_text item.
+  - First turn: map the first system message to instructions; map the latest user content to a Responses message input item.
   - Tool results: send as function_call_output items with call_id equal to the tool call id from the prior turn.
   - We do not replay history; continuity is carried by previous_response_id.
 
 Agent integration
-- Agent keeps calling llm.completion(...).
-- When preparing the first event (system prompt), emit tools using to_responses_tool() if is_responses is true.
-- Pass previous_response_id to llm.completion via kwargs so LLM can forward it to litellm.responses.
+- Agent decides per turn which path to use. If is_responses is true, it calls llm.responses(...) directly and receives a typed OpenAI Response.
+- When preparing the first event (system prompt), emit tools using to_responses_tool() if is_responses is true; otherwise to_openai_tool().
+- Pass previous_response_id to llm.responses via kwargs.
 - After each Responses call completes, set state.previous_response_id = response.id.
-- Multiple tool calls in one assistant turn are already handled by Agent.step (collects all tool_calls and processes them sequentially). This remains valid when the model returns multiple function calls with parallel_tool_calls enabled.
+- Multiple tool calls in one assistant turn are already handled by Agent.step: parse Response.output for function tool calls and execute them; with parallel_tool_calls enabled this continues to work.
 
 LLM integration
-- Completion routing: inside LLM.completion, detect is_responses by model gating (and/or a provided previous_response_id kwarg) and route to _transport_call_responses; otherwise fall back to _transport_call (Chat Completions).
-- Return shape for Agent compatibility: construct a minimal Chat Completions-shaped ModelResponse capturing:
-  - id (from Responses.id), single assistant message text (concat text output items), tool_calls mapped from function tool-call items, reasoning_content if present, usage if present.
-  - Also provide raw typed Responses object to Telemetry.on_response as raw_resp for full-fidelity logging. We do not use LiteLLM’s generic transformation layer that ignores previous_response_id.
+- Provide LLM.responses(...) which calls litellm.responses with typed args and returns the typed OpenAI Response unchanged.
+- Keep LLM.completion(...) for non-Responses models; agent will not use completion for Responses path.
+- Telemetry should still record raw typed Response for completeness.
 
 Persistence and state
 - ConversationState: add previous_response_id: str | None. This is the durable flag for Responses mode and the handle for continuation.
