@@ -386,3 +386,54 @@ uv run pre-commit run --files path/to/file.py
 # Run on all files
 uv run pre-commit run --all-files
 ```
+
+## apply_patch utility (one-liner install)
+
+A small, standalone patch tool that applies context-based patches (as described in OpenAI's GPT-4.1 prompting guide). We expose it as a simple CLI so teammates can install it quickly without extra dependencies.
+
+- Source file: openhands/tools/utils/apply_patch.py
+
+Install from Git (macOS/Linux)
+
+- Without sudo (recommended):
+
+```bash
+mkdir -p "$HOME/.local/bin"
+curl -fsSL https://raw.githubusercontent.com/enyst/agent-sdk/feat/apply-patch-oneliner/openhands/tools/utils/apply_patch.py -o "$HOME/.local/bin/apply_patch"
+chmod +x "$HOME/.local/bin/apply_patch"
+# Ensure ~/.local/bin is in your PATH (bash/zsh):
+case :$PATH: in *:"$HOME/.local/bin":*) ;; *) echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.bashrc"; . "$HOME/.bashrc" ;; esac
+```
+
+- With sudo (system-wide):
+
+```bash
+sudo curl -fsSL https://raw.githubusercontent.com/enyst/agent-sdk/feat/apply-patch-oneliner/openhands/tools/utils/apply_patch.py -o /usr/local/bin/apply_patch
+sudo chmod +x /usr/local/bin/apply_patch
+```
+
+Install from Git (Windows, PowerShell)
+
+```powershell
+New-Item -ItemType Directory -Force "$env:USERPROFILE\bin" | Out-Null
+Invoke-WebRequest -Uri https://raw.githubusercontent.com/enyst/agent-sdk/feat/apply-patch-oneliner/openhands/tools/utils/apply_patch.py -OutFile "$env:USERPROFILE\bin\apply_patch.py"
+Set-Content -Path "$env:USERPROFILE\bin\apply_patch.cmd" -Value '@echo off
+python "%~dp0apply_patch.py" %*'
+# Add %USERPROFILE%\bin to your User PATH if not present, then restart terminal
+```
+
+Quick test
+
+```bash
+echo 'print("hello")' > /tmp/demo.py
+cat << 'EOF' | apply_patch
+*** Begin Patch
+*** Update File: /tmp/demo.py
+ print("hello")
+-print("hello")
++print("hello world")
+*** End Patch
+EOF
+cat /tmp/demo.py  # should print: print("hello world")
+```
+
