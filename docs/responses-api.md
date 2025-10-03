@@ -63,7 +63,7 @@ Examples in this repo (JSON)
 
 Notes on correctness
 - Content discriminator fields must match the OpenAI types (e.g., input_text, input_image).
-- For function call follow-up, use type: "function_call_output" with the prior call_id and an output that can be either a string or a list of output items.
+- For function call follow-up, use type: "function_call_output" with the prior call_id and an output that MUST be a JSON string (per OpenAI types).
 - To request encrypted reasoning, add "reasoning.encrypted_content" to include. The API then returns reasoning items with encrypted_content.
 - previous_response_id should be the id returned from the prior Responses call. When using LiteLLM, that id includes encoded provider/model info; return it as-is in the next call.
 
