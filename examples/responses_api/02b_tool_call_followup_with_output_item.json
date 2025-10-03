@@ -1,0 +1,16 @@
+{
+  "model": "gpt-5",
+  "previous_response_id": "resp_abc123", 
+  "input": [
+    {
+      "type": "function_call_output",
+      "call_id": "call_12345",
+      "output": {
+        "type": "function_call_output_item_list",
+        "items": [
+          { "type": "output_text", "text": "15°C and sunny" }
+        ]
+      }
+    }
+  ]
+}

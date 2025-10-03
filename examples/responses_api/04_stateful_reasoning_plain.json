@@ -1,0 +1,16 @@
+{
+  "model": "gpt-5",
+  "store": true,
+  "instructions": "Continue the conversation from the previous response.",
+  "previous_response_id": "resp_litellm_encoded_prev_id",
+  "input": [
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        {"type": "input_text", "text": "Why is the sky blue?"}
+      ]
+    }
+  ],
+  "reasoning": {"effort": "low", "summary": "concise"}
+}
