@@ -24,7 +24,7 @@
       "type": "message",
       "role": "user",
       "content": [
-        {"type": "input_text", "text": "Whats the weather in Paris in Celsius?"}
+        {"type": "input_text", "text": "What's the weather in Paris in Celsius?"}
       ]
     }
   ],

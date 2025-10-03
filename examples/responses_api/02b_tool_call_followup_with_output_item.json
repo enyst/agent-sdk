@@ -8,7 +8,7 @@
       "output": {
         "type": "function_call_output_item_list",
         "items": [
-          { "type": "output_text", "text": "15°C and sunny" }
+          { "type": "input_text", "text": "15°C and sunny" }
         ]
       }
     }
