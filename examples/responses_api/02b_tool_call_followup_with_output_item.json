@@ -5,12 +5,9 @@
     {
       "type": "function_call_output",
       "call_id": "call_12345",
-      "output": {
-        "type": "function_call_output_item_list",
-        "items": [
-          { "type": "input_text", "text": "15°C and sunny" }
-        ]
-      }
+      "output": [
+        { "type": "input_text", "text": "15°C and sunny" }
+      ]
     }
   ]
 }
