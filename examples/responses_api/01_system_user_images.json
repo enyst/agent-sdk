@@ -13,7 +13,7 @@
       "type": "message",
       "role": "user",
       "content": [
-        { "type": "input_text", "text": "Whats in these images?" },
+        { "type": "input_text", "text": "What's in these images?" },
         {
           "type": "input_image",
           "detail": "auto",
