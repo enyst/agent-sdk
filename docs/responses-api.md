@@ -57,6 +57,10 @@ Examples in this repo (JSON)
    - Plain: examples/responses_api/04_stateful_reasoning_plain.json
    - Encrypted reasoning included: examples/responses_api/04b_stateful_reasoning_encrypted.json
 
+
+5) Reasoning response snapshots (shape returned by API)
+   - examples/responses_api/05_reasoning_response_examples.json
+
 Notes on correctness
 - Content discriminator fields must match the OpenAI types (e.g., input_text, input_image).
 - For function call follow-up, use type: "function_call_output" with the prior call_id and an output that can be either a string or a list of output items.
