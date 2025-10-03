@@ -50,14 +50,18 @@ Examples in this repo (JSON)
 2) Tool call (function); then follow-up with tool output
    - examples/responses_api/02_tool_call_and_output.json
    - examples/responses_api/02b_tool_call_followup_with_output_item.json
+   - Two tools, model returns two tool calls + a reasoning item (stateless, no encrypted reasoning): examples/responses_api/02c_two_tool_calls_with_reasoning.json
+   - Follow-up sending both tool outputs back, including a reasoning item: examples/responses_api/02d_two_tool_call_outputs_followup_with_reasoning_item.json
 3) Reasoning (stateless)
    - Plain reasoning (no encrypted content): examples/responses_api/03_stateless_reasoning_plain.json
    - Encrypted reasoning included: examples/responses_api/03b_stateless_reasoning_encrypted.json
+   - Follow-up including the returned reasoning item (plain): examples/responses_api/03c_stateless_reasoning_plain_followup.json
+   - Follow-up including the returned reasoning item (encrypted): examples/responses_api/03d_stateless_reasoning_encrypted_followup.json
 4) Reasoning (stateful)
    - Plain: examples/responses_api/04_stateful_reasoning_plain.json
    - Encrypted reasoning included: examples/responses_api/04b_stateful_reasoning_encrypted.json
-
-
+   - Follow-up including the returned reasoning item (plain): examples/responses_api/04c_stateful_reasoning_plain_followup.json
+   - Follow-up including the returned reasoning item (encrypted): examples/responses_api/04d_stateful_reasoning_encrypted_followup.json
 5) Reasoning response snapshots (shape returned by API)
    - examples/responses_api/05_reasoning_response_examples.json
 

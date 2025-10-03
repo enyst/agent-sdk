@@ -1,0 +1,23 @@
+{
+  "model": "gpt-5",
+  "previous_response_id": "resp_rsn_plain_prev_id",
+  "input": [
+    {
+      "type": "reasoning",
+      "id": "rsn_001",
+      "summary": [
+        { "type": "summary_text", "text": "Outlined that even + even = even by factoring 2." }
+      ],
+      "content": [
+        { "type": "reasoning_text", "text": "Let even numbers be 2a and 2b. Then 2a+2b=2(a+b), which is even." }
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        { "type": "input_text", "text": "Using your previous reasoning, generalize to sum of two multiples of 3." }
+      ]
+    }
+  ]
+}
