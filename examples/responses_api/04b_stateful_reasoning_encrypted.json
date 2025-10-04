@@ -1,0 +1,17 @@
+{
+  "model": "gpt-5",
+  "store": true,
+  "instructions": "Continue with hidden reasoning included for debugging.",
+  "previous_response_id": "resp_litellm_encoded_prev_id",
+  "include": ["reasoning.encrypted_content"],
+  "input": [
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        {"type": "input_text", "text": "Summarize our last discussion in one sentence."}
+      ]
+    }
+  ],
+  "reasoning": {"effort": "medium", "summary": "concise"}
+}

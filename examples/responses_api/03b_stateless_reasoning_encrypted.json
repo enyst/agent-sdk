@@ -1,0 +1,18 @@
+{
+  "model": "gpt-5",
+  "instructions": "Use hidden chain-of-thought; do not reveal intermediate steps unless included.",
+  "input": [
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        {"type": "input_text", "text": "Compute 1234 * 5678 and explain briefly."}
+      ]
+    }
+  ],
+  "include": ["reasoning.encrypted_content"],
+  "reasoning": {
+    "effort": "high",
+    "summary": "detailed"
+  }
+}

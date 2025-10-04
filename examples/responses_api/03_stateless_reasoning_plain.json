@@ -1,0 +1,18 @@
+{
+  "model": "gpt-5",
+  "instructions": "Reason step by step, but only include the final answer in output text.",
+  "input": [
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        {"type": "input_text", "text": "Prove that the sum of two even numbers is even."}
+      ]
+    }
+  ],
+  "include": [],
+  "reasoning": {
+    "effort": "medium",
+    "summary": "concise"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "model": "gpt-5",
+  "previous_response_id": "resp_two_tools_prev_id",
+  "input": [
+    {
+      "type": "function_call_output",
+      "call_id": "call_weather_1",
+      "output": "{\"temperature\":18,\"unit\":\"c\",\"description\":\"partly cloudy\"}"
+    },
+    {
+      "type": "function_call_output",
+      "call_id": "call_local_time_1",
+      "output": "{\"local_time\":\"2025-10-03T15:45:00+02:00\"}"
+    },
+    {
+      "type": "reasoning",
+      "id": "rsn_tools_01",
+      "summary": [
+        {"type": "summary_text", "text": "Combined weather and local time to decide suitability."}
+      ],
+      "content": [
+        {"type": "reasoning_text", "text": "18C and partly cloudy at mid-afternoon; generally favorable for a walk."}
+      ]
+    }
+  ]
+}

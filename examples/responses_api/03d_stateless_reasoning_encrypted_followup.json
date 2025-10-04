@@ -1,0 +1,22 @@
+{
+  "model": "gpt-5",
+  "previous_response_id": "resp_rsn_encrypted_prev_id",
+  "include": ["reasoning.encrypted_content"],
+  "input": [
+    {
+      "type": "reasoning",
+      "id": "rsn_100",
+      "summary": [
+        { "type": "summary_text", "text": "Computed product and formed concise explanation." }
+      ],
+      "encrypted_content": "A1B2C3D4E5F6...encrypted bytes..."
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        { "type": "input_text", "text": "Please square 4321 now, using the same approach." }
+      ]
+    }
+  ]
+}

@@ -32,10 +32,10 @@ check-uv-version:
 build: check-uv-version
 	@echo "$(CYAN)Setting up OpenHands V1 development environment...$(RESET)"
 	@echo "$(YELLOW)Installing dependencies with uv sync --dev...$(RESET)"
-	@uv sync --dev
+	@env -u VIRTUAL_ENV uv sync --dev
 	@echo "$(GREEN)Dependencies installed successfully.$(RESET)"
 	@echo "$(YELLOW)Setting up pre-commit hooks...$(RESET)"
-	@uv run pre-commit install
+	@env -u VIRTUAL_ENV uv run pre-commit install
 	@echo "$(GREEN)Pre-commit hooks installed successfully.$(RESET)"
 	@echo "$(GREEN)Build complete! Development environment is ready.$(RESET)"
 

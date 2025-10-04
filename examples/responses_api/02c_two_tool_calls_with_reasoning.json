@@ -1,0 +1,48 @@
+{
+  "model": "gpt-5",
+  "instructions": "Use the available tools. Return a reasoning item as needed.",
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "get_weather",
+        "description": "Get weather for a city",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "city": {"type": "string"},
+            "unit": {"type": "string", "enum": ["c", "f"]}
+          },
+          "required": ["city"]
+        },
+        "strict": true
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "get_local_time",
+        "description": "Get local time for a city",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "city": {"type": "string"}
+          },
+          "required": ["city"]
+        },
+        "strict": true
+      }
+    }
+  ],
+  "input": [
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        {"type": "input_text", "text": "Is it a good time to go for a walk in Paris?"}
+      ]
+    }
+  ],
+  "reasoning": {"effort": "medium", "summary": "concise"},
+  "tool_choice": "auto"
+}

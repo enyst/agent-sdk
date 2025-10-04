@@ -1,0 +1,24 @@
+{
+  "model": "gpt-5",
+  "store": true,
+  "previous_response_id": "resp_litellm_encoded_prev_id",
+  "input": [
+    {
+      "type": "reasoning",
+      "id": "rsn_stateful_plain_01",
+      "summary": [
+        { "type": "summary_text", "text": "Outlined Rayleigh scattering mechanism briefly." }
+      ],
+      "content": [
+        { "type": "reasoning_text", "text": "Short wavelength light scatters more; blue dominates sky color." }
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        { "type": "input_text", "text": "Extend the explanation to twilight colors." }
+      ]
+    }
+  ]
+}

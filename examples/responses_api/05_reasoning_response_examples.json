@@ -1,0 +1,65 @@
+{
+  "stateless_plain": {
+    "id": "resp_stateless_plain_001",
+    "object": "response",
+    "created_at": 1738531200,
+    "model": "gpt-5",
+    "status": "completed",
+    "output": [
+      {
+        "type": "reasoning",
+        "id": "rsn_001",
+        "status": "completed",
+        "summary": [
+          { "type": "summary_text", "text": "Outlined that even + even = even by factoring 2." }
+        ],
+        "content": [
+          { "type": "reasoning_text", "text": "Let even numbers be 2a and 2b. Then 2a+2b=2(a+b), which is even." }
+        ]
+      },
+      {
+        "type": "message",
+        "id": "msg_001",
+        "status": "completed",
+        "role": "assistant",
+        "content": [
+          { "type": "output_text", "text": "Because 2a+2b = 2(a+b), the sum is even." }
+        ]
+      }
+    ],
+    "parallel_tool_calls": true,
+    "tool_choice": "auto",
+    "tools": []
+  },
+  "stateful_encrypted": {
+    "id": "resp_stateful_encrypted_001",
+    "object": "response",
+    "created_at": 1738531300,
+    "model": "gpt-5",
+    "status": "completed",
+    "previous_response_id": "resp_litellm_encoded_prev_id",
+    "output": [
+      {
+        "type": "reasoning",
+        "id": "rsn_100",
+        "status": "completed",
+        "summary": [
+          { "type": "summary_text", "text": "Computed product and formed concise explanation." }
+        ],
+        "encrypted_content": "A1B2C3D4E5F6...encrypted bytes..."
+      },
+      {
+        "type": "message",
+        "id": "msg_100",
+        "status": "completed",
+        "role": "assistant",
+        "content": [
+          { "type": "output_text", "text": "1234 × 5678 = 7,006,652. It's the product of the two inputs." }
+        ]
+      }
+    ],
+    "parallel_tool_calls": true,
+    "tool_choice": "auto",
+    "tools": []
+  }
+}
