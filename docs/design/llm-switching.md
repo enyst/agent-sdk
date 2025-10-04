@@ -1,146 +1,91 @@
-# LLM Switching: Design and Flow
+# LLM Switching with Existing SDK Components
 
 1. Goals
-- Allow switching the active LLM during a conversation (live switch) and on restore (after persistence)
-- Keep the Agent stateless; the Conversation State holds the current LLM reference
-- Preserve readability: small, explicit components; minimal flags
-- Avoid provider-specific state leaking into persisted data
+- Enable switching the active LLM during a conversation (live switch) and after restore
+- Keep Agent stateless (as in AgentBase); perform the switch by updating ConversationState.agent
+- Reuse existing LLMRegistry and ConversationStats behavior
+- Persist using current base_state.json and events (no new persisted types)
 
-2. Key Concepts
-- LLMRegistry: Source of truth for constructing LLM instances by a registry key (profile name). Provides secrets and defaults.
-- LLMRef (persisted): Lightweight, serializable pointer to the current LLM. Contains either a registry_key or an inline descriptor (provider, model, base_url, options). No secrets are stored.
-- LLMHandle (in-memory): Small wrapper the Agent holds to swap the underlying LLM instance atomically.
-- ConversationStats: Aggregates usage per-LLM segment; each segment keyed by an llm_signature (provider/model/base_url) so we can attribute tokens/costs to the right engine.
+2. What Exists Today (Relevant Pieces)
+- AgentBase (stateless, frozen): Holds llm: LLM and tools; persisted in base_state.json
+- ConversationState: Persists agent, workspace, stats, etc.; auto-persists on field changes
+- LocalConversation: Wires LLMRegistry and subscribes ConversationStats.register_llm; registers all LLMs found in agent via get_all_llms()
+- LLMRegistry: add/get + notify(RegistryEvent) to subscribers
+- ConversationStats: service_to_metrics keyed by LLM.service_id; on registry events it either seeds or restores llm.metrics
+- Persistence example: examples/10_persistence.py
 
-3. Data Structures
+3. Constraints Derived from the Code
+- Agent must remain stateless; do not mutate Agent in place
+- Agent equality is enforced on resume: ConversationState.create() compares the runtime Agent to the persisted Agent via AgentBase.resolve_diff_from_deserialized(). If different, resume fails
+- Therefore, “switch on restore” should happen after successful resume (treat as a live switch)
 
-```python
-from pydantic import BaseModel
-from typing import Optional, Dict, Any
+4. Switching Model Mid‑Conversation (Case 2)
 
-class LLMDescriptor(BaseModel):
-    provider: str
-    model: str
-    base_url: Optional[str] = None
-    options: Dict[str, Any] = {}
+4.1 API Surface (Minimal, in-place)
+- Add a method on Conversation (LocalConversation): switch_llm_in_place(**overrides) -> None
+  - Do not create or assign a new Agent. Mutate the existing runtime LLM object located at state.agent.llm.
+  - After mutation, explicitly persist base_state.json.
 
-class LLMRef(BaseModel):
-    # Prefer registry_key; fall back to inline descriptor when necessary
-    registry_key: Optional[str] = None
-    descriptor: Optional[LLMDescriptor] = None
-    # Versioning for future migrations
-    version: int = 1
+4.2 Where the LLM instance lives at runtime
+- LocalConversation passes the Agent to ConversationState.create(); the runtime Agent is stored at state.agent
+- The LLM used for calls is state.agent.llm (a mutable pydantic model; not frozen)
 
-    def resolve(self, registry) -> "LLM":
-        if self.registry_key:
-            return registry.create(self.registry_key)
-        assert self.descriptor is not None
-        return registry.create_from_descriptor(self.descriptor)
+4.3 Steps (in-place reconfigure)
+1) Apply overrides on the existing LLM
+- llm = self._state.agent.llm
+- llm.reconfigure(model=..., base_url=..., api_key=..., ...)  # new public method
+  - Semantics:
+    - If model or base_url change: re-resolve model profile/caps (LRU keyed by (normalized_model, base_url)); do not reuse the old profile
+    - Default http if base_url has no scheme
+    - Update _function_calling_active from features/native override
+    - Keep Metrics instance; update Telemetry model_name
 
-# Signature used by stats; avoids secrets and is stable
-class LLMSignature(BaseModel):
-    provider: str
-    model: str
-    base_url: Optional[str]
+2) Persist nested changes explicitly
+- with self._state:
+    self._state._save_base_state(self._state._fs)  # or a new public persist() helper
 
-    @classmethod
-    def from_llm(cls, llm: "LLM") -> "LLMSignature":
-        return cls(provider=llm.provider, model=llm.model, base_url=llm.base_url)
-```
+3) Registry + stats
+- Because the LLM object identity is unchanged and service_id is unchanged, LLMRegistry and ConversationStats continue to track the same metrics object. No replacement needed.
+- If you intentionally change service_id to segment metrics, re-register via a future registry.rekey(old_id, new_id) or replace(). Otherwise, keep service_id stable.
 
-4. Agent Holding an LLM (LLMHandle)
-
-```python
-class LLMHandle:
-    def __init__(self, llm: "LLM"):
-        self._llm = llm
-
-    def get(self) -> "LLM":
-        return self._llm
-
-    def set(self, new_llm: "LLM") -> None:
-        # Reset ephemeral provider contexts (e.g., stateful Responses thread ids)
-        # by constructing a fresh instance; nothing else to clean here.
-        self._llm = new_llm
-```
-
-5. State Shape and Persistence
-- Conversation persists:
-  - messages (provider-neutral Message model)
-  - llm_ref: LLMRef (not the LLM instance)
-  - stats: ConversationStats with per-LLM segments
-  - events: optional list of ModelSwitch events
-- Do not persist provider-specific formatting (e.g., Anthropic cache markers). Those are applied on formatters per request.
-
-6. Live Switch Flow (Case 2)
-
-1) Client requests switch with either registry_key or descriptor
-- Example: { "registry_key": "claude-sonnet" } or inline descriptor
-
-2) Agent validates and resolves
-- new_llm = llm_ref.resolve(LLMRegistry)
-- LRU-cached model_info makes instantiation fast; new_llm eagerly resolves its profile
-
-3) Agent swaps in-memory LLM
-- llm_handle.set(new_llm)
-- state.llm_ref = llm_ref (persist new reference)
-- stats.start_segment(LLMSignature.from_llm(new_llm))
-- events.append(ModelSwitch(...)) (optional)
-
-4) Next turns use the new LLM automatically
-- Tool strategy adjusts per model (native vs mock) without rewriting history
-- Messages remain provider-neutral; formatters handle provider quirks
-
-5) Persistence
-- When the conversation is saved, the latest llm_ref and stats (with multiple segments) are stored. No secrets.
-
-7. Restore and Switch (Case 1)
-- Load conversation: messages + llm_ref + stats
-- If user supplies a new LLM (registry_key or descriptor), treat it exactly as a live switch (steps 2–5 above). Otherwise, resolve llm_ref and continue.
-
-8. ConversationStats: Per-LLM Segments
+4.4 Code Sketch (using current components)
 
 ```python
-class ConversationStats(BaseModel):
-    segments: list[dict] = []  # [{"llm": LLMSignature, "usage": Usage, "from_turn": int}]
-
-    def start_segment(self, sig: LLMSignature, from_turn: int | None = None):
-        self.segments.append({"llm": sig, "usage": Usage.zero(), "from_turn": from_turn})
-
-    def add_usage(self, sig: LLMSignature, delta: "Usage"):
-        # Add to last segment; safeguard if model switched externally
-        if not self.segments or self.segments[-1]["llm"] != sig:
-            self.start_segment(sig)
-        self.segments[-1]["usage"] += delta
+# In LocalConversation
+def switch_llm_in_place(self, **overrides) -> None:
+    llm = self._state.agent.llm
+    llm.reconfigure(**overrides)          # reinitialize model info/caps safely
+    with self._state:
+        # Persist nested changes (since __setattr__ doesn't see deep mutations)
+        self._state._save_base_state(self._state._fs)
+    # Optional: if you changed service_id intentionally, update the registry mapping
+    # self.llm_registry.rekey(old_id, llm.service_id)  # future helper
 ```
 
-9. Agent API Surface (Minimal Changes)
-- Agent remains stateless; it keeps an LLMHandle and updates state.llm_ref.
-- New helper:
-  - agent.switch_llm(ref: LLMRef) -> None
-- Example usage:
+5. Switching on Restore (Case 1)
+- Resume must succeed first with a matching Agent (examples/10_persistence.py pattern)
+- After resume, call conversation.switch_llm(new_llm) to change engines
+- Rationale: Agent equality is enforced by resolve_diff_from_deserialized; attempting to pass a different Agent at construction time fails by design
 
-```python
-def switch_llm(self, ref: LLMRef):
-    new_llm = ref.resolve(self.registry)
-    self.llm_handle.set(new_llm)
-    self.state.llm_ref = ref
-    self.state.stats.start_segment(LLMSignature.from_llm(new_llm), from_turn=self.state.turn_index)
-```
+6. Metrics and service_id
+- Keep same service_id to aggregate costs/tokens across switches; requires LLMRegistry.replace() and ConversationStats to always rebind llm.metrics when a known service_id is seen
+- Use a new service_id to segment usage per model; combined totals are available via ConversationStats.get_combined_metrics()
 
-10. Compatibility and Simplicity
-- Backward compatible: if an older conversation serialized a full LLM, we can read it and convert to LLMRef on load (provide a migration hook); new saves use LLMRef only.
-- No flags added; switching is explicit via LLMRef.
-- Provider-specific sessions (e.g., Responses stateful) are owned by the LLM instance and are not persisted unless we deliberately design a portable format later.
+7. What Persists
+- ConversationState.agent (the full Agent config including the new LLM) in base_state.json
+- Events continue as before; a future optional ModelSwitch event can be added for UI traceability (not required for correctness)
+- No provider‑specific request formatting is persisted
 
-11. Notes on Model Profile Resolution
-- clone() vs switch: switching always constructs a new LLM instance (from registry or descriptor).
-- Eager profile init with shared LRU cache keeps it fast and deterministic.
-- If lazy init is added later, the new instance may lazy-resolve on first use; this doesn’t affect semantics, only performance.
+8. Tool Behavior After Switch
+- No history rewrite; existing messages are provider‑neutral
+- On next step, function‑calling strategy is chosen per the new model (native vs mock) using existing NonNativeToolCallingMixin + model_features
 
-12. What Happens to Tools and Messages on Switch?
-- Tools: We re-evaluate the tool strategy per request. If the new model doesn’t support function calling, MockToolStrategy applies; otherwise tools are sent natively. No changes to saved messages.
-- Messages: Persisted messages are provider-neutral; per-provider formatting (Anthropic cache markers, reasoning headers) happens during request preparation and never gets persisted.
+9. Minimal Internal Adjustments (if needed)
+- LLMRegistry: add replace(service_id, new_llm) and emit notify
+- ConversationStats.register_llm: when service_id exists, always call llm.restore_metrics(self.service_to_metrics[service_id]) to rebind; the _restored_services guard can be dropped
 
-13. Optional: User-Facing Trace
-- Add a synthetic system message “Switched model to <provider>/<model>” when switch occurs, controlled by a debug flag in higher-level UI code (not persisted by default in SDK).
+10. Why This Fits the Current SDK
+- Aligns with Agent statelessness (we never mutate Agent; we assign a new copy into state)
+- Uses existing persistence (ConversationState auto‑persist on agent assignment)
+- Respects resume‑time equality checks (switch happens after resume)
+- Leverages existing LLMRegistry + ConversationStats wiring (with small, optional tweaks for replace)
