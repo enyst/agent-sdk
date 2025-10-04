@@ -38,6 +38,61 @@ Proposed Architecture
    - options/responses_options.py
      - select_responses_options(llm, user_kwargs, include, store) -> dict
 
+2.1) Tool Strategy (Chat path)
+
+- Purpose: Decide once per request whether to send tools natively or to prompt-mock tool calls when function calling is unavailable.
+- Interface:
+  - has_native_tools: bool
+  - pre_request(messages, chat_tools, kwargs) -> (messages, kwargs)
+  - post_response(resp, nonfncall_msgs, chat_tools) -> resp
+- Strategies:
+  - NativeToolStrategy: send tools as-is; no message transforms.
+  - MockToolStrategy: delegate to NonNativeToolCallingMixin for pre/post transforms.
+- Selector:
+  - choose_tool_strategy(llm, chat_tools):
+    - if no tools → NativeToolStrategy(has_tools=False)
+    - elif llm.is_function_calling_active() → NativeToolStrategy(has_tools=True)
+    - else → MockToolStrategy(llm)
+
+Code example
+
+```
+from typing import Protocol, Tuple
+from litellm import ChatCompletionToolParam
+from litellm.types.utils import ModelResponse
+
+class ToolStrategy(Protocol):
+    has_native_tools: bool
+    def pre_request(self, messages: list[dict], chat_tools: list[ChatCompletionToolParam] | None, kwargs: dict) -> Tuple[list[dict], dict]: ...
+    def post_response(self, resp: ModelResponse, nonfncall_msgs: list[dict], chat_tools: list[ChatCompletionToolParam] | None) -> ModelResponse: ...
+
+class NativeToolStrategy:
+    def __init__(self, has_tools: bool):
+        self.has_native_tools = has_tools
+    def pre_request(self, messages, chat_tools, kwargs):
+        return messages, kwargs
+    def post_response(self, resp, nonfncall_msgs, chat_tools):
+        return resp
+
+class MockToolStrategy:
+    def __init__(self, llm):
+        self.llm = llm
+        self.has_native_tools = False
+    def pre_request(self, messages, chat_tools, kwargs):
+        assert chat_tools
+        return self.llm.pre_request_prompt_mock(messages, chat_tools, kwargs)
+    def post_response(self, resp, nonfncall_msgs, chat_tools):
+        assert chat_tools
+        return self.llm.post_response_prompt_mock(resp, nonfncall_msgs, chat_tools)
+
+def choose_tool_strategy(llm, chat_tools: list[ChatCompletionToolParam] | None) -> ToolStrategy:
+    if not chat_tools:
+        return NativeToolStrategy(has_tools=False)
+    if llm.is_function_calling_active():
+        return NativeToolStrategy(has_tools=True)
+    return MockToolStrategy(llm)
+```
+
 4) Transport (litellm boundary):
    - transport/chat.py
      - transport_chat_sync(model, messages, options) -> ModelResponse
