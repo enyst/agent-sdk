@@ -96,15 +96,13 @@ Anthropic-specific logic
 - Used only on the Chat Completions path: call these helpers when get_features(model).is_anthropic is true. Responses path never uses Anthropic helpers (Responses applies only to select OpenAI models).
 
 Base URL scheme for local/proxy
-- If base_url has no scheme, default to http:// to support localhost/intranet usage, but log a concise debug message. If security is a concern in some environments, allow an LLM flag to force https.
+- If base_url has no scheme, default to http:// to support localhost/intranet usage, and log a concise debug message.
 
 Short example: Anthropic usage in llm.completion()
 
 ```
 from openhands.sdk.llm.model_features import get_features
 from openhands.sdk.llm.anthropic.cache import apply_prompt_caching
-from openhands.sdk.llm.anthropic.reasoning import extended_thinking_headers
-from openhands.sdk.llm.anthropic.tokens import claude_practical_max_output
 
 # inside LLM.completion(...)
 feats = get_features(self.model)
@@ -119,18 +117,31 @@ strategy = choose_tool_strategy(self, chat_tools)
 ser_msgs, kwargs = strategy.pre_request(ser_msgs, chat_tools, kwargs)
 has_tools = strategy.has_native_tools
 
+# Provider-specific option decisions happen inside this function
 options = select_chat_options(self, kwargs, has_tools)
-
-if feats.is_anthropic:
-    options.setdefault("extra_headers", {}).update(extended_thinking_headers(self))
-    if options.get("max_output_tokens") is None:
-        cap = claude_practical_max_output(self.model)
-        if cap is not None:
-            options["max_output_tokens"] = cap
 
 raw = transport_chat_sync(self.model, ser_msgs, options)
 raw = strategy.post_response(raw, ser_msgs, chat_tools)
 return build_llm_response(raw)
+```
+
+select_chat_options injects Anthropic specifics internally:
+
+```
+from openhands.sdk.llm.model_features import get_features
+from openhands.sdk.llm.anthropic.reasoning import extended_thinking_headers
+from openhands.sdk.llm.anthropic.tokens import claude_practical_max_output
+
+def select_chat_options(llm, user_kwargs, has_tools):
+    opts = coerce_and_default(user_kwargs)
+    feats = get_features(llm.model)
+    if feats.is_anthropic:
+        opts.setdefault("extra_headers", {}).update(extended_thinking_headers(llm))
+        if opts.get("max_output_tokens") is None:
+            cap = claude_practical_max_output(llm.model)
+            if cap is not None:
+                opts["max_output_tokens"] = cap
+    return opts
 ```
 
 Migration Plan (incremental)
