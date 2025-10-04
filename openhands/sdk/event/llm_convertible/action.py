@@ -8,6 +8,7 @@ from openhands.sdk.event.types import EventID, SourceType, ToolCallID
 from openhands.sdk.llm import (
     Message,
     MessageToolCall,
+    ReasoningItemModel,
     RedactedThinkingBlock,
     TextContent,
     ThinkingBlock,
@@ -28,6 +29,9 @@ class ActionEvent(LLMConvertibleEvent):
     thinking_blocks: list[ThinkingBlock | RedactedThinkingBlock] = Field(
         default_factory=list,
         description="Anthropic thinking blocks from the LLM response",
+    )
+    responses_reasoning_item: ReasoningItemModel | None = Field(
+        default=None, description="OpenAI Responses reasoning item from model output"
     )
     action: Action = Field(..., description="Single action (tool call) returned by LLM")
     tool_name: str = Field(..., description="The name of the tool being called")
@@ -79,6 +83,17 @@ class ActionEvent(LLMConvertibleEvent):
             content.append(thought_text)
             content.append("\n\n")
 
+        # Responses API reasoning (plaintext only; never render encrypted_content)
+        reasoning_item = self.responses_reasoning_item
+        if reasoning_item is not None:
+            content.append("Reasoning:\n", style="bold")
+            if reasoning_item.summary:
+                for s in reasoning_item.summary:
+                    content.append(f"- {s}\n")
+            if reasoning_item.content:
+                for b in reasoning_item.content:
+                    content.append(f"{b}\n")
+
         # Display action information using action's visualize method
         content.append(self.action.visualize)
 
@@ -92,6 +107,7 @@ class ActionEvent(LLMConvertibleEvent):
             tool_calls=[self.tool_call],
             reasoning_content=self.reasoning_content,
             thinking_blocks=self.thinking_blocks,
+            responses_reasoning_item=self.responses_reasoning_item,
         )
 
     def __str__(self) -> str:
@@ -105,3 +121,80 @@ class ActionEvent(LLMConvertibleEvent):
         )
         action_name = self.action.__class__.__name__
         return f"{base_str}\n  Thought: {thought_preview}\n  Action: {action_name}"
+
+
+class NonExecutableActionEvent(LLMConvertibleEvent):
+    """Assistant function_call(s) persisted without a validated Action.
+
+    Emitted when LLM returned tool call(s) but validation failed (or tool missing),
+    so we still persist the function_call(s) for the next turn to match tool outputs.
+    """
+
+    source: SourceType = "agent"
+    thought: Sequence[TextContent] = Field(
+        default_factory=list,
+        description="The assistant's thought content returned alongside tool calls",
+    )
+    reasoning_content: str | None = Field(
+        default=None,
+        description="Intermediate reasoning content from reasoning models",
+    )
+    thinking_blocks: list[ThinkingBlock | RedactedThinkingBlock] = Field(
+        default_factory=list,
+        description="Anthropic thinking blocks from the LLM response",
+    )
+    responses_reasoning_item: ReasoningItemModel | None = Field(
+        default=None, description="OpenAI Responses reasoning item from model output"
+    )
+    tool_calls: list[MessageToolCall] = Field(
+        default_factory=list, description="Raw tool calls returned by the LLM"
+    )
+
+    def to_llm_message(self) -> Message:
+        return Message(
+            role="assistant",
+            content=self.thought,
+            tool_calls=self.tool_calls,
+            reasoning_content=self.reasoning_content,
+            thinking_blocks=self.thinking_blocks,
+            responses_reasoning_item=self.responses_reasoning_item,
+        )
+
+    @property
+    def visualize(self) -> Text:
+        content = Text()
+        if self.reasoning_content:
+            content.append("Reasoning:\n", style="bold")
+            content.append(self.reasoning_content)
+            content.append("\n\n")
+        thought_text = " ".join([t.text for t in self.thought])
+        if thought_text:
+            content.append("Thought:\n", style="bold")
+            content.append(thought_text)
+            content.append("\n\n")
+        # Responses API reasoning (plaintext only; never render encrypted_content)
+        reasoning_item = self.responses_reasoning_item
+        if reasoning_item is not None:
+            content.append("Reasoning:\n", style="bold")
+            if reasoning_item.summary:
+                for s in reasoning_item.summary:
+                    content.append(f"- {s}\n")
+            if reasoning_item.content:
+                for b in reasoning_item.content:
+                    content.append(f"{b}\n")
+
+        content.append("Function calls:\n", style="bold")
+        for tc in self.tool_calls:
+            content.append(f"- {tc.name} ({tc.id})\n")
+        return content
+
+    def __str__(self) -> str:
+        base_str = f"{self.__class__.__name__} ({self.source})"
+        thought_text = " ".join([t.text for t in self.thought])
+        thought_preview = (
+            thought_text[:N_CHAR_PREVIEW] + "..."
+            if len(thought_text) > N_CHAR_PREVIEW
+            else thought_text
+        )
+        calls = ", ".join([f"{tc.name}:{tc.id}" for tc in self.tool_calls]) or "[]"
+        return f"{base_str}\n  Thought: {thought_preview}\n  Calls: {calls}"
