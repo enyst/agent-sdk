@@ -93,10 +93,45 @@ Anthropic-specific logic
   - anthropic/cache.py: apply_prompt_caching(...)
   - anthropic/tokens.py: optional token/output caps overrides (e.g., Claude practical 64k)
   - anthropic/reasoning.py: extended thinking headers, interleaved-thinking beta, etc.
-- Chat and Responses option selectors call into these helpers only when get_features(model).is_anthropic is true. This keeps Anthropic “stuff” co-located and easy to find without over-engineering adapters.
+- Used only on the Chat Completions path: call these helpers when get_features(model).is_anthropic is true. Responses path never uses Anthropic helpers (Responses applies only to select OpenAI models).
 
 Base URL scheme for local/proxy
 - If base_url has no scheme, default to http:// to support localhost/intranet usage, but log a concise debug message. If security is a concern in some environments, allow an LLM flag to force https.
+
+Short example: Anthropic usage in llm.completion()
+
+```
+from openhands.sdk.llm.model_features import get_features
+from openhands.sdk.llm.anthropic.cache import apply_prompt_caching
+from openhands.sdk.llm.anthropic.reasoning import extended_thinking_headers
+from openhands.sdk.llm.anthropic.tokens import claude_practical_max_output
+
+# inside LLM.completion(...)
+feats = get_features(self.model)
+
+ser_msgs = [m.to_chat_dict() for m in messages]
+
+if feats.is_anthropic:
+    apply_prompt_caching(ser_msgs)
+
+chat_tools = build_chat_tools(kwargs.get("tools"))
+strategy = choose_tool_strategy(self, chat_tools)
+ser_msgs, kwargs = strategy.pre_request(ser_msgs, chat_tools, kwargs)
+has_tools = strategy.has_native_tools
+
+options = select_chat_options(self, kwargs, has_tools)
+
+if feats.is_anthropic:
+    options.setdefault("extra_headers", {}).update(extended_thinking_headers(self))
+    if options.get("max_output_tokens") is None:
+        cap = claude_practical_max_output(self.model)
+        if cap is not None:
+            options["max_output_tokens"] = cap
+
+raw = transport_chat_sync(self.model, ser_msgs, options)
+raw = strategy.post_response(raw, ser_msgs, chat_tools)
+return build_llm_response(raw)
+```
 
 Migration Plan (incremental)
 1) Extract prepare_* and select_options_* helpers (rename from normalize_*). No behavior change.
