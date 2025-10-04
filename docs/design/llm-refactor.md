@@ -70,6 +70,8 @@ Public LLM Surface (unchanged now, future-ready)
 
 On‑the‑fly LLM switching
 - Prefer clone-and-swap: LLM.clone(**overrides) returns a new configured instance; Agent swaps atomically.
+- Semantics: if model/base_url are unchanged, the clone may reuse the resolved model profile (copy). If either differs, the clone invalidates and re‑resolves its model profile.
+- LRU cache keyed by (normalized_model, base_url) speeds up re‑resolution across instances without affecting correctness.
 - Optionally use a lightweight LLMHandle wrapper that the Agent holds; handle.set(new_llm) hot-swaps internally.
 
 Stateful Responses API (future)

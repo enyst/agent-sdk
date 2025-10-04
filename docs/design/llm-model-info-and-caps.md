@@ -39,7 +39,11 @@ Proposed Structure
   - `self._model_info = resolve_model_info(self.model, self.base_url, self.api_key)`
   - `(self.max_input_tokens, self.max_output_tokens) = derive_token_limits(...)`
   - `self._function_calling_active = compute_function_calling_active(self.native_tool_calling, get_features(self.model))`
-- Optionally lazy: if we defer resolver to first use, ensure `clone()` carries resolved profile forward to avoid surprises.
+- clone() semantics:
+  - If `model` and `base_url` are unchanged, the clone may copy the resolved model profile for performance.
+  - If either differs, the clone must invalidate and re‑resolve its model profile.
+- Lazy vs eager:
+  - Start with eager initialization (resolver is cached and fast). If we add lazy init later, preserve the clone semantics above.
 
 Base URL Scheme for Local/Proxy
 - If `base_url` lacks a scheme, default to `http://` for localhost/intranet friendliness, with a clear debug log: "No scheme in base_url, defaulting to http://".
