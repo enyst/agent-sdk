@@ -1,0 +1,11 @@
+{
+  "model": "gpt-5",
+  "previous_response_id": "resp_abc123",
+  "input": [
+    {
+      "type": "function_call_output",
+      "call_id": "call_12345",
+      "output": "{\"temperature\":15,\"unit\":\"c\",\"description\":\"sunny\"}"
+    }
+  ]
+}

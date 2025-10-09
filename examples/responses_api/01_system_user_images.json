@@ -1,0 +1,30 @@
+{
+  "model": "gpt-5",
+  "instructions": "You are a precise assistant.",
+  "input": [
+    {
+      "type": "message",
+      "role": "system",
+      "content": [
+        { "type": "input_text", "text": "Answer concisely in under 20 words." }
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        { "type": "input_text", "text": "What's in these images?" },
+        {
+          "type": "input_image",
+          "detail": "auto",
+          "image_url": "https://upload.wikimedia.org/wikipedia/commons/9/99/Black_square.jpg"
+        },
+        {
+          "type": "input_image",
+          "detail": "high",
+          "image_url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAEklEQVR42mP8/5+hHgMDAwMABRYC2r8v8bEAAAAASUVORK5CYII="
+        }
+      ]
+    }
+  ]
+}

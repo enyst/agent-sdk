@@ -1,0 +1,23 @@
+{
+  "model": "gpt-5",
+  "store": true,
+  "previous_response_id": "resp_litellm_encoded_prev_id",
+  "include": ["reasoning.encrypted_content"],
+  "input": [
+    {
+      "type": "reasoning",
+      "id": "rsn_stateful_enc_01",
+      "summary": [
+        { "type": "summary_text", "text": "Summarized prior discussion into one sentence." }
+      ],
+      "encrypted_content": "ZZYYXX...encrypted bytes..."
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        { "type": "input_text", "text": "Continue with a 2-sentence summary including key causes and effects." }
+      ]
+    }
+  ]
+}
