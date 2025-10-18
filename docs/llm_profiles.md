@@ -40,3 +40,46 @@ Notes on service_id rename
 
 - There is an ongoing discussion about renaming `LLM.service_id` to a clearer name (e.g., `usage_id` or `token_tracking_id`) because `service_id` is overloaded. We will not rename immediately; agent-sdk-23 will investigate the migration and impact.
 
+
+## Proposed changes for agent-sdk-19 (profile references in persistence)
+
+### Goals
+- Allow agent settings and conversation snapshots to reference stored LLM profiles by name instead of embedding full JSON payloads.
+- Maintain backward compatibility with existing inline configurations.
+- Enable a migration path so that users can opt in to profiles without losing existing data.
+
+### Persistence format updates
+- **Agent settings (`~/.openhands/agent_settings.json`)**
+  - Add an optional `profile_id` (or `llm_profile`) field wherever an LLM is configured (agent, condenser, router, etc.).
+  - When `profile_id` is present, omit the inline LLM payload in favor of the reference.
+  - Continue accepting inline definitions when `profile_id` is absent.
+- **Conversation base state (`~/.openhands/conversations/<id>/base_state.json`)**
+  - Store `profile_id` for any LLM that originated from a profile when the conversation was created.
+  - Inline the full LLM payload only when no profile reference exists.
+
+### Loader behavior
+- On startup, configuration loaders must detect `profile_id` and load the corresponding LLM via `ProfileManager.load_profile(profile_id)`.
+- If the referenced profile cannot be found, fall back to existing inline data (if available) and surface a clear warning.
+- Inject secrets after loading (same flow used today when constructing LLM instances).
+
+### Writer behavior
+- When persisting updated agent settings or conversation snapshots, write back the `profile_id` whenever the active LLM was sourced from a profile.
+- Only write the raw LLM configuration for ad-hoc instances (no associated profile), preserving current behavior.
+
+### Migration helper
+- Provide a utility (script or CLI command) that:
+  1. Scans existing agent settings and conversation base states for inline LLM configs.
+  2. Uses `ProfileManager.save_profile` to serialize them into `~/.openhands/llm-profiles/<generated-name>.json`.
+  3. Rewrites the source files to reference the new profiles via `profile_id`.
+- Keep the migration opt-in and idempotent so users can review changes before adopting profiles.
+
+### Testing & validation
+- Extend persistence tests to cover:
+  - Loading agent settings with `profile_id` only.
+  - Mixed scenarios (profile reference plus inline fallback).
+  - Conversation snapshots that retain profile references across reloads.
+- Add regression tests ensuring legacy inline-only configurations continue to work.
+
+### Follow-up coordination
+- Subsequent tasks (agent-sdk-20/21/22) will build on this foundation to expose CLI flags, update documentation, and improve secrets handling.
+
