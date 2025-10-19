@@ -6,7 +6,7 @@ import os
 from collections.abc import Mapping
 from typing import Any
 
-from openhands.sdk.llm.profile_manager import ProfileManager
+from openhands.sdk.llm.llm_registry import LLMRegistry
 
 
 _INLINE_ENV_VAR = "OPENHANDS_INLINE_CONVERSATIONS"
@@ -30,23 +30,21 @@ def prepare_payload_for_persistence(
     """
 
     inline_mode = should_inline_conversations() if inline is None else inline
-    return _transform(
-        payload, inline=inline_mode, deserialize=False, profile_manager=None
-    )
+    return _transform(payload, inline=inline_mode, deserialize=False, llm_registry=None)
 
 
 def expand_profiles_in_payload(
     payload: Mapping[str, Any],
     *,
     inline: bool | None = None,
-    profile_manager: ProfileManager | None = None,
+    llm_registry: LLMRegistry | None = None,
 ) -> dict[str, Any]:
     """Expand persisted payload back into inline LLM dictionaries."""
 
     inline_mode = should_inline_conversations() if inline is None else inline
-    manager = profile_manager or ProfileManager()
+    registry = llm_registry or LLMRegistry()
     return _transform(
-        payload, inline=inline_mode, deserialize=True, profile_manager=manager
+        payload, inline=inline_mode, deserialize=True, llm_registry=registry
     )
 
 
@@ -55,7 +53,7 @@ def _transform(
     *,
     inline: bool,
     deserialize: bool,
-    profile_manager: ProfileManager | None,
+    llm_registry: LLMRegistry | None,
 ) -> Any:
     if isinstance(payload, Mapping):
         data = {
@@ -63,7 +61,7 @@ def _transform(
                 value,
                 inline=inline,
                 deserialize=deserialize,
-                profile_manager=profile_manager,
+                llm_registry=llm_registry,
             )
             for key, value in payload.items()
         }
@@ -78,16 +76,16 @@ def _transform(
                         "Inline the profile or set "
                         "OPENHANDS_INLINE_CONVERSATIONS=false."
                     )
-                assert profile_manager is not None
+                assert llm_registry is not None
                 profile_id = data["profile_id"]
-                llm = profile_manager.load_profile(profile_id)
+                llm = llm_registry.load_profile(profile_id)
                 llm_dict = llm.model_dump(exclude_none=True)
                 llm_dict["profile_id"] = profile_id
                 return _transform(
                     llm_dict,
                     inline=inline,
                     deserialize=True,
-                    profile_manager=profile_manager,
+                    llm_registry=llm_registry,
                 )
         else:
             if not inline and _is_llm_dict(data):
@@ -102,7 +100,7 @@ def _transform(
                 item,
                 inline=inline,
                 deserialize=deserialize,
-                profile_manager=profile_manager,
+                llm_registry=llm_registry,
             )
             for item in payload
         ]

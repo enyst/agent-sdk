@@ -1,4 +1,4 @@
-"""Create and use an LLM profile with :class:`ProfileManager`.
+"""Create and use an LLM profile with :class:`LLMRegistry`.
 
 Run with::
 
@@ -15,7 +15,7 @@ from pydantic import SecretStr
 
 from openhands.sdk import Agent, Conversation
 from openhands.sdk.llm.llm import LLM
-from openhands.sdk.llm.profile_manager import ProfileManager
+from openhands.sdk.llm.llm_registry import LLMRegistry
 from openhands.sdk.tool import Tool, register_tool
 from openhands.tools.execute_bash import BashTool
 
@@ -24,10 +24,10 @@ DEFAULT_PROFILE_NAME = "gpt-5-mini"
 PROFILE_NAME = os.getenv("LLM_PROFILE_NAME", DEFAULT_PROFILE_NAME)
 
 
-def ensure_profile_exists(manager: ProfileManager, name: str) -> None:
+def ensure_profile_exists(registry: LLMRegistry, name: str) -> None:
     """Create a starter profile in the default directory when missing."""
 
-    if name in manager.list_profiles():
+    if name in registry.list_profiles():
         return
 
     profile_defaults = LLM(
@@ -40,12 +40,12 @@ def ensure_profile_exists(manager: ProfileManager, name: str) -> None:
             "profile_description": "Sample GPT-5 Mini profile created by example 25.",
         },
     )
-    path = manager.save_profile(name, profile_defaults)
+    path = registry.save_profile(name, profile_defaults)
     print(f"Created profile '{name}' at {path}")
 
 
-def load_profile(manager: ProfileManager, name: str) -> LLM:
-    llm = manager.load_profile(name)
+def load_profile(registry: LLMRegistry, name: str) -> LLM:
+    llm = registry.load_profile(name)
     if llm.api_key is None:
         api_key = os.getenv("LLM_API_KEY")
         if api_key is None:
@@ -58,10 +58,10 @@ def load_profile(manager: ProfileManager, name: str) -> LLM:
 
 
 def main() -> None:
-    manager = ProfileManager()
-    ensure_profile_exists(manager, PROFILE_NAME)
+    registry = LLMRegistry()
+    ensure_profile_exists(registry, PROFILE_NAME)
 
-    llm = load_profile(manager, PROFILE_NAME)
+    llm = load_profile(registry, PROFILE_NAME)
 
     register_tool("BashTool", BashTool)
     tools = [Tool(name="BashTool")]

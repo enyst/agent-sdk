@@ -11,7 +11,7 @@ from openhands.sdk.conversation.persistence_utils import (
     expand_profiles_in_payload,
     prepare_payload_for_persistence,
 )
-from openhands.sdk.llm.profile_manager import ProfileManager
+from openhands.sdk.llm.llm_registry import LLMRegistry
 
 
 DEFAULT_AGENT_SETTINGS_PATH = Path.home() / ".openhands" / "agent_settings.json"
@@ -21,7 +21,7 @@ def load_agent_settings(
     path: Path | str | None = None,
     *,
     inline: bool | None = None,
-    profile_manager: ProfileManager | None = None,
+    llm_registry: LLMRegistry | None = None,
 ) -> dict[str, Any]:
     """Load agent settings from ``path`` applying profile expansion."""
 
@@ -31,7 +31,7 @@ def load_agent_settings(
     return expand_profiles_in_payload(
         payload,
         inline=inline,
-        profile_manager=profile_manager,
+        llm_registry=llm_registry,
     )
 
 

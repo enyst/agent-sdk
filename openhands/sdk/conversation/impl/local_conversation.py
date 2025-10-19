@@ -17,7 +17,6 @@ from openhands.sdk.event import (
 )
 from openhands.sdk.llm import LLM, Message, TextContent
 from openhands.sdk.llm.llm_registry import LLMRegistry
-from openhands.sdk.llm.profile_manager import ProfileManager
 from openhands.sdk.logger import get_logger
 from openhands.sdk.security.confirmation_policy import (
     ConfirmationPolicyBase,
@@ -113,7 +112,7 @@ class LocalConversation(BaseConversation):
 
         # Eagerly register LLM profiles from disk.
         try:
-            ProfileManager().register_all(self.llm_registry)
+            self.llm_registry.register_profiles()
         except Exception:
             logger.debug("No LLM profiles registered")
 

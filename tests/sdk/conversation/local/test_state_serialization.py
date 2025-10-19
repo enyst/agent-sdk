@@ -14,8 +14,7 @@ from openhands.sdk.conversation.impl.local_conversation import LocalConversation
 from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.event.llm_convertible import MessageEvent, SystemPromptEvent
 from openhands.sdk.llm import LLM, Message, TextContent
-from openhands.sdk.llm.llm_registry import RegistryEvent
-from openhands.sdk.llm.profile_manager import ProfileManager
+from openhands.sdk.llm.llm_registry import LLMRegistry, RegistryEvent
 from openhands.sdk.security.confirmation_policy import AlwaysConfirm
 from openhands.sdk.workspace import LocalWorkspace
 
@@ -150,11 +149,11 @@ def test_conversation_state_profile_reference_mode(tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(home_dir))
     monkeypatch.setenv("OPENHANDS_INLINE_CONVERSATIONS", "false")
 
-    manager = ProfileManager()
+    registry = LLMRegistry()
     llm = LLM(model="litellm_proxy/openai/gpt-5-mini", service_id="agent")
-    manager.save_profile("profile-tests", llm)
+    registry.save_profile("profile-tests", llm)
 
-    agent = Agent(llm=manager.load_profile("profile-tests"), tools=[])
+    agent = Agent(llm=registry.load_profile("profile-tests"), tools=[])
     conv_id = uuid.UUID("12345678-1234-5678-9abc-1234567890ff")
     persistence_root = tmp_path / "conv"
     persistence_dir = LocalConversation.get_persistence_dir(persistence_root, conv_id)
@@ -190,10 +189,10 @@ def test_conversation_state_inline_mode_errors_on_profile_reference(
     monkeypatch.setenv("HOME", str(home_dir))
     monkeypatch.setenv("OPENHANDS_INLINE_CONVERSATIONS", "false")
 
-    manager = ProfileManager()
+    registry = LLMRegistry()
     llm = LLM(model="litellm_proxy/openai/gpt-5-mini", service_id="agent")
-    manager.save_profile("profile-inline", llm)
-    agent = Agent(llm=manager.load_profile("profile-inline"), tools=[])
+    registry.save_profile("profile-inline", llm)
+    agent = Agent(llm=registry.load_profile("profile-inline"), tools=[])
 
     conv_id = uuid.UUID("12345678-1234-5678-9abc-1234567890aa")
     persistence_root = tmp_path / "conv"

@@ -6,6 +6,6 @@
   "max_output_tokens": 4096,
   "service_id": "agent",
   "metadata": {
-    "profile_description": "Sample configuration for the GPT-5 Mini profile managed by ProfileManager."
+    "profile_description": "Sample configuration for the GPT-5 Mini profile managed by the LLM registry."
   }
 }

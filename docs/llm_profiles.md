@@ -9,15 +9,15 @@ Key decisions
 - Reuse the existing LLM Pydantic model schema. A profile file is simply the JSON dump of an LLM instance (the same shape produced by LLM.model_dump(exclude_none=True) or LLM.load_from_json).
 - Storage location: ~/.openhands/llm-profiles/<profile_name>.json. The profile_name is the filename (no extension) used to refer to the profile.
 - Do not change ConversationState or Agent serialization format for now. Profiles are a convenience for creating LLM instances and registering them in the runtime LLMRegistry.
-- Secrets: do NOT store plaintext API keys in profile files by default. Prefer storing the env var name in the LLM.api_key (via LLM.load_from_env) or keep the API key in runtime SecretsManager. The ProfileManager.save_profile API will expose an include_secrets flag; default False.
+- Secrets: do NOT store plaintext API keys in profile files by default. Prefer storing the env var name in the LLM.api_key (via LLM.load_from_env) or keep the API key in runtime SecretsManager. The LLMRegistry.save_profile API exposes an include_secrets flag; default False.
 - LLM.service_id semantics: keep current behavior (a small set of runtime "usage" identifiers such as 'agent', 'condenser', 'title-gen', etc.). Do not use service_id as the profile name. We will evaluate a rename (service_id -> usage_id) in a separate task (see agent-sdk-23).
 
-ProfileManager API (summary)
+LLMRegistry profile API (summary)
 
 - list_profiles() -> list[str]
 - load_profile(name: str) -> LLM
 - save_profile(name: str, llm: LLM, include_secrets: bool = False) -> str (path)
-- register_all(registry: LLMRegistry) -> None
+- register_profiles(profile_ids: Iterable[str] | None = None) -> None
 
 Implementation notes
 
@@ -58,7 +58,7 @@ Notes on service_id rename
   - Inline the full LLM payload only when no profile reference exists.
 
 ### Loader behavior
-- On startup, configuration loaders must detect `profile_id` and load the corresponding LLM via `ProfileManager.load_profile(profile_id)`.
+- On startup, configuration loaders must detect `profile_id` and load the corresponding LLM via `LLMRegistry.load_profile(profile_id)`.
 - If the referenced profile cannot be found, fall back to existing inline data (if available) and surface a clear warning.
 - Inject secrets after loading (same flow used today when constructing LLM instances).
 
@@ -70,7 +70,7 @@ Notes on service_id rename
 ### Migration helper
 - Provide a utility (script or CLI command) that:
   1. Scans existing agent settings and conversation base states for inline LLM configs.
-  2. Uses `ProfileManager.save_profile` to serialize them into `~/.openhands/llm-profiles/<generated-name>.json`.
+  2. Uses `LLMRegistry.save_profile` to serialize them into `~/.openhands/llm-profiles/<generated-name>.json`.
   3. Rewrites the source files to reference the new profiles via `profile_id`.
 - Keep the migration opt-in and idempotent so users can review changes before adopting profiles.
 

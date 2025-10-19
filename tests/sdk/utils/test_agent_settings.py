@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 
 from openhands.sdk.llm import LLM
-from openhands.sdk.llm.profile_manager import ProfileManager
+from openhands.sdk.llm.llm_registry import LLMRegistry
 from openhands.sdk.utils.agent_settings import load_agent_settings, save_agent_settings
 
 
@@ -30,13 +30,13 @@ def test_agent_settings_profile_reference_mode(tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(home_dir))
     monkeypatch.setenv("OPENHANDS_INLINE_CONVERSATIONS", "false")
 
-    manager = ProfileManager()
+    registry = LLMRegistry()
     profile_name = "settings-profile"
-    manager.save_profile(
+    registry.save_profile(
         profile_name, LLM(model="litellm_proxy/openai/gpt-5-mini", service_id="agent")
     )
 
-    llm = manager.load_profile(profile_name)
+    llm = registry.load_profile(profile_name)
     settings_path = tmp_path / "agent_settings.json"
     settings = {"agent": {"llm": llm.model_dump(exclude_none=True)}}
 
