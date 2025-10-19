@@ -12,8 +12,8 @@ from openhands.sdk.conversation.event_store import EventLog
 from openhands.sdk.conversation.fifo_lock import FIFOLock
 from openhands.sdk.conversation.persistence_const import BASE_STATE, EVENTS_DIR
 from openhands.sdk.conversation.persistence_utils import (
-    expand_profiles_in_payload,
-    prepare_payload_for_persistence,
+    compact_llm_profiles,
+    resolve_llm_profiles,
     should_inline_conversations,
 )
 from openhands.sdk.conversation.secrets_manager import SecretsManager
@@ -139,7 +139,7 @@ class ConversationState(OpenHandsModel):
         Persist base state snapshot (no events; events are file-backed).
         """
         inline_mode = should_inline_conversations()
-        payload = prepare_payload_for_persistence(
+        payload = compact_llm_profiles(
             self.model_dump(mode="json", exclude_none=True), inline=inline_mode
         )
         fs.write(BASE_STATE, json.dumps(payload))
@@ -174,7 +174,7 @@ class ConversationState(OpenHandsModel):
         # ---- Resume path ----
         if base_text:
             raw_payload = json.loads(base_text)
-            payload = expand_profiles_in_payload(raw_payload, inline=inline_mode)
+            payload = resolve_llm_profiles(raw_payload, inline=inline_mode)
             state = cls.model_validate(payload)
 
             # Enforce conversation id match

@@ -20,56 +20,54 @@ def should_inline_conversations() -> bool:
     return value not in _FALSE_VALUES
 
 
-def prepare_payload_for_persistence(
-    payload: Mapping[str, Any], *, inline: bool | None = None
+def compact_llm_profiles(
+    data: Mapping[str, Any], *, inline: bool | None = None
 ) -> dict[str, Any]:
-    """Return a payload ready to be written to disk.
+    """Return a mapping ready to be persisted to disk.
 
     When ``inline`` is False and an LLM dict contains ``profile_id``, the body is
-    replaced with ``{"profile_id": <id>}``. Otherwise the payload is left intact.
+    replaced with ``{"profile_id": <id>}``. Otherwise the structure is left intact.
     """
 
     inline_mode = should_inline_conversations() if inline is None else inline
-    return _transform(payload, inline=inline_mode, deserialize=False, llm_registry=None)
+    return _transform(data, inline=inline_mode, deserialize=False, llm_registry=None)
 
 
-def expand_profiles_in_payload(
-    payload: Mapping[str, Any],
+def resolve_llm_profiles(
+    data: Mapping[str, Any],
     *,
     inline: bool | None = None,
     llm_registry: LLMRegistry | None = None,
 ) -> dict[str, Any]:
-    """Expand persisted payload back into inline LLM dictionaries."""
+    """Expand stored profile references back into inline LLM dictionaries."""
 
     inline_mode = should_inline_conversations() if inline is None else inline
     registry = llm_registry or LLMRegistry()
-    return _transform(
-        payload, inline=inline_mode, deserialize=True, llm_registry=registry
-    )
+    return _transform(data, inline=inline_mode, deserialize=True, llm_registry=registry)
 
 
 def _transform(
-    payload: Mapping[str, Any] | list[Any],
+    data: Mapping[str, Any] | list[Any],
     *,
     inline: bool,
     deserialize: bool,
     llm_registry: LLMRegistry | None,
 ) -> Any:
-    if isinstance(payload, Mapping):
-        data = {
+    if isinstance(data, Mapping):
+        expanded = {
             key: _transform(
                 value,
                 inline=inline,
                 deserialize=deserialize,
                 llm_registry=llm_registry,
             )
-            for key, value in payload.items()
+            for key, value in data.items()
         }
 
         if deserialize:
-            if _is_profile_reference(data):
+            if _is_profile_reference(expanded):
                 if inline:
-                    profile_id = data["profile_id"]
+                    profile_id = expanded["profile_id"]
                     raise ValueError(
                         "Encountered profile reference for LLM while "
                         "OPENHANDS_INLINE_CONVERSATIONS is enabled. "
@@ -77,7 +75,7 @@ def _transform(
                         "OPENHANDS_INLINE_CONVERSATIONS=false."
                     )
                 assert llm_registry is not None
-                profile_id = data["profile_id"]
+                profile_id = expanded["profile_id"]
                 llm = llm_registry.load_profile(profile_id)
                 llm_dict = llm.model_dump(exclude_none=True)
                 llm_dict["profile_id"] = profile_id
@@ -88,13 +86,13 @@ def _transform(
                     llm_registry=llm_registry,
                 )
         else:
-            if not inline and _is_llm_dict(data):
-                profile_id = data.get("profile_id")
+            if not inline and _is_llm_dict(expanded):
+                profile_id = expanded.get("profile_id")
                 if profile_id:
                     return {"profile_id": profile_id}
-        return data
+        return expanded
 
-    if isinstance(payload, list):
+    if isinstance(data, list):
         return [
             _transform(
                 item,
@@ -102,10 +100,10 @@ def _transform(
                 deserialize=deserialize,
                 llm_registry=llm_registry,
             )
-            for item in payload
+            for item in data
         ]
 
-    return payload
+    return data
 
 
 def _is_llm_dict(value: Mapping[str, Any]) -> bool:
