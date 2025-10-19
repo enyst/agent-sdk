@@ -91,7 +91,7 @@ class LLMRegistry:
         self.service_to_llm[service_id] = llm
         self.notify(RegistryEvent(llm=llm))
         logger.info(
-            "[LLM registry %s]: Added LLM for service %s", self.registry_id, service_id
+            f"[LLM registry {self.registry_id}]: Added LLM for service {service_id}"
         )
 
     def get(self, service_id: str) -> LLM:
@@ -103,9 +103,7 @@ class LLMRegistry:
             )
 
         logger.info(
-            "[LLM registry %s]: Retrieved LLM for service %s",
-            self.registry_id,
-            service_id,
+            f"[LLM registry {self.registry_id}]: Retrieved LLM for service {service_id}"
         )
         return self.service_to_llm[service_id]
 
@@ -156,7 +154,7 @@ class LLMRegistry:
 
         with path.open("w", encoding="utf-8") as handle:
             json.dump(data, handle, indent=2, ensure_ascii=False)
-        logger.info("Saved profile %s -> %s", profile_id, path)
+        logger.info(f"Saved profile {profile_id} -> {path}")
         return path
 
     def register_profiles(self, profile_ids: Iterable[str] | None = None) -> None:
@@ -166,14 +164,14 @@ class LLMRegistry:
             try:
                 llm = self.load_profile(profile_id)
             except Exception as exc:  # noqa: BLE001
-                logger.warning("Failed to load profile %s: %s", profile_id, exc)
+                logger.warning(f"Failed to load profile {profile_id}: {exc}")
                 continue
 
             try:
                 self.add(llm)
             except Exception as exc:  # noqa: BLE001
                 logger.info(
-                    "Skipping profile %s: registry.add failed: %s", profile_id, exc
+                    f"Skipping profile {profile_id}: registry.add failed: {exc}"
                 )
 
     def validate_profile(self, data: Mapping[str, Any]) -> tuple[bool, list[str]]:
