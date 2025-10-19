@@ -29,8 +29,10 @@ def prepare_payload_for_persistence(
     replaced with ``{"profile_id": <id>}``. Otherwise the payload is left intact.
     """
 
-    inline = should_inline_conversations() if inline is None else inline
-    return _transform(payload, inline=inline, deserialize=False, profile_manager=None)
+    inline_mode = should_inline_conversations() if inline is None else inline
+    return _transform(
+        payload, inline=inline_mode, deserialize=False, profile_manager=None
+    )
 
 
 def expand_profiles_in_payload(
@@ -41,9 +43,11 @@ def expand_profiles_in_payload(
 ) -> dict[str, Any]:
     """Expand persisted payload back into inline LLM dictionaries."""
 
-    inline = should_inline_conversations() if inline is None else inline
+    inline_mode = should_inline_conversations() if inline is None else inline
     manager = profile_manager or ProfileManager()
-    return _transform(payload, inline=inline, deserialize=True, profile_manager=manager)
+    return _transform(
+        payload, inline=inline_mode, deserialize=True, profile_manager=manager
+    )
 
 
 def _transform(

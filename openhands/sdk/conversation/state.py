@@ -138,9 +138,9 @@ class ConversationState(OpenHandsModel):
         """
         Persist base state snapshot (no events; events are file-backed).
         """
-        inline = should_inline_conversations()
+        inline_mode = should_inline_conversations()
         payload = prepare_payload_for_persistence(
-            self.model_dump(mode="json", exclude_none=True), inline=inline
+            self.model_dump(mode="json", exclude_none=True), inline=inline_mode
         )
         fs.write(BASE_STATE, json.dumps(payload))
 
