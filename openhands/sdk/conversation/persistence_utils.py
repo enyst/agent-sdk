@@ -30,7 +30,7 @@ def compact_llm_profiles(
     """
 
     inline_mode = should_inline_conversations() if inline is None else inline
-    return _transform(data, inline=inline_mode, deserialize=False, llm_registry=None)
+    return _compact(data, inline=inline_mode)
 
 
 def resolve_llm_profiles(
@@ -43,67 +43,59 @@ def resolve_llm_profiles(
 
     inline_mode = should_inline_conversations() if inline is None else inline
     registry = llm_registry or LLMRegistry()
-    return _transform(data, inline=inline_mode, deserialize=True, llm_registry=registry)
+    return _resolve(data, inline=inline_mode, llm_registry=registry)
 
 
-def _transform(
-    data: Mapping[str, Any] | list[Any],
+def _compact(value: Mapping[str, Any] | list[Any] | Any, *, inline: bool) -> Any:
+    if isinstance(value, Mapping):
+        compacted = {key: _compact(item, inline=inline) for key, item in value.items()}
+        if not inline and _is_llm_dict(compacted):
+            profile_id = compacted.get("profile_id")
+            if profile_id:
+                return {"profile_id": profile_id}
+        return compacted
+
+    if isinstance(value, list):
+        return [_compact(item, inline=inline) for item in value]
+
+    return value
+
+
+def _resolve(
+    value: Mapping[str, Any] | list[Any] | Any,
     *,
     inline: bool,
-    deserialize: bool,
-    llm_registry: LLMRegistry | None,
+    llm_registry: LLMRegistry,
 ) -> Any:
-    if isinstance(data, Mapping):
+    if isinstance(value, Mapping):
         expanded = {
-            key: _transform(
-                value,
-                inline=inline,
-                deserialize=deserialize,
-                llm_registry=llm_registry,
-            )
-            for key, value in data.items()
+            key: _resolve(item, inline=inline, llm_registry=llm_registry)
+            for key, item in value.items()
         }
 
-        if deserialize:
-            if _is_profile_reference(expanded):
-                if inline:
-                    profile_id = expanded["profile_id"]
-                    raise ValueError(
-                        "Encountered profile reference for LLM while "
-                        "OPENHANDS_INLINE_CONVERSATIONS is enabled. "
-                        "Inline the profile or set "
-                        "OPENHANDS_INLINE_CONVERSATIONS=false."
-                    )
-                assert llm_registry is not None
+        if _is_profile_reference(expanded):
+            if inline:
                 profile_id = expanded["profile_id"]
-                llm = llm_registry.load_profile(profile_id)
-                llm_dict = llm.model_dump(exclude_none=True)
-                llm_dict["profile_id"] = profile_id
-                return _transform(
-                    llm_dict,
-                    inline=inline,
-                    deserialize=True,
-                    llm_registry=llm_registry,
+                raise ValueError(
+                    "Encountered profile reference for LLM while "
+                    "OPENHANDS_INLINE_CONVERSATIONS is enabled. "
+                    "Inline the profile or set "
+                    "OPENHANDS_INLINE_CONVERSATIONS=false."
                 )
-        else:
-            if not inline and _is_llm_dict(expanded):
-                profile_id = expanded.get("profile_id")
-                if profile_id:
-                    return {"profile_id": profile_id}
+            profile_id = expanded["profile_id"]
+            llm = llm_registry.load_profile(profile_id)
+            llm_dict = llm.model_dump(exclude_none=True)
+            llm_dict["profile_id"] = profile_id
+            return _resolve(llm_dict, inline=inline, llm_registry=llm_registry)
+
         return expanded
 
-    if isinstance(data, list):
+    if isinstance(value, list):
         return [
-            _transform(
-                item,
-                inline=inline,
-                deserialize=deserialize,
-                llm_registry=llm_registry,
-            )
-            for item in data
+            _resolve(item, inline=inline, llm_registry=llm_registry) for item in value
         ]
 
-    return data
+    return value
 
 
 def _is_llm_dict(value: Mapping[str, Any]) -> bool:
