@@ -204,5 +204,7 @@ class LLMRegistry:
     def _load_profile_with_synced_id(self, path: Path, profile_id: str) -> LLM:
         llm = LLM.load_from_json(str(path))
         if llm.profile_id != profile_id:
+            # force llm.profile_id to carry the correct name
+            # (the name of the .json we loaded it from)
             llm = llm.model_copy(update={"profile_id": profile_id})
         return llm
