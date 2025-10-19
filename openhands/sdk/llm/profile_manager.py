@@ -92,9 +92,6 @@ class ProfileManager:
 
     def _load_profile_from_path(self, path: Path, name: str) -> LLM:
         llm = LLM.load_from_json(str(path))
-        if getattr(llm, "profile_id", None) != name:
-            try:
-                llm = llm.model_copy(update={"profile_id": name})
-            except Exception:
-                llm.profile_id = name  # type: ignore[attr-defined]
+        if llm.profile_id != name:
+            llm = llm.model_copy(update={"profile_id": name})
         return llm
