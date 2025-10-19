@@ -45,7 +45,7 @@ class ProfileManager:
         path = self.get_profile_path(name)
         if not path.exists():
             raise FileNotFoundError(f"Profile not found: {name} -> {path}")
-        return self._load_profile_from_path(path, name)
+        return self._load_profile_with_synced_id(path, name)
 
     def save_profile(self, name: str, llm: LLM, include_secrets: bool = False) -> Path:
         path = self.get_profile_path(name)
@@ -90,7 +90,7 @@ class ProfileManager:
             return False, messages
         return True, []
 
-    def _load_profile_from_path(self, path: Path, name: str) -> LLM:
+    def _load_profile_with_synced_id(self, path: Path, name: str) -> LLM:
         llm = LLM.load_from_json(str(path))
         if llm.profile_id != name:
             llm = llm.model_copy(update={"profile_id": name})
