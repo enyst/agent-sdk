@@ -208,3 +208,4 @@ openapi.json
 *.db
 .worktrees/
 *.code-workspace
+scripts/worktree.sh
