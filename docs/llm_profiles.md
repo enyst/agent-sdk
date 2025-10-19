@@ -21,6 +21,7 @@ LLMRegistry profile API (summary)
 
 Implementation notes
 
+- LLMRegistry is the single entry point for both in-memory registration and on-disk profile persistence. Pass ``profile_dir`` to the constructor to override the default location when embedding the SDK.
 - Use LLM.load_from_json(path) for loading and llm.model_dump(exclude_none=True) for saving.
 - Default directory: os.path.expanduser('~/.openhands/llm-profiles/')
 - When loading, do not inject secrets. The runtime should reconcile secrets via ConversationState/Agent resolve_diff_from_deserialized or via SecretsManager.
