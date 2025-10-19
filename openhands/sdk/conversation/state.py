@@ -11,6 +11,11 @@ from openhands.sdk.conversation.conversation_stats import ConversationStats
 from openhands.sdk.conversation.event_store import EventLog
 from openhands.sdk.conversation.fifo_lock import FIFOLock
 from openhands.sdk.conversation.persistence_const import BASE_STATE, EVENTS_DIR
+from openhands.sdk.conversation.persistence_utils import (
+    expand_profiles_in_payload,
+    prepare_payload_for_persistence,
+    should_inline_conversations,
+)
 from openhands.sdk.conversation.secrets_manager import SecretsManager
 from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
 from openhands.sdk.event import ActionEvent, ObservationEvent, UserRejectObservation
@@ -133,8 +138,11 @@ class ConversationState(OpenHandsModel):
         """
         Persist base state snapshot (no events; events are file-backed).
         """
-        payload = self.model_dump_json(exclude_none=True)
-        fs.write(BASE_STATE, payload)
+        inline = should_inline_conversations()
+        payload = prepare_payload_for_persistence(
+            self.model_dump(mode="json", exclude_none=True), inline=inline
+        )
+        fs.write(BASE_STATE, json.dumps(payload))
 
     # ===== Factory: open-or-create (no load/save methods needed) =====
     @classmethod
@@ -161,9 +169,13 @@ class ConversationState(OpenHandsModel):
         except FileNotFoundError:
             base_text = None
 
+        inline_mode = should_inline_conversations()
+
         # ---- Resume path ----
         if base_text:
-            state = cls.model_validate(json.loads(base_text))
+            raw_payload = json.loads(base_text)
+            payload = expand_profiles_in_payload(raw_payload, inline=inline_mode)
+            state = cls.model_validate(payload)
 
             # Enforce conversation id match
             if state.id != id:

@@ -65,6 +65,7 @@ Notes on service_id rename
 ### Writer behavior
 - When persisting updated agent settings or conversation snapshots, write back the `profile_id` whenever the active LLM was sourced from a profile.
 - Only write the raw LLM configuration for ad-hoc instances (no associated profile), preserving current behavior.
+- Respect the `OPENHANDS_INLINE_CONVERSATIONS` flag (default: true for reproducibility). When enabled, always inline full LLM payloads—even if `profile_id` exists—and surface an error if a conversation only contains `profile_id` entries.
 
 ### Migration helper
 - Provide a utility (script or CLI command) that:
