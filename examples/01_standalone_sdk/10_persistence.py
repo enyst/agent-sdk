@@ -21,10 +21,12 @@ logger = get_logger(__name__)
 # Configure LLM
 api_key = os.getenv("LLM_API_KEY")
 assert api_key is not None, "LLM_API_KEY environment variable is not set."
+model = os.getenv("LLM_MODEL", "openhands/claude-sonnet-4-5-20250929")
+base_url = os.getenv("LLM_BASE_URL")
 llm = LLM(
-    service_id="agent",
-    model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
-    base_url="https://llm-proxy.eval.all-hands.dev",
+    usage_id="agent",
+    model=model,
+    base_url=base_url,
     api_key=SecretStr(api_key),
 )
 
@@ -65,7 +67,7 @@ conversation = Conversation(
     conversation_id=conversation_id,
 )
 conversation.send_message(
-    "Read https://github.com/All-Hands-AI/OpenHands. Then write 3 facts "
+    "Read https://github.com/OpenHands/OpenHands. Then write 3 facts "
     "about the project into FACTS.txt."
 )
 conversation.run()

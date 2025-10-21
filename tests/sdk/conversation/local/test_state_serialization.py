@@ -21,7 +21,7 @@ from openhands.sdk.workspace import LocalWorkspace
 
 def test_conversation_state_basic_serialization():
     """Test basic ConversationState serialization and deserialization."""
-    llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm")
+    llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"), usage_id="test-llm")
     agent = Agent(llm=llm, tools=[])
     state = ConversationState.create(
         agent=agent,
@@ -72,7 +72,7 @@ def test_conversation_state_persistence_save_load():
     """Test ConversationState persistence with FileStore."""
     with tempfile.TemporaryDirectory() as temp_dir:
         llm = LLM(
-            model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm"
+            model="gpt-4o-mini", api_key=SecretStr("test-key"), usage_id="test-llm"
         )
         agent = Agent(llm=llm, tools=[])
 
@@ -223,7 +223,7 @@ def test_conversation_state_incremental_save():
     """Test that ConversationState saves events incrementally."""
     with tempfile.TemporaryDirectory() as temp_dir:
         llm = LLM(
-            model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm"
+            model="gpt-4o-mini", api_key=SecretStr("test-key"), usage_id="test-llm"
         )
         agent = Agent(llm=llm, tools=[])
 
@@ -289,7 +289,7 @@ def test_conversation_state_event_file_scanning():
     """Test event file scanning and sorting logic through EventLog."""
     with tempfile.TemporaryDirectory() as temp_dir:
         llm = LLM(
-            model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm"
+            model="gpt-4o-mini", api_key=SecretStr("test-key"), usage_id="test-llm"
         )
         agent = Agent(llm=llm, tools=[])
 
@@ -352,7 +352,7 @@ def test_conversation_state_corrupted_event_handling():
     """Test handling of corrupted event files during replay."""
     with tempfile.TemporaryDirectory() as temp_dir:
         llm = LLM(
-            model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm"
+            model="gpt-4o-mini", api_key=SecretStr("test-key"), usage_id="test-llm"
         )
         agent = Agent(llm=llm, tools=[])
 
@@ -405,7 +405,7 @@ def test_conversation_state_empty_filestore():
     """Test ConversationState behavior with empty persistence directory."""
     with tempfile.TemporaryDirectory() as temp_dir:
         llm = LLM(
-            model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm"
+            model="gpt-4o-mini", api_key=SecretStr("test-key"), usage_id="test-llm"
         )
         agent = Agent(llm=llm, tools=[])
 
@@ -427,7 +427,7 @@ def test_conversation_state_missing_base_state():
     """Test error handling when base_state.json is missing but events exist."""
     with tempfile.TemporaryDirectory() as temp_dir:
         llm = LLM(
-            model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm"
+            model="gpt-4o-mini", api_key=SecretStr("test-key"), usage_id="test-llm"
         )
         agent = Agent(llm=llm, tools=[])
 
@@ -463,7 +463,7 @@ def test_conversation_state_exclude_from_base_state():
     """Test that events are excluded from base state serialization."""
     with tempfile.TemporaryDirectory() as temp_dir:
         llm = LLM(
-            model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm"
+            model="gpt-4o-mini", api_key=SecretStr("test-key"), usage_id="test-llm"
         )
         agent = Agent(llm=llm, tools=[])
         state = ConversationState.create(
@@ -492,7 +492,7 @@ def test_conversation_state_exclude_from_base_state():
 
 def test_conversation_state_thread_safety():
     """Test ConversationState thread safety with lock/unlock."""
-    llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm")
+    llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"), usage_id="test-llm")
     agent = Agent(llm=llm, tools=[])
     state = ConversationState.create(
         workspace=LocalWorkspace(working_dir="/tmp"),
@@ -524,7 +524,7 @@ def test_agent_resolve_diff_different_class_raises_error():
             llm = LLM(
                 model="gpt-4o-mini",
                 api_key=SecretStr("test-key"),
-                service_id="test-llm",
+                usage_id="test-llm",
             )
             super().__init__(llm=llm, tools=[])
 
@@ -534,7 +534,7 @@ def test_agent_resolve_diff_different_class_raises_error():
         def step(self, state, on_event):
             pass
 
-    llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm")
+    llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"), usage_id="test-llm")
     original_agent = Agent(llm=llm, tools=[])
     different_agent = DifferentAgent()
 
@@ -546,7 +546,7 @@ def test_conversation_state_flags_persistence():
     """Test that conversation state flags are properly persisted."""
     with tempfile.TemporaryDirectory() as temp_dir:
         llm = LLM(
-            model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm"
+            model="gpt-4o-mini", api_key=SecretStr("test-key"), usage_id="test-llm"
         )
         agent = Agent(llm=llm, tools=[])
         conv_id = uuid.UUID("12345678-1234-5678-9abc-123456789006")
@@ -565,7 +565,7 @@ def test_conversation_state_flags_persistence():
         # Set various flags
         state.agent_status = AgentExecutionStatus.FINISHED
         state.confirmation_policy = AlwaysConfirm()
-        state.activated_knowledge_microagents = ["agent1", "agent2"]
+        state.activated_knowledge_skills = ["agent1", "agent2"]
 
         # Create a new ConversationState that loads from the same persistence directory
         loaded_state = ConversationState.create(
@@ -581,7 +581,7 @@ def test_conversation_state_flags_persistence():
         # Verify flags are preserved
         assert loaded_state.agent_status == AgentExecutionStatus.FINISHED
         assert loaded_state.confirmation_policy == AlwaysConfirm()
-        assert loaded_state.activated_knowledge_microagents == ["agent1", "agent2"]
+        assert loaded_state.activated_knowledge_skills == ["agent1", "agent2"]
         # Test model_dump equality
         assert loaded_state.model_dump(mode="json") != state.model_dump(mode="json")
         loaded_state.stats.register_llm(RegistryEvent(llm=llm))
@@ -595,7 +595,7 @@ def test_conversation_with_agent_different_llm_config():
         original_llm = LLM(
             model="gpt-4o-mini",
             api_key=SecretStr("original-key"),
-            service_id="test-llm",
+            usage_id="test-llm",
         )
         original_agent = Agent(llm=original_llm, tools=[])
         conversation = Conversation(
@@ -620,7 +620,7 @@ def test_conversation_with_agent_different_llm_config():
 
         # Try with different LLM config (different API key should be resolved)
         new_llm = LLM(
-            model="gpt-4o-mini", api_key=SecretStr("new-key"), service_id="test-llm"
+            model="gpt-4o-mini", api_key=SecretStr("new-key"), usage_id="test-llm"
         )
         new_agent = Agent(llm=new_llm, tools=[])
 
@@ -638,3 +638,104 @@ def test_conversation_with_agent_different_llm_config():
         # Test that the core state structure is preserved (excluding agent differences)
         new_dump = new_conversation._state.model_dump(mode="json", exclude={"agent"})
         assert new_dump == original_state_dump
+
+
+def test_local_conversation_switch_llm_persists_profile(tmp_path, monkeypatch):
+    home_dir = tmp_path / "home"
+    home_dir.mkdir()
+    monkeypatch.setenv("HOME", str(home_dir))
+    monkeypatch.setenv("OPENHANDS_INLINE_CONVERSATIONS", "false")
+
+    registry = LLMRegistry()
+    base_llm = LLM(model="gpt-4o-mini", usage_id="test-llm")
+    registry.save_profile("base", base_llm)
+    alt_llm = LLM(model="gpt-4o", usage_id="alternate", temperature=0.4)
+    registry.save_profile("alt", alt_llm)
+
+    agent = Agent(llm=registry.load_profile("base"), tools=[])
+    workspace_dir = tmp_path / "workspace"
+    persistence_dir = tmp_path / "persist"
+
+    conversation = Conversation(
+        agent=agent,
+        workspace=str(workspace_dir),
+        persistence_dir=str(persistence_dir),
+        visualize=False,
+    )
+    assert isinstance(conversation, LocalConversation)
+
+    conversation.switch_llm("alt")
+
+    assert conversation.agent.llm.profile_id == "alt"
+    assert conversation.state.agent.llm.profile_id == "alt"
+    assert conversation.agent.llm.usage_id == "test-llm"
+    assert conversation.llm_registry.get("test-llm").model == alt_llm.model
+
+    persistence_path = conversation.state.persistence_dir
+    assert persistence_path is not None
+    base_state_path = Path(persistence_path) / "base_state.json"
+    data = json.loads(base_state_path.read_text())
+    assert data["agent"]["llm"] == {"profile_id": "alt"}
+
+    reloaded_agent = Agent(llm=registry.load_profile("alt"), tools=[])
+    reloaded = Conversation(
+        agent=reloaded_agent,
+        workspace=str(workspace_dir),
+        persistence_dir=str(persistence_dir),
+        conversation_id=conversation.id,
+        visualize=False,
+    )
+    assert isinstance(reloaded, LocalConversation)
+    assert reloaded.state.agent.llm.profile_id == "alt"
+    assert reloaded.state.agent.llm.usage_id == "test-llm"
+
+
+def test_local_conversation_switch_llm_inline_mode_rejected(tmp_path, monkeypatch):
+    home_dir = tmp_path / "home"
+    home_dir.mkdir()
+    monkeypatch.setenv("HOME", str(home_dir))
+    monkeypatch.setenv("OPENHANDS_INLINE_CONVERSATIONS", "true")
+
+    registry = LLMRegistry()
+    base_llm = LLM(model="gpt-4o-mini", usage_id="test-llm")
+    registry.save_profile("base", base_llm)
+    registry.save_profile("alt", LLM(model="gpt-4o", usage_id="alternate"))
+
+    agent = Agent(llm=registry.load_profile("base"), tools=[])
+    conversation = Conversation(
+        agent=agent,
+        workspace=str(tmp_path / "workspace"),
+        persistence_dir=str(tmp_path / "persist"),
+        visualize=False,
+    )
+    assert isinstance(conversation, LocalConversation)
+
+    with pytest.raises(RuntimeError, match="OPENHANDS_INLINE_CONVERSATIONS"):
+        conversation.switch_llm("alt")
+
+
+def test_local_conversation_switch_llm_requires_idle(tmp_path, monkeypatch):
+    home_dir = tmp_path / "home"
+    home_dir.mkdir()
+    monkeypatch.setenv("HOME", str(home_dir))
+    monkeypatch.setenv("OPENHANDS_INLINE_CONVERSATIONS", "false")
+
+    registry = LLMRegistry()
+    base_llm = LLM(model="gpt-4o-mini", usage_id="test-llm")
+    registry.save_profile("base", base_llm)
+    registry.save_profile("alt", LLM(model="gpt-4o", usage_id="alternate"))
+
+    agent = Agent(llm=registry.load_profile("base"), tools=[])
+    conversation = Conversation(
+        agent=agent,
+        workspace=str(tmp_path / "workspace"),
+        persistence_dir=str(tmp_path / "persist"),
+        visualize=False,
+    )
+    assert isinstance(conversation, LocalConversation)
+
+    with conversation.state:
+        conversation.state.agent_status = AgentExecutionStatus.RUNNING
+
+    with pytest.raises(RuntimeError, match="Agent must be idle"):
+        conversation.switch_llm("alt")

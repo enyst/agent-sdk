@@ -16,6 +16,7 @@ from openhands.sdk.event import (
     ObservationEvent,
     PauseEvent,
     SystemPromptEvent,
+    UserRejectObservation,
 )
 from openhands.sdk.llm import (
     ImageContent,
@@ -186,7 +187,7 @@ def test_message_event_visualize():
     event = MessageEvent(
         source="user",
         llm_message=message,
-        activated_microagents=["helper", "analyzer"],
+        activated_skills=["helper", "analyzer"],
         extended_content=[TextContent(text="Additional context")],
     )
 
@@ -195,7 +196,7 @@ def test_message_event_visualize():
 
     text_content = result.plain
     assert "Hello, how can you help me?" in text_content
-    assert "Activated Microagents: helper, analyzer" in text_content
+    assert "Activated Skills: helper, analyzer" in text_content
     assert "Prompt Extension based on Agent Context:" in text_content
     assert "Additional context" in text_content
 
@@ -281,6 +282,27 @@ def test_visualizer_action_event_with_none_action_panel():
     assert "Agent Action (Not Executed)" in str(panel.title)
 
 
+def test_visualizer_user_reject_observation_panel():
+    """UserRejectObservation should render a dedicated panel."""
+    visualizer = ConversationVisualizer()
+    event = UserRejectObservation(
+        tool_name="demo_tool",
+        tool_call_id="fc_call_1",
+        action_id="action_1",
+        rejection_reason="User rejected the proposed action.",
+    )
+
+    panel = visualizer._create_event_panel(event)
+    assert panel is not None
+    title = str(panel.title)
+    assert "UNKNOWN Event" not in title
+    assert "User Rejected Action" in title
+    # ensure the reason is part of the renderable text
+    renderable = panel.renderable
+    assert isinstance(renderable, Text)
+    assert "User rejected the proposed action." in renderable.plain
+
+
 def test_metrics_formatting():
     """Test metrics subtitle formatting."""
     from openhands.sdk.conversation.conversation_stats import ConversationStats
@@ -303,7 +325,7 @@ def test_metrics_formatting():
     )
 
     # Add metrics to conversation stats
-    conversation_stats.service_to_metrics["test_service"] = metrics
+    conversation_stats.usage_to_metrics["test_usage"] = metrics
 
     # Create visualizer with conversation stats
     visualizer = ConversationVisualizer(conversation_stats=conversation_stats)
