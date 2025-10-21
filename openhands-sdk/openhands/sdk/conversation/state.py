@@ -1,5 +1,4 @@
 # state.py
-import json
 from collections.abc import Sequence
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Self
@@ -11,17 +10,16 @@ from openhands.sdk.conversation.conversation_stats import ConversationStats
 from openhands.sdk.conversation.event_store import EventLog
 from openhands.sdk.conversation.fifo_lock import FIFOLock
 from openhands.sdk.conversation.persistence_const import BASE_STATE, EVENTS_DIR
-from openhands.sdk.conversation.persistence_utils import (
-    compact_llm_profiles,
-    resolve_llm_profiles,
-    should_inline_conversations,
-)
 from openhands.sdk.conversation.secrets_manager import SecretsManager
 from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
 from openhands.sdk.event import ActionEvent, ObservationEvent, UserRejectObservation
 from openhands.sdk.event.base import Event
 from openhands.sdk.io import FileStore, InMemoryFileStore, LocalFileStore
 from openhands.sdk.logger import get_logger
+from openhands.sdk.persistence.settings import (
+    INLINE_CONTEXT_KEY,
+    should_inline_conversations,
+)
 from openhands.sdk.security.confirmation_policy import (
     ConfirmationPolicyBase,
     NeverConfirm,
@@ -139,10 +137,11 @@ class ConversationState(OpenHandsModel):
         Persist base state snapshot (no events; events are file-backed).
         """
         inline_mode = should_inline_conversations()
-        payload = compact_llm_profiles(
-            self.model_dump(mode="json", exclude_none=True), inline=inline_mode
+        payload = self.model_dump_json(
+            exclude_none=True,
+            context={INLINE_CONTEXT_KEY: inline_mode},
         )
-        fs.write(BASE_STATE, json.dumps(payload))
+        fs.write(BASE_STATE, payload)
 
     # ===== Factory: open-or-create (no load/save methods needed) =====
     @classmethod
@@ -170,12 +169,11 @@ class ConversationState(OpenHandsModel):
             base_text = None
 
         inline_mode = should_inline_conversations()
+        context = {INLINE_CONTEXT_KEY: inline_mode}
 
         # ---- Resume path ----
         if base_text:
-            raw_payload = json.loads(base_text)
-            payload = resolve_llm_profiles(raw_payload, inline=inline_mode)
-            state = cls.model_validate(payload)
+            state = cls.model_validate_json(base_text, context=context)
 
             # Enforce conversation id match
             if state.id != id:

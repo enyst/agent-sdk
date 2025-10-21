@@ -4,6 +4,7 @@ from pydantic import SecretStr
 
 from openhands.sdk.llm.llm import LLM
 from openhands.sdk.llm.llm_registry import LLMRegistry
+from openhands.sdk.persistence.settings import INLINE_CONTEXT_KEY
 
 
 def test_list_profiles_returns_sorted_names(tmp_path):
@@ -84,6 +85,32 @@ def test_register_profiles_skips_invalid_and_duplicate_profiles(tmp_path):
     registry.register_profiles()
 
     assert registry.list_usage_ids() == ["shared"]
+
+
+def test_llm_serializer_respects_inline_context():
+    llm = LLM(model="gpt-4o-mini", usage_id="service", profile_id="sample")
+
+    inline_payload = llm.model_dump(mode="json")
+    assert inline_payload["model"] == "gpt-4o-mini"
+
+    referenced = llm.model_dump(mode="json", context={INLINE_CONTEXT_KEY: False})
+    assert referenced == {"profile_id": "sample"}
+
+
+def test_llm_validator_loads_profile_reference(tmp_path, monkeypatch):
+    monkeypatch.setenv("OPENHANDS_INLINE_CONVERSATIONS", "false")
+    registry = LLMRegistry(profile_dir=tmp_path)
+    source_llm = LLM(model="gpt-4o-mini", usage_id="service")
+    registry.save_profile("profile-tests", source_llm)
+
+    parsed = LLM.model_validate(
+        {"profile_id": "profile-tests"},
+        context={INLINE_CONTEXT_KEY: False, "llm_registry": registry},
+    )
+
+    assert parsed.model == source_llm.model
+    assert parsed.profile_id == "profile-tests"
+    assert parsed.usage_id == source_llm.usage_id
 
 
 def test_validate_profile_reports_errors(tmp_path):

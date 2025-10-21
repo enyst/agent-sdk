@@ -85,3 +85,22 @@ Notes on service_id rename
 ### Follow-up coordination
 - Subsequent tasks (agent-sdk-20/21/22) will build on this foundation to expose CLI flags, update documentation, and improve secrets handling.
 
+
+## Persistence integration review
+
+### Conversation snapshots vs. profile-aware serialization
+- **Caller experience:** Conversations that opt into profile references should behave the same as the legacy inline flow. Callers still receive fully expanded `LLM` payloads when they work with `ConversationState` objects or remote conversation APIs. The only observable change is that persisted `base_state.json` files can shrink to `{ "profile_id": "<name>" }` instead of storing every field.
+- **Inline vs. referenced storage:** Conversation persistence previously delegated everything to Pydantic (`model_dump_json` / `model_validate`). The draft implementation added a recursive helper (`compact_llm_profiles` / `resolve_llm_profiles`) that walked arbitrary dictionaries and manually replaced or expanded embedded LLMs. This duplication diverged from the rest of the SDK, where polymorphic models rely on validators and discriminators to control serialization.
+- **Relationship to `DiscriminatedUnionMixin`:** That mixin exists so we can ship objects across process boundaries (e.g., remote conversations) without bespoke traversal code. Keeping serialization rules on the models themselves, rather than sprinkling special cases in persistence helpers, lets us benefit from the same rebuild/validation pipeline.
+
+### Remote conversation compatibility
+- The agent server still exposes fully inlined LLM payloads to remote clients. Because the manual compaction was only invoked when writing `base_state.json`, remote APIs were unaffected. We need to preserve that behaviour so remote callers do not have to resolve profiles themselves.
+- When a conversation is restored on the server (or locally), any profile references in `base_state.json` must be expanded **before** the state is materialised; otherwise, components that expect a concrete `LLM` instance (e.g., secret reconciliation, spend tracking) will break.
+
+### Recommendation
+- Move profile resolution/compaction into the `LLM` model:
+  - A `model_validator(mode="before")` can load `{ "profile_id": ... }` payloads with the `LLMRegistry`, while respecting `OPENHANDS_INLINE_CONVERSATIONS` (raise when inline mode is enforced but only a profile reference is available).
+  - A `model_serializer(mode="json")` can honour the same inline flag via `model_dump(..., context={"inline_llm_persistence": bool})`, returning either the full inline payload or a `{ "profile_id": ... }` stub. Callers that do not provide explicit context will continue to receive inline payloads by default.
+- Have `ConversationState._save_base_state` call `model_dump_json` with the appropriate context instead of the bespoke traversal helpers. This keeps persistence logic co-located with the models, reduces drift, and keeps remote conversations working without additional glue.
+- With this approach we still support inline overrides (`OPENHANDS_INLINE_CONVERSATIONS=true`), profile-backed storage, and remote access with no behavioural changes for callers.
+
