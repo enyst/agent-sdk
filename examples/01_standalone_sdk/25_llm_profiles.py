@@ -9,7 +9,9 @@ Set ``LLM_PROFILE_NAME`` to pick a profile and ``LLM_API_KEY`` to supply
 credentials when the profile omits secrets.
 """
 
+import json
 import os
+from pathlib import Path
 
 from pydantic import SecretStr
 
@@ -35,7 +37,7 @@ def ensure_profile_exists(registry: LLMRegistry, name: str) -> None:
         base_url="https://llm-proxy.eval.all-hands.dev",
         temperature=0.2,
         max_output_tokens=4096,
-        service_id="agent",
+        usage_id="agent",
         metadata={
             "profile_description": "Sample GPT-5 Mini profile created by example 25.",
         },
@@ -67,9 +69,56 @@ def main() -> None:
     tools = [Tool(name="BashTool")]
     agent = Agent(llm=llm, tools=tools)
 
-    conversation = Conversation(agent=agent, workspace=os.getcwd())
-    conversation.send_message("Print 'Profile created successfully.'")
+    workspace_dir = Path(os.getcwd())
+    summary_path = workspace_dir / "summary_readme.md"
+    if summary_path.exists():
+        summary_path.unlink()
+
+    persistence_root = workspace_dir / ".conversations_llm_profiles"
+    conversation = Conversation(
+        agent=agent,
+        workspace=str(workspace_dir),
+        persistence_dir=str(persistence_root),
+        visualize=False,
+    )
+
+    conversation.send_message(
+        "Read README.md in this workspace, create a concise summary in "
+        "summary_readme.md (overwrite it if it exists), and respond with "
+        "SUMMARY_READY when the file is written."
+    )
     conversation.run()
+
+    if summary_path.exists():
+        print(f"summary_readme.md written to {summary_path}")
+    else:
+        print("summary_readme.md not found after first run")
+
+    conversation.send_message(
+        "Thanks! Delete summary_readme.md from the workspace and respond with "
+        "SUMMARY_REMOVED once it is gone."
+    )
+    conversation.run()
+
+    if summary_path.exists():
+        print("summary_readme.md still present after deletion request")
+    else:
+        print("summary_readme.md removed")
+
+    persistence_dir = conversation.state.persistence_dir
+    if persistence_dir is None:
+        raise RuntimeError("Conversation did not persist base state to disk")
+
+    base_state_path = Path(persistence_dir) / "base_state.json"
+    state_payload = json.loads(base_state_path.read_text())
+    llm_entry = state_payload.get("agent", {}).get("llm", {})
+    profile_in_state = llm_entry.get("profile_id")
+    print(f"Profile recorded in base_state.json: {profile_in_state}")
+    if profile_in_state != PROFILE_NAME:
+        print(
+            "Warning: profile_id in base_state.json does not match the profile "
+            "used at runtime."
+        )
 
 
 if __name__ == "__main__":  # pragma: no cover
