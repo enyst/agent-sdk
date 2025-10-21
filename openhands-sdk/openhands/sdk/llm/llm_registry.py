@@ -183,28 +183,6 @@ class LLMRegistry:
                     f"Skipping profile {profile_id}: registry.add failed: {exc}"
                 )
 
-    def switch_profile(self, usage_id: str, profile_id: str) -> LLM:
-        """Replace ``usage_id``'s active LLM with ``profile_id`` and return it."""
-
-        if usage_id not in self._usage_to_llm:
-            raise KeyError(f"Usage ID '{usage_id}' not found in registry")
-
-        current_llm = self._usage_to_llm[usage_id]
-        if current_llm.profile_id == profile_id:
-            return current_llm
-
-        llm = self.load_profile(profile_id)
-        llm = llm.model_copy(update={"usage_id": usage_id})
-        self._usage_to_llm[usage_id] = llm
-        self.notify(RegistryEvent(llm=llm))
-        logger.info(
-            "[LLM registry %s]: Switched usage %s to profile %s",
-            self.registry_id,
-            usage_id,
-            profile_id,
-        )
-        return llm
-
     def validate_profile(self, data: Mapping[str, Any]) -> tuple[bool, list[str]]:
         """Return (is_valid, errors) after validating a profile payload."""
 

@@ -327,13 +327,6 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
             dumped["tools"] = list(dumped["tools"].keys())
         return dumped
 
-    def _clone_with_llm(self, llm: LLM) -> "AgentBase":
-        """Return a copy of this agent with ``llm`` swapped in."""
-
-        clone = self.model_copy(update={"llm": llm})
-        clone._tools = dict(self._tools)
-        return clone
-
     def get_all_llms(self) -> Generator[LLM, None, None]:
         """Recursively yield unique *base-class* LLM objects reachable from `self`.
 
