@@ -10,7 +10,7 @@ Key decisions
 - Storage location: ~/.openhands/llm-profiles/<profile_name>.json. The profile_name is the filename (no extension) used to refer to the profile.
 - Do not change ConversationState or Agent serialization format for now. Profiles are a convenience for creating LLM instances and registering them in the runtime LLMRegistry.
 - Secrets: do NOT store plaintext API keys in profile files by default. Prefer storing the env var name in the LLM.api_key (via LLM.load_from_env) or keep the API key in runtime SecretsManager. The LLMRegistry.save_profile API exposes an include_secrets flag; default False.
-- LLM.service_id semantics: keep current behavior (a small set of runtime "usage" identifiers such as 'agent', 'condenser', 'title-gen', etc.). Do not use service_id as the profile name. We will evaluate a rename (service_id -> usage_id) in a separate task (see agent-sdk-23).
+- LLM.usage_id semantics: keep current behavior (a small set of runtime identifiers such as 'agent', 'condenser', 'title-gen', etc.). Do not use usage_id as the profile name.
 
 LLMRegistry profile API (summary)
 
@@ -36,11 +36,6 @@ CLI
 Migration
 
 - Migration from inline configs to profiles: provide a migration helper script to extract inline LLMs from ~/.openhands/agent_settings.json and conversation base_state.json into ~/.openhands/llm-profiles/<name>.json and update references (manual opt-in by user).
-
-Notes on service_id rename
-
-- There is an ongoing discussion about renaming `LLM.service_id` to a clearer name (e.g., `usage_id` or `token_tracking_id`) because `service_id` is overloaded. We will not rename immediately; agent-sdk-23 will investigate the migration and impact.
-
 
 ## Proposed changes for agent-sdk-19 (profile references in persistence)
 
