@@ -150,7 +150,7 @@ def test_conversation_state_profile_reference_mode(tmp_path, monkeypatch):
     monkeypatch.setenv("OPENHANDS_INLINE_CONVERSATIONS", "false")
 
     registry = LLMRegistry()
-    llm = LLM(model="litellm_proxy/openai/gpt-5-mini", service_id="agent")
+    llm = LLM(model="litellm_proxy/openai/gpt-5-mini", usage_id="agent")
     registry.save_profile("profile-tests", llm)
 
     agent = Agent(llm=registry.load_profile("profile-tests"), tools=[])
@@ -190,7 +190,7 @@ def test_conversation_state_inline_mode_errors_on_profile_reference(
     monkeypatch.setenv("OPENHANDS_INLINE_CONVERSATIONS", "false")
 
     registry = LLMRegistry()
-    llm = LLM(model="litellm_proxy/openai/gpt-5-mini", service_id="agent")
+    llm = LLM(model="litellm_proxy/openai/gpt-5-mini", usage_id="agent")
     registry.save_profile("profile-inline", llm)
     agent = Agent(llm=registry.load_profile("profile-inline"), tools=[])
 
