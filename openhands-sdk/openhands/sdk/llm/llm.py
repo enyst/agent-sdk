@@ -18,7 +18,6 @@ from pydantic import (
     SecretStr,
     SerializationInfo,
     SerializerFunctionWrapHandler,
-    ValidationInfo,
     field_serializer,
     field_validator,
     model_serializer,
@@ -79,10 +78,7 @@ from openhands.sdk.llm.utils.model_features import get_features
 from openhands.sdk.llm.utils.retry_mixin import RetryMixin
 from openhands.sdk.llm.utils.telemetry import Telemetry
 from openhands.sdk.logger import ENV_LOG_DIR, get_logger
-from openhands.sdk.persistence.settings import (
-    INLINE_CONTEXT_KEY,
-    should_inline_conversations,
-)
+from openhands.sdk.persistence.settings import INLINE_CONTEXT_KEY
 
 
 logger = get_logger(__name__)
@@ -279,6 +275,15 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     def _serialize_with_profiles(
         self, handler: SerializerFunctionWrapHandler, info: SerializationInfo
     ) -> Mapping[str, Any]:
+        """Scope LLM serialization to either inline payloads or profile refs.
+
+        We default to inlining the full LLM payload, but when the persistence
+        layer explicitly opts out (by passing ``inline_llm_persistence=False`` in
+        ``context``) we strip the payload down to just ``{"profile_id": ...}`` so
+        the conversation state can round-trip a profile reference without
+        exposing secrets.
+        """
+
         inline_pref = None
         if info.context is not None and INLINE_CONTEXT_KEY in info.context:
             inline_pref = info.context[INLINE_CONTEXT_KEY]
@@ -315,39 +320,10 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
     @model_validator(mode="before")
     @classmethod
-    def _coerce_inputs(cls, data: Any, info: ValidationInfo):
-        if not isinstance(data, Mapping):
+    def _coerce_inputs(cls, data):
+        if not isinstance(data, dict):
             return data
         d = dict(data)
-
-        profile_id = d.get("profile_id")
-        if profile_id and "model" not in d:
-            inline_pref = None
-            if info.context is not None and INLINE_CONTEXT_KEY in info.context:
-                inline_pref = info.context[INLINE_CONTEXT_KEY]
-            if inline_pref is None:
-                inline_pref = should_inline_conversations()
-
-            if inline_pref:
-                raise ValueError(
-                    "Encountered profile reference for LLM while "
-                    "OPENHANDS_INLINE_CONVERSATIONS is enabled. "
-                    "Inline the profile or set "
-                    "OPENHANDS_INLINE_CONVERSATIONS=false."
-                )
-
-            registry = None
-            if info.context is not None:
-                registry = info.context.get("llm_registry")
-            if registry is None:
-                from openhands.sdk.llm.llm_registry import LLMRegistry
-
-                registry = LLMRegistry()
-
-            llm = registry.load_profile(profile_id)
-            expanded = llm.model_dump(exclude_none=True)
-            expanded["profile_id"] = profile_id
-            d.update(expanded)
 
         if "service_id" in d and "usage_id" not in d:
             warnings.warn(
