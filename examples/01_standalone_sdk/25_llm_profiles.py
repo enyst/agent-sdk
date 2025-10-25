@@ -22,8 +22,7 @@ from openhands.sdk.tool import Tool, register_tool
 from openhands.tools.execute_bash import BashTool
 
 
-DEFAULT_PROFILE_NAME = "gpt-5-mini"
-PROFILE_NAME = os.getenv("LLM_PROFILE_NAME", DEFAULT_PROFILE_NAME)
+PROFILE_NAME = os.getenv("LLM_PROFILE_NAME", "gpt-5-mini")
 
 
 def ensure_profile_exists(registry: LLMRegistry, name: str) -> None:

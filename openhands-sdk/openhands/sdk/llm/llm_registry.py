@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, SecretStr, ValidationError
 
 from openhands.sdk.llm.llm import LLM
 from openhands.sdk.logger import get_logger
+from openhands.sdk.persistence.settings import should_inline_conversations
 
 
 logger = get_logger(__name__)
@@ -129,12 +130,12 @@ class LLMRegistry:
         return sorted(path.stem for path in self.profile_dir.glob("*.json"))
 
     def get_profile_path(self, profile_id: str) -> Path:
-        """Return the path where ``profile_id`` is stored."""
+        """Return the path where profile_id is stored."""
 
         return self.profile_dir / f"{profile_id}.json"
 
     def load_profile(self, profile_id: str) -> LLM:
-        """Load ``profile_id`` from disk and return an :class:`LLM`."""
+        """Load profile_id from disk and return an LLM."""
 
         path = self.get_profile_path(profile_id)
         if not path.exists():
@@ -210,9 +211,27 @@ class LLMRegistry:
         return directory
 
     def _load_profile_with_synced_id(self, path: Path, profile_id: str) -> LLM:
+        """Load an LLM profile while keeping profile metadata aligned.
+
+        Most callers expect the loaded LLM to reflect the profile file name so the
+        client apps can surface the active profile (e.g., in conversation history or CLI
+        prompts).  We construct a *new* ``LLM`` via :meth:`model_copy` instead of
+        mutating the loaded instance to respect the SDK's immutability
+        conventions.
+
+        When ``OPENHANDS_INLINE_CONVERSATIONS`` is enabled (the default for
+        reproducible evaluations) we skip the metadata normalization entirely so
+        inline persistence sees the profile file exactly as stored on disk.  Set
+        ``OPENHANDS_INLINE_CONVERSATIONS=false`` to restore the UX-oriented
+        normalization.
+        """
+
         llm = LLM.load_from_json(str(path))
+        if should_inline_conversations():
+            return llm
+
         if getattr(llm, "profile_id", None) != profile_id:
-            llm = llm.model_copy(update={"profile_id": profile_id})
+            return llm.model_copy(update={"profile_id": profile_id})
         return llm
 
     def get(self, usage_id: str) -> LLM:
