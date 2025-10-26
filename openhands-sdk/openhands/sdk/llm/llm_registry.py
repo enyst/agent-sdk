@@ -9,7 +9,6 @@ from pydantic import BaseModel, ConfigDict, SecretStr, ValidationError
 
 from openhands.sdk.llm.llm import LLM
 from openhands.sdk.logger import get_logger
-from openhands.sdk.persistence.settings import should_inline_conversations
 
 
 logger = get_logger(__name__)
@@ -219,17 +218,12 @@ class LLMRegistry:
         mutating the loaded instance to respect the SDK's immutability
         conventions.
 
-        When ``OPENHANDS_INLINE_CONVERSATIONS`` is enabled (the default for
-        reproducible evaluations) we skip the metadata normalization entirely so
-        inline persistence sees the profile file exactly as stored on disk.  Set
-        ``OPENHANDS_INLINE_CONVERSATIONS=false`` to restore the UX-oriented
-        normalization.
+        We always align ``profile_id`` with the filename so callers get a precise
+        view of which profile is active without mutating the on-disk payload. This
+        mirrors previous behavior while avoiding in-place mutation.
         """
 
         llm = LLM.load_from_json(str(path))
-        if should_inline_conversations():
-            return llm
-
         if getattr(llm, "profile_id", None) != profile_id:
             return llm.model_copy(update={"profile_id": profile_id})
         return llm

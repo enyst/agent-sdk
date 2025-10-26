@@ -18,6 +18,7 @@ from pydantic import (
     SecretStr,
     SerializationInfo,
     SerializerFunctionWrapHandler,
+    ValidationInfo,
     field_serializer,
     field_validator,
     model_serializer,
@@ -78,7 +79,10 @@ from openhands.sdk.llm.utils.model_features import get_features
 from openhands.sdk.llm.utils.retry_mixin import RetryMixin
 from openhands.sdk.llm.utils.telemetry import Telemetry
 from openhands.sdk.logger import ENV_LOG_DIR, get_logger
-from openhands.sdk.persistence.settings import INLINE_CONTEXT_KEY
+from openhands.sdk.persistence.settings import (
+    INLINE_CONTEXT_KEY,
+    should_inline_conversations,
+)
 
 
 logger = get_logger(__name__)
@@ -320,10 +324,37 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
     @model_validator(mode="before")
     @classmethod
-    def _coerce_inputs(cls, data):
-        if not isinstance(data, dict):
+    def _coerce_inputs(cls, data: Any, info: ValidationInfo):
+        if not isinstance(data, Mapping):
             return data
         d = dict(data)
+
+        profile_id = d.get("profile_id")
+        if profile_id and "model" not in d:
+            inline_pref = None
+            if info.context is not None and INLINE_CONTEXT_KEY in info.context:
+                inline_pref = info.context[INLINE_CONTEXT_KEY]
+            if inline_pref is None:
+                inline_pref = should_inline_conversations()
+
+            if inline_pref:
+                raise ValueError(
+                    "Encountered profile reference for LLM while "
+                    "OPENHANDS_INLINE_CONVERSATIONS is enabled. "
+                    "Inline the profile or set "
+                    "OPENHANDS_INLINE_CONVERSATIONS=false."
+                )
+
+            if info.context is None or "llm_registry" not in info.context:
+                raise ValueError(
+                    "LLM registry required in context to load profile references."
+                )
+
+            registry = info.context["llm_registry"]
+            llm = registry.load_profile(profile_id)
+            expanded = llm.model_dump(exclude_none=True)
+            expanded["profile_id"] = profile_id
+            d.update(expanded)
 
         if "service_id" in d and "usage_id" not in d:
             warnings.warn(
