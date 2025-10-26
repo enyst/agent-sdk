@@ -1,11 +1,12 @@
 import json
+import re
 import warnings
 from collections.abc import Callable, Iterable, Mapping
 from pathlib import Path
 from typing import Any, ClassVar
 from uuid import uuid4
 
-from pydantic import BaseModel, ConfigDict, SecretStr, ValidationError
+from pydantic import BaseModel, ConfigDict, ValidationError
 
 from openhands.sdk.llm.llm import LLM
 from openhands.sdk.logger import get_logger
@@ -20,6 +21,8 @@ _SECRET_FIELDS: tuple[str, ...] = (
     "aws_secret_access_key",
 )
 _DEFAULT_PROFILE_DIR = Path.home() / ".openhands" / "llm-profiles"
+
+_PROFILE_ID_PATTERN = re.compile(r"^[A-Za-z0-9._-]+$")
 
 SERVICE_TO_LLM_DEPRECATION_MSG = (
     "LLMRegistry.service_to_llm is deprecated and will be removed in a future "
@@ -120,6 +123,17 @@ class LLMRegistry:
             f"[LLM registry {self.registry_id}]: Added LLM for usage {usage_id}"
         )
 
+    def _ensure_safe_profile_id(self, profile_id: str) -> str:
+        if not profile_id or profile_id in {".", ".."}:
+            raise ValueError("Invalid profile ID.")
+        if Path(profile_id).name != profile_id:
+            raise ValueError("Profile IDs cannot contain path separators.")
+        if not _PROFILE_ID_PATTERN.fullmatch(profile_id):
+            raise ValueError(
+                "Profile IDs may only contain alphanumerics, '.', '_', or '-'."
+            )
+        return profile_id
+
     # ------------------------------------------------------------------
     # Profile management helpers
     # ------------------------------------------------------------------
@@ -131,7 +145,8 @@ class LLMRegistry:
     def get_profile_path(self, profile_id: str) -> Path:
         """Return the path where profile_id is stored."""
 
-        return self.profile_dir / f"{profile_id}.json"
+        safe_id = self._ensure_safe_profile_id(profile_id)
+        return self.profile_dir / f"{safe_id}.json"
 
     def load_profile(self, profile_id: str) -> LLM:
         """Load profile_id from disk and return an LLM."""
@@ -146,21 +161,20 @@ class LLMRegistry:
     ) -> Path:
         """Persist ``llm`` under ``profile_id``."""
 
-        path = self.get_profile_path(profile_id)
-        data = llm.model_dump(exclude_none=True)
-        data["profile_id"] = profile_id
+        safe_id = self._ensure_safe_profile_id(profile_id)
+        path = self.get_profile_path(safe_id)
+        data = llm.model_dump(
+            exclude_none=True,
+            context={"expose_secrets": include_secrets},
+        )
+        data["profile_id"] = safe_id
         if not include_secrets:
             for secret_field in _SECRET_FIELDS:
                 data.pop(secret_field, None)
-        else:
-            for secret_field in _SECRET_FIELDS:
-                value = data.get(secret_field)
-                if isinstance(value, SecretStr):
-                    data[secret_field] = value.get_secret_value()
 
         with path.open("w", encoding="utf-8") as handle:
             json.dump(data, handle, indent=2, ensure_ascii=False)
-        logger.info(f"Saved profile {profile_id} -> {path}")
+        logger.info(f"Saved profile {safe_id} -> {path}")
         return path
 
     def register_profiles(self, profile_ids: Iterable[str] | None = None) -> None:
@@ -169,17 +183,21 @@ class LLMRegistry:
         candidates = profile_ids if profile_ids is not None else self.list_profiles()
         for profile_id in candidates:
             try:
-                llm = self.load_profile(profile_id)
+                safe_id = self._ensure_safe_profile_id(profile_id)
+            except ValueError as exc:
+                logger.warning(f"Skipping profile {profile_id}: {exc}")
+                continue
+
+            try:
+                llm = self.load_profile(safe_id)
             except Exception as exc:  # noqa: BLE001
-                logger.warning(f"Failed to load profile {profile_id}: {exc}")
+                logger.warning(f"Failed to load profile {safe_id}: {exc}")
                 continue
 
             try:
                 self.add(llm)
             except Exception as exc:  # noqa: BLE001
-                logger.info(
-                    f"Skipping profile {profile_id}: registry.add failed: {exc}"
-                )
+                logger.info(f"Skipping profile {safe_id}: registry.add failed: {exc}")
 
     def validate_profile(self, data: Mapping[str, Any]) -> tuple[bool, list[str]]:
         """Return (is_valid, errors) after validating a profile payload."""

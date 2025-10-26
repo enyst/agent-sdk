@@ -1,5 +1,6 @@
 import json
 
+import pytest
 from pydantic import SecretStr
 
 from openhands.sdk.llm.llm import LLM
@@ -123,3 +124,9 @@ def test_validate_profile_reports_errors(tmp_path):
     ok, errors = registry.validate_profile({"usage_id": "svc"})
     assert not ok
     assert any("model" in message for message in errors)
+
+
+def test_get_profile_path_rejects_traversal(tmp_path):
+    registry = LLMRegistry(profile_dir=tmp_path)
+    with pytest.raises(ValueError):
+        registry.get_profile_path("../secret")

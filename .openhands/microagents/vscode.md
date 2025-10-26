@@ -10,7 +10,7 @@ triggers:
 
 ## Open the project in a fresh VSCode window
 ```bash
-code -n /Users/enyst/repos/agent-sdk-clone
+code -n <path-to-your-agent-sdk-clone>
 ```
 
 If `code` is not on PATH, launch VSCode manually, then **File → Open...** and select the repository root.
