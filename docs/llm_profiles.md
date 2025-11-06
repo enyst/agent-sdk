@@ -69,6 +69,8 @@ Notes
 - If you pass --inline, inline payloads are persisted and /profile will be rejected (by design).
 - We recommend setting LLM_BASE_URL=https://llm-proxy.eval.all-hands.dev and LLM_API_KEY in your environment.
 
+- The demo TUI defaults the agent usage_id to 'agent' when not explicitly set via environment to align with runtime switching semantics.
+
 ## Proposed changes for agent-sdk-19 (profile references in persistence)
 
 ### Goals
