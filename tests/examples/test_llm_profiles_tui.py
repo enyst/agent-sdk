@@ -1,3 +1,4 @@
+import json
 import types
 from pathlib import Path
 from typing import Any
@@ -13,9 +14,13 @@ class DummyLLM:
         self.model = model
         self.usage_id = usage_id
         self.profile_id: str | None = None
+        self.temperature: float | None = None
 
     def model_dump(self, exclude_none: bool = False):
-        return {"model": self.model, "usage_id": self.usage_id}
+        data: dict[str, Any] = {"model": self.model, "usage_id": self.usage_id}
+        if self.temperature is not None:
+            data["temperature"] = self.temperature
+        return data
 
 
 class DummyConversation:
@@ -52,9 +57,13 @@ class DummyRegistry:
         return self.tmpdir / f"{profile_id}.json"
 
     def save_profile(self, profile_id: str, llm, include_secrets: bool = False):
-        self._profiles[profile_id] = {"model": llm.model, "usage_id": llm.usage_id}
+        if hasattr(llm, "model_dump"):
+            data = llm.model_dump(exclude_none=True)
+        else:
+            data = {"model": llm.model, "usage_id": getattr(llm, "usage_id", "agent")}
+        self._profiles[profile_id] = data
         path = self.get_profile_path(profile_id)
-        path.write_text("{}")
+        path.write_text(json.dumps(data))
         return path
 
     def list_profiles(self) -> list[str]:
@@ -62,7 +71,10 @@ class DummyRegistry:
 
     def load_profile(self, profile_id: str):
         data = self._profiles[profile_id]
-        llm = DummyLLM(model=data["model"], usage_id=data["usage_id"])
+        llm = DummyLLM(
+            model=data.get("model", ""), usage_id=data.get("usage_id", "agent")
+        )
+        llm.temperature = data.get("temperature")
         llm.profile_id = profile_id
         return llm
 
@@ -125,6 +137,14 @@ def test_cmd_save_saves_current_llm(dummy_ctx):
     out = tui.cmd_save(dummy_ctx, ["current"])
     assert "Saved current LLM" in out
     assert "current" in dummy_ctx.registry.list_profiles()
+
+
+def test_cmd_edit_updates_profile(dummy_ctx):
+    tui.cmd_model(dummy_ctx, ["p1", "model=openai/gpt-4o-mini", "temperature=0.2"])
+    out = tui.cmd_edit(dummy_ctx, ["p1", "temperature=0.5"])
+    assert "Updated profile 'p1'" in out
+    show = tui.cmd_show(dummy_ctx, ["p1"])
+    assert '"temperature": 0.5' in show
 
 
 def test_run_loop_handles_commands_and_chat(monkeypatch, dummy_ctx):

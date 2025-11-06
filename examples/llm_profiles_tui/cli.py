@@ -137,6 +137,30 @@ def cmd_delete(ctx: AppContext, tokens: list[str]) -> str:
         return f"Error deleting '{profile_id}': {exc}"
 
 
+def cmd_edit(ctx: AppContext, tokens: list[str]) -> str:
+    if not tokens:
+        return "Usage: /edit <profile_id> key=value ..."
+    profile_id = tokens[0]
+    if len(tokens) == 1:
+        return "Error: provide at least one key=value to edit"
+    try:
+        base = ctx.registry.load_profile(profile_id)
+    except Exception as exc:  # noqa: BLE001
+        return f"Error: {exc}"
+
+    try:
+        updates = parse_keyvals(tokens[1:])
+        payload = getattr(base, "model_dump", lambda **_: {})(exclude_none=True)
+        if not isinstance(payload, dict):
+            payload = {}
+        payload.update(updates)
+        updated = LLM(**payload)
+        ctx.registry.save_profile(profile_id, updated, include_secrets=False)
+        return f"Updated profile '{profile_id}'."
+    except Exception as exc:  # noqa: BLE001
+        return f"Error: {exc}"
+
+
 COMMANDS = {
     "/model": cmd_model,
     "/profile": cmd_profile,
@@ -144,6 +168,7 @@ COMMANDS = {
     "/show": cmd_show,
     "/save": cmd_save,
     "/delete": cmd_delete,
+    "/edit": cmd_edit,
     "/help": None,  # handled specially
 }
 
@@ -156,6 +181,7 @@ Commands:
   /show <profile_id>                                 Show profile details
   /save <profile_id>                                 Save current LLM as profile
   /delete <profile_id>                               Delete saved profile
+  /edit <profile_id> key=value ...                   Update fields in a profile
   /help                                              Show this help
   /exit | /quit                                      Exit the app
 
