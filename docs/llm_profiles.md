@@ -59,6 +59,9 @@ Example TUI (demo)
   - Switch active profile: /profile gpt5-mini
   - Inspect saved payload: /show gpt5-mini
   - List profiles: /list
+  - Save current LLM as a profile: /save snapshot-1
+  - Edit a profile in place: /edit gpt5-mini temperature=0.2
+  - Delete a profile: /delete old-profile
 
 Notes
 
