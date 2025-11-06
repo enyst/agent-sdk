@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Annotated, ClassVar, Union
 
 import frontmatter
-from fastmcp.mcp_config import MCPConfig
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from openhands.sdk.context.skills.exceptions import SkillValidationError
@@ -179,8 +178,12 @@ class Skill(BaseModel):
             return v
         if isinstance(v, dict):
             try:
+                # Lazy import to avoid importing FastMCP (and its transitive deps)
+                # during agent server startup when MCP is not in use.
+                from fastmcp.mcp_config import MCPConfig  # type: ignore
+
                 MCPConfig.model_validate(v)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 raise SkillValidationError(f"Invalid MCPConfig dictionary: {e}") from e
         return v
 
