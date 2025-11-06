@@ -26,7 +26,7 @@
 - When inline mode is enabled (`OPENHANDS_INLINE_CONVERSATIONS=true`), profiles are fully embedded and *any* LLM diff is rejected by the reconciliation flow above.
 
 ### Conversation bootstrapping
-- `LocalConversation.__init__()` adds all LLMS from the agent to the registry and eagerly calls `register_profiles()` (errors logged at DEBUG level). This ensures the in-memory registry is primed with persisted profiles before a conversation resumes.
+- `LocalConversation.__init__()` adds all LLMs from the agent to the registry. It no longer calls `register_profiles()` eagerly to avoid duplicate-usage warnings; profiles are loaded on demand via `LLMRegistry.switch_profile(...)` when a runtime switch is requested.
 
 ## Implications for runtime switching
 
