@@ -9,6 +9,34 @@ import pytest
 from examples.llm_profiles_tui import cli as tui
 
 
+def test_main_env_var_fallback(monkeypatch):
+    calls = {}
+
+    def fake_build_conversation(initial_profile, workspace):
+        calls["initial_profile"] = initial_profile
+
+        class DummyCtx:
+            class DummyConv:
+                def close(self):
+                    pass
+
+            conversation = DummyConv()
+
+        return DummyCtx()
+
+    def fake_run_loop(_ctx):
+        pass
+
+    monkeypatch.setenv("OPENHANDS_LLM_PROFILE", "env-profile")
+    monkeypatch.setenv("OPENHANDS_INLINE_CONVERSATIONS", "false")
+    monkeypatch.setattr(tui, "build_conversation", fake_build_conversation)
+    monkeypatch.setattr(tui, "run_loop", fake_run_loop)
+
+    rc = tui.main(["--workspace", "."])  # no --profile
+    assert rc == 0
+    assert calls.get("initial_profile") == "env-profile"
+
+
 class DummyLLM:
     def __init__(self, model: str, usage_id: str = "agent") -> None:
         self.model = model

@@ -264,7 +264,14 @@ def main(argv: list[str] | None = None) -> int:
     # Default to profile references so /profile works out of the box
     os.environ["OPENHANDS_INLINE_CONVERSATIONS"] = "true" if args.inline else "false"
 
-    ctx = build_conversation(args.profile, args.workspace)
+    # Allow env var fallback for initial profile selection if --profile not provided
+    initial_profile = (
+        args.profile
+        or os.getenv("OPENHANDS_LLM_PROFILE")
+        or os.getenv("LLM_PROFILE_NAME")
+    )
+
+    ctx = build_conversation(initial_profile, args.workspace)
     try:
         run_loop(ctx)
         return 0
