@@ -1,4 +1,4 @@
-LLM Profiles (design)
+# LLM Profiles (design)
 
 Overview
 
@@ -36,6 +36,26 @@ CLI
 Migration
 
 - Migration from inline configs to profiles: provide a migration helper script to extract inline LLMs from ~/.openhands/agent_settings.json and conversation base_state.json into ~/.openhands/llm-profiles/<name>.json and update references (manual opt-in by user).
+
+
+Example TUI (demo)
+
+- A minimal text UI lives at examples/llm_profiles_tui/cli.py
+- Run it with profile references enabled (default):
+
+  uv run python examples/llm_profiles_tui/cli.py --workspace .
+
+- In the TUI:
+  - Create a profile: /model gpt5-mini model=litellm_proxy/openai/gpt-5-mini base_url=ENV[LLM_BASE_URL] api_key=ENV[LLM_API_KEY]
+  - Switch active profile: /profile gpt5-mini
+  - Inspect saved payload: /show gpt5-mini
+  - List profiles: /list
+
+Notes
+
+- The TUI sets OPENHANDS_INLINE_CONVERSATIONS=false by default so runtime switching works.
+- If you pass --inline, inline payloads are persisted and /profile will be rejected (by design).
+- We recommend setting LLM_BASE_URL=https://llm-proxy.eval.all-hands.dev and LLM_API_KEY in your environment.
 
 ## Proposed changes for agent-sdk-19 (profile references in persistence)
 

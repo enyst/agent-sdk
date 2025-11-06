@@ -10,7 +10,7 @@ from typing import Any
 
 from pydantic import SecretStr
 
-from openhands.sdk import Conversation
+from openhands.sdk import BaseConversation, Conversation
 from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.llm import LLM
 from openhands.sdk.llm.llm_registry import LLMRegistry
@@ -19,7 +19,7 @@ from openhands.tools.preset.default import get_default_agent
 
 @dataclass
 class AppContext:
-    conversation: Conversation
+    conversation: BaseConversation
     registry: LLMRegistry
 
 
@@ -204,7 +204,20 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="LLM Profiles TUI Demo")
     parser.add_argument("--profile", help="Initial profile id to load", default=None)
     parser.add_argument("--workspace", help="Workspace directory", default=None)
+    parser.add_argument(
+        "--inline",
+        action="store_true",
+        help=(
+            "Persist inline LLM payloads (disables runtime switching). "
+            "By default, profile references are used "
+            "(OPENHANDS_INLINE_CONVERSATIONS=false)."
+        ),
+        default=False,
+    )
     args = parser.parse_args(argv)
+
+    # Default to profile references so /profile works out of the box
+    os.environ["OPENHANDS_INLINE_CONVERSATIONS"] = "true" if args.inline else "false"
 
     ctx = build_conversation(args.profile, args.workspace)
     try:
