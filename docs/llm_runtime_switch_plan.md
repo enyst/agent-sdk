@@ -70,7 +70,8 @@ For the first iteration we can require `state.agent_status == AgentExecutionStat
    - Verify that stats either reset or continue according to the chosen policy by inspecting `ConversationState.stats.service_to_metrics` before/after the swap.
 
 4. **Serialization tests**
-   - Ensure `compact_llm_profiles` writes the new `profile_id` after a switch, and `resolve_llm_profiles` rehydrates it successfully on reload.
+   - Ensure the LLM serializer, when invoked with context `{INLINE_CONTEXT_KEY: False}`, emits `{ "profile_id": "..." }` for active profiles so base_state persists profile references after a switch.
+   - Ensure reload expands `{ "profile_id": "..." }` via `LLM.model_validate(..., context={INLINE_CONTEXT_KEY: False, "llm_registry": registry})` and reconciles into a concrete LLM instance.
 
 5. **Subscriber behaviour**
    - If we extend beyond a single subscriber, add tests for multiple listeners; otherwise ensure the existing single-subscriber path still works.
