@@ -417,22 +417,3 @@ def _contains_profile_reference(node: Any) -> bool:
         return any(_contains_profile_reference(item) for item in node)
 
     return False
-
-
-def _expand_profile_references(node: Any, registry: "LLMRegistry") -> None:
-    """Inline LLM payloads for any profile references contained in ``node``."""
-
-    if isinstance(node, dict):
-        if "profile_id" in node and "model" not in node:
-            profile_id = node["profile_id"]
-            llm = registry.load_profile(profile_id)
-            expanded = llm.model_dump(exclude_none=True)
-            expanded["profile_id"] = profile_id
-            node.clear()
-            node.update(expanded)
-            return
-        for value in node.values():
-            _expand_profile_references(value, registry)
-    elif isinstance(node, list):
-        for item in node:
-            _expand_profile_references(item, registry)
