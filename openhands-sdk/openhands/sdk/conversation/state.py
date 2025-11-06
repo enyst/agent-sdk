@@ -184,7 +184,8 @@ class ConversationState(OpenHandsModel):
 
         inline_mode = should_inline_conversations()
         # Keep validation and serialization in sync when loading previously
-        # persisted state.
+        # persisted state. Include inline preference and optional registry so
+        # LLM.model_validate can expand profile references at field level.
         context = {INLINE_CONTEXT_KEY: inline_mode}
 
         # ---- Resume path ----
@@ -202,7 +203,8 @@ class ConversationState(OpenHandsModel):
                     from openhands.sdk.llm.llm_registry import LLMRegistry
 
                     registry = LLMRegistry()
-                _expand_profile_references(base_payload, registry)
+                # Pass registry via context so LLM.model_validator can expand stubs
+                context = {**context, "llm_registry": registry}
 
             state = cls.model_validate(base_payload, context=context)
 
