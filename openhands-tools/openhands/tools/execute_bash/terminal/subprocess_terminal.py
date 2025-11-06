@@ -1,4 +1,5 @@
 """PTY-based terminal backend implementation (replaces pipe-based subprocess)."""
+# pyright: reportMissingImports=false
 
 import fcntl
 import os
@@ -121,7 +122,7 @@ class SubprocessTerminal(TerminalInterface):
         # 1) Single atomic init line: clear PROMPT_COMMAND, set PS2/PS1, print sentinel
         sentinel = f"__OH_READY_{uuid.uuid4().hex}__"
         init_cmd = (
-            f"export PROMPT_COMMAND='export PS1=\"{self.PS1}\"'; "
+            f"set +H; export PROMPT_COMMAND='export PS1=\"{self.PS1}\"'; "
             f'export PS2=""; '
             f'printf "{sentinel}"'
         ).encode("utf-8", "ignore")
