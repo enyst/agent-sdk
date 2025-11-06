@@ -8,7 +8,7 @@ Key decisions
 
 - Reuse the existing LLM Pydantic model schema. A profile file is simply the JSON dump of an LLM instance (the same shape produced by LLM.model_dump(exclude_none=True) or LLM.load_from_json).
 - Storage location: ~/.openhands/llm-profiles/<profile_name>.json. The profile_name is the filename (no extension) used to refer to the profile.
-- Do not change ConversationState or Agent serialization format for now. Profiles are a convenience for creating LLM instances and registering them in the runtime LLMRegistry.
+- Keep Pydantic-driven serialization for ConversationState/Agent. The LLM model itself controls inline vs. profile-reference persistence via serializer/validator context, so there is no bespoke traversal code. Remote APIs continue to expose fully inlined payloads by default.
 - Secrets: do NOT store plaintext API keys in profile files by default. Prefer storing the env var name in the LLM.api_key (via LLM.load_from_env) or keep the API key in runtime SecretsManager. The LLMRegistry.save_profile API exposes an include_secrets flag; default False.
 - LLM.usage_id semantics: keep current behavior (a small set of runtime identifiers such as 'agent', 'condenser', 'title-gen', etc.). Do not use usage_id as the profile name.
 - Profiles may include a usage_id or omit it; at runtime `LLMRegistry.switch_profile(...)` assigns the correct usage_id for the target slot (e.g., 'agent', 'condenser'). Multiple profiles with the same usage_id on disk are acceptable.
