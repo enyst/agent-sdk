@@ -13,6 +13,8 @@ Key decisions
 - LLM.usage_id semantics: keep current behavior (a small set of runtime identifiers such as 'agent', 'condenser', 'title-gen', etc.). Do not use usage_id as the profile name.
 - Profiles may include a usage_id or omit it; at runtime `LLMRegistry.switch_profile(...)` assigns the correct usage_id for the target slot (e.g., 'agent', 'condenser'). Multiple profiles with the same usage_id on disk are acceptable.
 
+- If a profile omits usage_id, the LLM schema defaults it to "default". The correct runtime slot usage_id (e.g., "agent", "condenser") is assigned by LLMRegistry.switch_profile at switch time.
+
 
 LLMRegistry profile API (summary)
 
