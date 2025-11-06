@@ -404,7 +404,15 @@ class LocalConversation(BaseConversation):
         self._cleanup_initiated = True
         logger.debug("Closing conversation and cleaning up tool executors")
         self._end_observability_span()
-        for tool in self.agent.tools_map.values():
+
+        # Tools may be unavailable if a custom agent skipped initialization or
+        # during late interpreter shutdown. Guard access to tools_map.
+        try:
+            tools_iter = self.agent.tools_map.values()
+        except RuntimeError:
+            return
+
+        for tool in tools_iter:
             try:
                 executable_tool = tool.as_executable()
                 executable_tool.executor.close()
