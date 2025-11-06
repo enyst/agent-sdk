@@ -237,8 +237,18 @@ def build_conversation(
         # Use profile for agent LLM
         llm = registry.load_profile(initial_profile)
     else:
-        # Minimal default LLM; user can switch later via /profile
-        llm = LLM(model="gpt-4o-mini", usage_id="agent")
+        # Prefer environment-provided defaults so runtime has secrets and base_url
+        # available (e.g., LLM_MODEL, LLM_API_KEY, LLM_BASE_URL). Fallback to a
+        # minimal default if no env values are present.
+        try:
+            llm = LLM.load_from_env(prefix="LLM_")
+            if not llm.model:
+                raise ValueError
+            # Ensure usage_id is set to agent if not specified via env
+            if not getattr(llm, "usage_id", None):
+                llm = llm.model_copy(update={"usage_id": "agent"})
+        except Exception:
+            llm = LLM(model="gpt-4o-mini", usage_id="agent")
     agent: AgentBase = get_default_agent(llm=llm, cli_mode=True)
     conversation = Conversation(agent=agent, workspace=workspace or os.getcwd())
     return AppContext(conversation=conversation, registry=registry)

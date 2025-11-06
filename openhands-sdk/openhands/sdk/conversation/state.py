@@ -325,6 +325,20 @@ class ConversationState(OpenHandsModel):
         except KeyError as exc:
             raise ValueError(str(exc)) from exc
 
+        # Carry over secret fields from the current LLM when the switched-in profile
+        # omits them (profiles typically exclude secrets on disk).
+        current_llm = self.agent.llm
+        updates: dict[str, object] = {}
+        for field in getattr(
+            current_llm, "OVERRIDE_ON_SERIALIZE", ()
+        ):  # api_key, aws_*
+            new_val = getattr(new_llm, field, None)
+            cur_val = getattr(current_llm, field, None)
+            if new_val is None and cur_val is not None:
+                updates[field] = cur_val
+        if updates:
+            new_llm = new_llm.model_copy(update=updates)
+
         self.agent = self.agent._clone_with_llm(new_llm)
         if self.execution_status == ConversationExecutionStatus.FINISHED:
             self.execution_status = ConversationExecutionStatus.IDLE
