@@ -1,3 +1,4 @@
+# pyright: reportMissingImports=false
 import json
 
 import pytest
@@ -168,3 +169,25 @@ def test_switch_profile_missing_profile(tmp_path):
 
     with pytest.raises(FileNotFoundError):
         registry.switch_profile("primary", "does-not-exist")
+
+
+def test_load_profile_without_usage_id_defaults_and_switch(tmp_path):
+    registry = LLMRegistry(profile_dir=tmp_path)
+
+    # Create a profile on disk WITHOUT usage_id
+    (tmp_path / "nouid.json").write_text(
+        json.dumps({"model": "gpt-4o"}), encoding="utf-8"
+    )
+
+    # Loading directly should yield default usage_id and correct profile_id
+    llm = registry.load_profile("nouid")
+    assert llm.profile_id == "nouid"
+    # default from model schema
+    assert llm.usage_id == "default"
+
+    # Switching assigns the slot's usage_id at runtime
+    registry.add(LLM(model="gpt-4o-mini", usage_id="primary"))
+    switched = registry.switch_profile("primary", "nouid")
+    assert switched.profile_id == "nouid"
+    assert switched.usage_id == "primary"
+    assert switched.model == "gpt-4o"
