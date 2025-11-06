@@ -244,8 +244,11 @@ def build_conversation(
             llm = LLM.load_from_env(prefix="LLM_")
             if not llm.model:
                 raise ValueError
-            # Ensure usage_id is set to agent if not specified via env
-            if not getattr(llm, "usage_id", None):
+            # Ensure usage_id defaults to 'agent' for the demo unless explicitly set
+            if (
+                not getattr(llm, "usage_id", None)
+                or getattr(llm, "usage_id", None) == "default"
+            ):
                 llm = llm.model_copy(update={"usage_id": "agent"})
         except Exception:
             llm = LLM(model="gpt-4o-mini", usage_id="agent")
