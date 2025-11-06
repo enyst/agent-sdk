@@ -1,3 +1,4 @@
+# pyright: reportMissingImports=false
 """Integration test to verify the agent server works with wsproto."""
 
 import asyncio
@@ -51,11 +52,16 @@ def agent_server():
 
     yield {"port": port, "api_key": api_key}
 
-    process.terminate()
-    process.join(timeout=5)
-    if process.is_alive():
-        process.kill()
-        process.join()
+    # In pytest-forked child processes, the session-scoped fixture teardown runs
+    # again in the forked PID. Avoid attempting to join/terminate a process that
+    # was created by a different parent process, which raises an assertion in
+    # multiprocessing. Only the original parent should perform cleanup.
+    if getattr(process, "_parent_pid", None) == os.getpid():
+        process.terminate()
+        process.join(timeout=5)
+        if process.is_alive():
+            process.kill()
+            process.join()
 
 
 def test_agent_server_starts_with_wsproto(agent_server):
