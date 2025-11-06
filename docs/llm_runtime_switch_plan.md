@@ -35,7 +35,7 @@ Introduce a method on `ConversationState` (and corresponding `LocalConversation`
    - To bypass the strict `resolve_diff_from_deserialized` diff, introduce an internal helper on `AgentBase`, e.g. `_with_swapped_llm(new_llm: LLM)`, that clones the agent via `model_copy(update={"llm": new_llm})`. This avoids running `resolve_diff_from_deserialized`, which would otherwise reject the change.
    - Apply the same logic to any condensers or secondary LLMs once the need arises (out of scope for v1).
 4. Update `ConversationState.stats` bookkeeping:
-   - Either reset the metrics entry for the usage slot to zero or continue accumulating under the same key (decision: start a fresh metrics entry to avoid mixing usage between profiles).
+   - Continue accumulating under the same usage_id. The registry subscriber restores existing metrics onto the swapped-in LLM (ConversationStats.register_llm), preserving continuous tracking across switches.
 5. Persist immediately by calling existing save hooks (`_save_base_state`) to ensure the new profile ID is captured.
 
 A convenience method on `LocalConversation` (e.g. `switch_llm(profile_id: str)`) will forward to the state method and surface the error if inline mode blocks the operation.
