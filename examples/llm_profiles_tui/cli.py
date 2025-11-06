@@ -73,9 +73,8 @@ def cmd_model(ctx: AppContext, tokens: list[str]) -> str:
     keyvals = parse_keyvals(tokens[1:]) if len(tokens) > 1 else {}
     if "model" not in keyvals:
         return "Error: model=<name> is required"
-    # Default usage_id of the saved payload; runtime slot assignment happens on switch
-    if "usage_id" not in keyvals:
-        keyvals["usage_id"] = "agent"
+    # Do not force usage_id; let schema default to 'default'. Runtime slot
+    # assignment happens on switch.
     llm = LLM(**keyvals)
     ctx.registry.save_profile(profile_id, llm, include_secrets=False)
     return f"Saved profile '{profile_id}' for model '{llm.model}'."
