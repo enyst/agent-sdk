@@ -48,12 +48,17 @@ class DummyRegistry:
         self.tmpdir.mkdir(parents=True, exist_ok=True)
         self._profiles: dict[str, dict[str, Any]] = {}
 
-    def save_profile(self, profile_id: str, llm, include_secrets: bool = False):
-        self._profiles[profile_id] = {"model": llm.model, "usage_id": llm.usage_id}
+    def get_profile_path(self, profile_id: str) -> Path:
         return self.tmpdir / f"{profile_id}.json"
 
+    def save_profile(self, profile_id: str, llm, include_secrets: bool = False):
+        self._profiles[profile_id] = {"model": llm.model, "usage_id": llm.usage_id}
+        path = self.get_profile_path(profile_id)
+        path.write_text("{}")
+        return path
+
     def list_profiles(self) -> list[str]:
-        return sorted(self._profiles.keys())
+        return sorted(p.stem for p in self.tmpdir.glob("*.json"))
 
     def load_profile(self, profile_id: str):
         data = self._profiles[profile_id]
@@ -106,6 +111,14 @@ def test_cmd_profile_switches_conversation(dummy_ctx):
     assert "Switched to profile 'alt'" in out
     assert dummy_ctx.conversation.switched_to == "alt"
     assert dummy_ctx.conversation.agent.llm.model == "model:alt"
+
+
+def test_cmd_delete_removes_profile(dummy_ctx):
+    tui.cmd_model(dummy_ctx, ["gone", "model=openai/gpt-4o-mini"])
+    assert "gone" in dummy_ctx.registry.list_profiles()
+    out = tui.cmd_delete(dummy_ctx, ["gone"])
+    assert "Deleted profile 'gone'" in out
+    assert "gone" not in dummy_ctx.registry.list_profiles()
 
 
 def test_cmd_save_saves_current_llm(dummy_ctx):

@@ -10,7 +10,7 @@ from typing import Any
 
 from pydantic import SecretStr
 
-from openhands.sdk import BaseConversation, Conversation
+from openhands.sdk import Conversation
 from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.llm import LLM
 from openhands.sdk.llm.llm_registry import LLMRegistry
@@ -19,8 +19,8 @@ from openhands.tools.preset.default import get_default_agent
 
 @dataclass
 class AppContext:
-    conversation: BaseConversation
-    registry: LLMRegistry
+    conversation: Any
+    registry: Any
 
 
 def parse_keyvals(args: list[str]) -> dict[str, Any]:
@@ -120,12 +120,30 @@ def cmd_save(ctx: AppContext, tokens: list[str]) -> str:
     return f"Saved current LLM configuration to profile '{profile_id}'."
 
 
+def cmd_delete(ctx: AppContext, tokens: list[str]) -> str:
+    if not tokens:
+        return "Usage: /delete <profile_id>"
+    profile_id = tokens[0]
+    try:
+        path = ctx.registry.get_profile_path(profile_id)
+    except Exception as exc:  # noqa: BLE001
+        return f"Error: {exc}"
+    if not path.exists():
+        return f"Profile not found: {profile_id}"
+    try:
+        path.unlink()
+        return f"Deleted profile '{profile_id}'."
+    except Exception as exc:  # noqa: BLE001
+        return f"Error deleting '{profile_id}': {exc}"
+
+
 COMMANDS = {
     "/model": cmd_model,
     "/profile": cmd_profile,
     "/list": cmd_list,
     "/show": cmd_show,
     "/save": cmd_save,
+    "/delete": cmd_delete,
     "/help": None,  # handled specially
 }
 
@@ -137,6 +155,7 @@ Commands:
   /list                                              List saved profiles
   /show <profile_id>                                 Show profile details
   /save <profile_id>                                 Save current LLM as profile
+  /delete <profile_id>                               Delete saved profile
   /help                                              Show this help
   /exit | /quit                                      Exit the app
 
