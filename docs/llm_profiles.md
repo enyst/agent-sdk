@@ -47,6 +47,11 @@ Example TUI (demo)
 
   uv run python examples/llm_profiles_tui/cli.py --workspace .
 
+  You can also preselect the initial profile via environment variables when --profile is not provided:
+
+  - export OPENHANDS_LLM_PROFILE=gpt5-mini
+  - or export LLM_PROFILE_NAME=gpt5-mini
+
 - In the TUI:
   - Create a profile: /model gpt5-mini model=litellm_proxy/openai/gpt-5-mini base_url=ENV[LLM_BASE_URL] api_key=ENV[LLM_API_KEY]
   - Switch active profile: /profile gpt5-mini
