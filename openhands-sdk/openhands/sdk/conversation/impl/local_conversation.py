@@ -79,6 +79,11 @@ class LocalConversation(BaseConversation):
                                   which agent/conversation is speaking.
             stuck_detection: Whether to enable stuck detection
         """
+        super().__init__()  # Initialize with span tracking
+        # Mark cleanup as initiated as early as possible to avoid races or partially
+        # initialized instances during interpreter shutdown.
+        self._cleanup_initiated = False
+
         # Initialize the registry early so profile references resolve during resume.
         self.llm_registry = LLMRegistry()
 
@@ -145,8 +150,6 @@ class LocalConversation(BaseConversation):
             secret_values: dict[str, SecretValue] = {k: v for k, v in secrets.items()}
             self.update_secrets(secret_values)
 
-        super().__init__()  # Initialize base class with span tracking
-        self._cleanup_initiated = False
         atexit.register(self.close)
         self._start_observability_span(str(desired_id))
 
@@ -403,7 +406,11 @@ class LocalConversation(BaseConversation):
             return
         self._cleanup_initiated = True
         logger.debug("Closing conversation and cleaning up tool executors")
-        self._end_observability_span()
+        try:
+            self._end_observability_span()
+        except AttributeError:
+            # Object may be partially constructed; span fields may be missing.
+            pass
 
         # Tools may be unavailable if a custom agent skipped initialization or
         # during late interpreter shutdown. Guard access to tools_map.
