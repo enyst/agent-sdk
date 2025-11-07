@@ -211,3 +211,40 @@ def test_run_loop_handles_commands_and_chat(monkeypatch, dummy_ctx):
     # Ensure help text appeared and unknown command was reported
     assert any("Commands:" in line for line in outputs)
     assert any("Unknown command" in line for line in outputs)
+
+
+def test_run_loop_profile_switch_rejected_in_inline_mode(monkeypatch, dummy_ctx):
+    # Make /profile raise like inline mode rejection
+    def raise_inline(_pid):
+        raise RuntimeError(
+            "LLM switching requires OPENHANDS_INLINE_CONVERSATIONS to be false."
+        )
+
+    monkeypatch.setattr(dummy_ctx.conversation, "switch_llm", raise_inline)
+
+    # Prepare inputs: create a profile, attempt to switch, then exit
+    inputs = iter(
+        [
+            "/model alt model=openai/gpt-4o-mini",
+            "/profile alt",
+            "/exit",
+        ]
+    )
+    outputs: list[str] = []
+
+    def fake_input(_prompt: str) -> str:
+        return next(inputs)
+
+    def fake_print(*args, **kwargs):
+        outputs.append(" ".join(str(a) for a in args))
+
+    monkeypatch.setattr("builtins.input", fake_input)
+    monkeypatch.setattr("builtins.print", fake_print)
+
+    tui.run_loop(dummy_ctx)
+
+    # The run_loop should catch the exception from handler and print an Error line
+    assert any(
+        "Error:" in line and "OPENHANDS_INLINE_CONVERSATIONS" in line
+        for line in outputs
+    )
