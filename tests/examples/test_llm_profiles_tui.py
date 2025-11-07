@@ -248,3 +248,32 @@ def test_run_loop_profile_switch_rejected_in_inline_mode(monkeypatch, dummy_ctx)
         "Error:" in line and "OPENHANDS_INLINE_CONVERSATIONS" in line
         for line in outputs
     )
+
+
+def test_cmd_model_requires_model(dummy_ctx):
+    out = tui.cmd_model(dummy_ctx, ["nope"])  # missing model=...
+    assert "model=<name> is required" in out
+
+
+def test_run_loop_profile_unknown_profile_error(monkeypatch, dummy_ctx):
+    # Make /profile raise a ValueError as if profile is missing
+    def raise_missing(_pid):
+        raise ValueError("Profile not found: nope")
+
+    monkeypatch.setattr(dummy_ctx.conversation, "switch_llm", raise_missing)
+
+    inputs = iter(["/profile nope", "/exit"])
+    outputs: list[str] = []
+
+    def fake_input(_prompt: str) -> str:
+        return next(inputs)
+
+    def fake_print(*args, **kwargs):
+        outputs.append(" ".join(str(a) for a in args))
+
+    monkeypatch.setattr("builtins.input", fake_input)
+    monkeypatch.setattr("builtins.print", fake_print)
+
+    tui.run_loop(dummy_ctx)
+
+    assert any("Error:" in line and "Profile not found" in line for line in outputs)
