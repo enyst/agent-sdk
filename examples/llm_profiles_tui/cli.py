@@ -236,6 +236,12 @@ def build_conversation(
     if initial_profile:
         # Use profile for agent LLM
         llm = registry.load_profile(initial_profile)
+        # Default the main agent usage slot to 'agent' for the demo when unspecified
+        if (
+            not getattr(llm, "usage_id", None)
+            or getattr(llm, "usage_id", None) == "default"
+        ):
+            llm = llm.model_copy(update={"usage_id": "agent"})
     else:
         # Prefer environment-provided defaults so runtime has secrets and base_url
         # available (e.g., LLM_MODEL, LLM_API_KEY, LLM_BASE_URL). Fallback to a

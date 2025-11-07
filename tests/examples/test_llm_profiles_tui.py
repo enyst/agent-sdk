@@ -114,6 +114,21 @@ def dummy_ctx(tmp_path):
     return tui.AppContext(conversation=conv, registry=reg)
 
 
+def test_build_conversation_defaults_usage_to_agent_for_profile(monkeypatch, tmp_path):
+    # Force inline references off
+    monkeypatch.setenv("OPENHANDS_INLINE_CONVERSATIONS", "false")
+
+    # Dummy registry that returns an LLM with usage_id default
+    class DummyReg:
+        def load_profile(self, _pid):
+            return tui.LLM(model="openai/gpt-4o-mini")  # usage_id defaults to 'default'
+
+    monkeypatch.setattr(tui, "LLMRegistry", lambda: DummyReg())
+
+    ctx = tui.build_conversation(initial_profile="any", workspace=str(tmp_path))
+    assert ctx.conversation.agent.llm.usage_id == "agent"
+
+
 def test_parse_keyvals_coerces_types(monkeypatch):
     monkeypatch.setenv("MY_API_KEY", "secret")
     data = tui.parse_keyvals(
