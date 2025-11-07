@@ -1,4 +1,4 @@
-LLM Profiles (design)
+# LLM Profiles (design)
 
 Overview
 
@@ -8,9 +8,13 @@ Key decisions
 
 - Reuse the existing LLM Pydantic model schema. A profile file is simply the JSON dump of an LLM instance (the same shape produced by LLM.model_dump(exclude_none=True) or LLM.load_from_json).
 - Storage location: ~/.openhands/llm-profiles/<profile_name>.json. The profile_name is the filename (no extension) used to refer to the profile.
-- Do not change ConversationState or Agent serialization format for now. Profiles are a convenience for creating LLM instances and registering them in the runtime LLMRegistry.
+- Keep Pydantic-driven serialization for ConversationState/Agent. The LLM model itself controls inline vs. profile-reference persistence via serializer/validator context, so there is no bespoke traversal code. Remote APIs continue to expose fully inlined payloads by default.
 - Secrets: do NOT store plaintext API keys in profile files by default. Prefer storing the env var name in the LLM.api_key (via LLM.load_from_env) or keep the API key in runtime SecretsManager. The LLMRegistry.save_profile API exposes an include_secrets flag; default False.
 - LLM.usage_id semantics: keep current behavior (a small set of runtime identifiers such as 'agent', 'condenser', 'title-gen', etc.). Do not use usage_id as the profile name.
+- Profiles may include a usage_id or omit it; at runtime `LLMRegistry.switch_profile(...)` assigns the correct usage_id for the target slot (e.g., 'agent', 'condenser'). Multiple profiles with the same usage_id on disk are acceptable.
+
+- If a profile omits usage_id, the LLM schema defaults it to "default". The correct runtime slot usage_id (e.g., "agent", "condenser") is assigned by LLMRegistry.switch_profile at switch time.
+
 
 LLMRegistry profile API (summary)
 
@@ -29,13 +33,43 @@ Implementation notes
 
 CLI
 
-- Use a single flag: --llm <profile_name> to select a profile for the agent LLM.
-- Also support an environment fallback: OPENHANDS_LLM_PROFILE.
-- Provide commands: `openhands llm list`, `openhands llm show <profile_name>` (redacts secrets).
+- For generic CLIs, a common pattern is a flag like --llm <profile_name> to select a profile for the agent LLM. In the demo TUI (examples/llm_profiles_tui/cli.py) the equivalent flag is --profile.
+- Also support an environment fallback: OPENHANDS_LLM_PROFILE (the demo also accepts LLM_PROFILE_NAME when --profile is not provided).
+- Provide commands in interactive demos: /list, /show <profile_name> (redacts secrets), /model, /profile, /save, /edit, /delete.
 
 Migration
 
 - Migration from inline configs to profiles: provide a migration helper script to extract inline LLMs from ~/.openhands/agent_settings.json and conversation base_state.json into ~/.openhands/llm-profiles/<name>.json and update references (manual opt-in by user).
+
+
+Example TUI (demo)
+
+- A minimal text UI lives at examples/llm_profiles_tui/cli.py
+- Run it with profile references enabled (default):
+
+  uv run python examples/llm_profiles_tui/cli.py --workspace .
+
+  You can also preselect the initial profile via environment variables when --profile is not provided:
+
+  - export OPENHANDS_LLM_PROFILE=gpt5-mini
+  - or export LLM_PROFILE_NAME=gpt5-mini
+
+- In the TUI:
+  - Create a profile: /model gpt5-mini model=litellm_proxy/openai/gpt-5-mini base_url=ENV[LLM_BASE_URL] api_key=ENV[LLM_API_KEY]
+  - Switch active profile: /profile gpt5-mini
+  - Inspect saved payload: /show gpt5-mini
+  - List profiles: /list
+  - Save current LLM as a profile: /save snapshot-1
+  - Edit a profile in place: /edit gpt5-mini temperature=0.2
+  - Delete a profile: /delete old-profile
+
+Notes
+
+- The TUI sets OPENHANDS_INLINE_CONVERSATIONS=false by default so runtime switching works.
+- If you pass --inline, inline payloads are persisted and /profile will be rejected (by design).
+- We recommend setting LLM_BASE_URL=https://llm-proxy.eval.all-hands.dev and LLM_API_KEY in your environment.
+
+- The demo TUI defaults the agent usage_id to 'agent' when not explicitly set via environment to align with runtime switching semantics.
 
 ## Proposed changes for agent-sdk-19 (profile references in persistence)
 

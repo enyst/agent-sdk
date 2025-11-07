@@ -27,12 +27,15 @@ from openhands.sdk.llm import (
     ThinkingBlock,
 )
 from openhands.sdk.logger import get_logger
-from openhands.sdk.mcp import (
-    MCPClient,
-    MCPToolDefinition,
-    MCPToolObservation,
-    create_mcp_tools,
-)
+
+# MCP imports are intentionally lazy to avoid importing FastMCP (and transitive
+# deps) at package import time. See __getattr__ below.
+# from openhands.sdk.mcp import (
+#     MCPClient,
+#     MCPToolDefinition,
+#     MCPToolObservation,
+#     create_mcp_tools,
+# )
 from openhands.sdk.tool import (
     Action,
     Observation,
@@ -95,3 +98,29 @@ __all__ = [
     "RemoteWorkspace",
     "__version__",
 ]
+
+# Lazy attribute access for MCP-related symbols to avoid importing FastMCP at
+# package import time.
+
+
+def __getattr__(name):
+    if name in {
+        "MCPClient",
+        "MCPToolDefinition",
+        "MCPToolObservation",
+        "create_mcp_tools",
+    }:
+        from openhands.sdk.mcp import (
+            MCPClient,
+            MCPToolDefinition,
+            MCPToolObservation,
+            create_mcp_tools,
+        )
+
+        return {
+            "MCPClient": MCPClient,
+            "MCPToolDefinition": MCPToolDefinition,
+            "MCPToolObservation": MCPToolObservation,
+            "create_mcp_tools": create_mcp_tools,
+        }[name]
+    raise AttributeError(f"module 'openhands.sdk' has no attribute '{name}'")

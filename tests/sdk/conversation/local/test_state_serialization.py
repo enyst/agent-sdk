@@ -742,3 +742,40 @@ def test_local_conversation_switch_llm_requires_idle(tmp_path, monkeypatch):
 
     with pytest.raises(RuntimeError, match="Agent must be idle"):
         conversation.switch_llm("alt")
+
+
+# pyright: reportMissingImports=false
+
+
+def test_local_conversation_switch_llm_carries_over_secrets(tmp_path, monkeypatch):
+    home_dir = tmp_path / "home"
+    home_dir.mkdir()
+    monkeypatch.setenv("HOME", str(home_dir))
+    monkeypatch.setenv("OPENHANDS_INLINE_CONVERSATIONS", "false")
+
+    registry = LLMRegistry()
+    # Start with a runtime LLM that has a secret api_key
+    base_llm = LLM(
+        model="gpt-4o-mini", usage_id="test-llm", api_key=SecretStr("sekret")
+    )
+    # Save an alternate profile WITHOUT api_key (profiles default to exclude secrets)
+    registry.save_profile("alt-no-secret", LLM(model="gpt-4o", usage_id="alternate"))
+
+    agent = Agent(llm=base_llm, tools=[])
+    conversation = Conversation(
+        agent=agent,
+        workspace=str(tmp_path / "workspace"),
+        persistence_dir=str(tmp_path / "persist"),
+        visualize=False,
+    )
+    assert isinstance(conversation, LocalConversation)
+
+    # Switching should carry over the secret api_key from current llm to the new one
+    conversation.switch_llm("alt-no-secret")
+
+    assert conversation.agent.llm.profile_id == "alt-no-secret"
+    assert conversation.agent.llm.usage_id == "test-llm"
+    assert conversation.agent.llm.model == "gpt-4o"
+    assert conversation.agent.llm.api_key is not None
+    assert isinstance(conversation.agent.llm.api_key, SecretStr)
+    assert conversation.agent.llm.api_key.get_secret_value() == "sekret"

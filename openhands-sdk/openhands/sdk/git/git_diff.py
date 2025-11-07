@@ -35,7 +35,9 @@ def get_closest_git_repo(path: Path) -> Path | None:
     Returns:
         Path to the git repository root, or None if not found
     """
-    current_path = path.resolve()
+    # Use absolute path without resolving symlinks to maintain stability on macOS
+    # where /var is a symlink to /private/var. Tests expect the non-resolved path.
+    current_path = Path(path).absolute()
 
     while True:
         git_path = current_path / ".git"

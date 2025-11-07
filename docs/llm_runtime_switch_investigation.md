@@ -3,15 +3,15 @@
 ## Current architecture
 
 ### LLMRegistry
-- Keeps an in-memory mapping `service_to_llm: dict[str, LLM]`.
+- Keeps an in-memory mapping `usage_to_llm: dict[str, LLM]`.
 - Loads/saves JSON profiles under `~/.openhands/llm-profiles` (or a custom directory) via:
   - `list_profiles()` / `get_profile_path()`
   - `save_profile(profile_id, llm)` – strips secret fields unless explicitly asked not to.
   - `load_profile(profile_id)` – rehydrates an `LLM`, ensuring the runtime instance’s `profile_id` matches the file stem via `_load_profile_with_synced_id`.
   - `register_profiles(profile_ids=None)` – iterates `list_profiles()`, calling `load_profile` then `add` for each profile; skips invalid payloads or duplicates.
   - `validate_profile(data)` – wraps `LLM.model_validate` to report pydantic errors as strings.
-- `add(llm)` publishes a `RegistryEvent` to the optional subscriber and records the LLM in `service_to_llm` keyed by `llm.service_id`.
-- Currently assumes a one-to-one mapping of service_id ↔ active LLM instance.
+- `add(llm)` publishes a `RegistryEvent` to the optional subscriber and records the LLM in `usage_to_llm` keyed by `llm.usage_id`.
+- Currently assumes a one-to-one mapping of usage_id ↔ active LLM instance.
 
 ### Agent & LLM ownership
 - `AgentBase.llm` is a (frozen) `LLM` Basemodel. Agents may also own other LLMs (e.g., condensers) discovered via `AgentBase.get_all_llms()`.
@@ -26,14 +26,14 @@
 - When inline mode is enabled (`OPENHANDS_INLINE_CONVERSATIONS=true`), profiles are fully embedded and *any* LLM diff is rejected by the reconciliation flow above.
 
 ### Conversation bootstrapping
-- `LocalConversation.__init__()` adds all LLMS from the agent to the registry and eagerly calls `register_profiles()` (errors logged at DEBUG level). This ensures the in-memory registry is primed with persisted profiles before a conversation resumes.
+- `LocalConversation.__init__()` adds all LLMs from the agent to the registry. It no longer calls `register_profiles()` eagerly to avoid duplicate-usage warnings; profiles are loaded on demand via `LLMRegistry.switch_profile(...)` when a runtime switch is requested.
 
 ## Implications for runtime switching
 
 1. **Registry as switch authority**
    - Registry already centralizes active LLM instances and profile management, so introducing a “switch-to-profile” operation belongs here. That operation will need to:
      - Load the target profile (if not already loaded).
-     - Update `service_to_llm` (and notify subscribers) atomically.
+     - Update `usage_to_llm` (and notify subscribers) atomically.
      - Return the new `LLM` so callers can update their Agent / Conversation state.
 
 2. **Agent/LLM reconciliation barriers**
@@ -45,12 +45,12 @@
 3. **State & metrics consistency**
    - After a switch we must ensure:
      - `ConversationState.agent.llm` points at the new object (and any secondary LLM references, e.g., condensers, are updated if needed).
-     - `ConversationState.stats.service_to_metrics` either resets or continues per usage_id; we must decide what data should carry over when the service swaps to a different profile.
+     - `ConversationState.stats.usage_to_metrics` either resets or continues per usage_id; we must decide what data should carry over when the usage slot swaps to a different profile.
      - Event persistence continues to work: future saves should store the new profile ID, and reloads should retrieve the same profile in the registry.
 
 4. **Runtime API surface**
    - Need an ergonomic call for agents/conversations to request a new profile by name (manual selection or automated policy). Potential entry points:
-     - `LLMRegistry.switch_profile(service_id, profile_id)` returning the active `LLM`.
+     - `LLMRegistry.switch_profile(usage_id, profile_id)` returning the active `LLM`.
      - Conversation-level helper (e.g., `LocalConversation.switch_llm(profile_id)`) that coordinates registry + agent updates + persistence.
 
 5. **Observer / callback considerations**

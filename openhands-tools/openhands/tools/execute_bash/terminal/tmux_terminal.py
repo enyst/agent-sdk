@@ -1,5 +1,7 @@
 """Tmux-based terminal backend implementation."""
 
+# pyright: reportMissingImports=false
+
 import os
 import time
 import uuid
@@ -83,8 +85,9 @@ class TmuxTerminal(TerminalInterface):
         _initial_window.kill()
 
         # Configure bash to use simple PS1 and disable PS2
+        # Disable history expansion to avoid ! mangling
         self.pane.send_keys(
-            f'export PROMPT_COMMAND=\'export PS1="{self.PS1}"\'; export PS2=""'
+            f'set +H; export PROMPT_COMMAND=\'export PS1="{self.PS1}"\'; export PS2=""'
         )
         time.sleep(0.1)  # Wait for command to take effect
 

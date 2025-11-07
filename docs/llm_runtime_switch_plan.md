@@ -15,27 +15,27 @@ This plan builds on the investigation captured in `docs/llm_runtime_switch_inves
 
 ### 1. Extend LLMRegistry
 
-Add a `switch_profile(service_id: str, profile_id: str) -> LLM` method that:
+Add a `switch_profile(usage_id: str, profile_id: str) -> LLM` method that:
 - Loads `profile_id` via existing helpers (re-using `_load_profile_with_synced_id`).
-- Registers the loaded LLM (using `add` semantics) **replacing** the previous instance for `service_id`.
+- Registers the loaded LLM (using `add` semantics) **replacing** the previous instance for `usage_id`.
 - Publishes a `RegistryEvent` (re-using the existing subscriber hook) so listeners can update state.
 - Returns the new `LLM` instance so callers can synchronously update their agent/state.
 
 Implementation notes:
 - If the profile is already active, short-circuit and return the existing LLM.
-- Raise a descriptive error when the profile is missing or when the service ID is unknown.
+- Raise a descriptive error when the profile is missing or when the usage ID is unknown.
 
 ### 2. Conversation-level coordination
 
 Introduce a method on `ConversationState` (and corresponding `LocalConversation`) such as `switch_agent_llm(profile_id: str)` which orchestrates the swap:
 
 1. Check `should_inline_conversations()`; if inline mode is enabled, raise an `LLMSwitchError` instructing the caller to disable inline persistence.
-2. Resolve the agent’s `service_id` (current LLM) and call `LLMRegistry.switch_profile(...)`.
+2. Resolve the agent’s `usage_id` (current LLM) and call `LLMRegistry.switch_profile(...)`.
 3. Update `state.agent` with a new agent object whose `.llm` is the returned instance.
    - To bypass the strict `resolve_diff_from_deserialized` diff, introduce an internal helper on `AgentBase`, e.g. `_with_swapped_llm(new_llm: LLM)`, that clones the agent via `model_copy(update={"llm": new_llm})`. This avoids running `resolve_diff_from_deserialized`, which would otherwise reject the change.
    - Apply the same logic to any condensers or secondary LLMs once the need arises (out of scope for v1).
 4. Update `ConversationState.stats` bookkeeping:
-   - Either reset the metrics entry for the service to zero or continue accumulating under the same key (decision: start a fresh metrics entry to avoid mixing usage between profiles).
+   - Continue accumulating under the same usage_id. The registry subscriber restores existing metrics onto the swapped-in LLM (ConversationStats.register_llm), preserving continuous tracking across switches.
 5. Persist immediately by calling existing save hooks (`_save_base_state`) to ensure the new profile ID is captured.
 
 A convenience method on `LocalConversation` (e.g. `switch_llm(profile_id: str)`) will forward to the state method and surface the error if inline mode blocks the operation.
@@ -54,10 +54,10 @@ For the first iteration we can require `state.agent_status == AgentExecutionStat
 
 1. **Registry unit tests**
    - New suite in `tests/sdk/llm/test_llm_registry_profiles.py` for `switch_profile` covering:
-     - Successful swap (existing service → new profile).
+     - Successful swap (existing usage slot → new profile).
      - Swap to the same profile is a no-op.
      - Unknown profile → raises.
-     - Unknown service → raises.
+     - Unknown usage → raises.
      - Subscriber notifications fire.
 
 2. **Conversation integration tests** (extend `tests/sdk/conversation/local/test_state_serialization.py` or create new module):
@@ -70,7 +70,8 @@ For the first iteration we can require `state.agent_status == AgentExecutionStat
    - Verify that stats either reset or continue according to the chosen policy by inspecting `ConversationState.stats.service_to_metrics` before/after the swap.
 
 4. **Serialization tests**
-   - Ensure `compact_llm_profiles` writes the new `profile_id` after a switch, and `resolve_llm_profiles` rehydrates it successfully on reload.
+   - Ensure the LLM serializer, when invoked with context `{INLINE_CONTEXT_KEY: False}`, emits `{ "profile_id": "..." }` for active profiles so base_state persists profile references after a switch.
+   - Ensure reload expands `{ "profile_id": "..." }` via `LLM.model_validate(..., context={INLINE_CONTEXT_KEY: False, "llm_registry": registry})` and reconciles into a concrete LLM instance.
 
 5. **Subscriber behaviour**
    - If we extend beyond a single subscriber, add tests for multiple listeners; otherwise ensure the existing single-subscriber path still works.

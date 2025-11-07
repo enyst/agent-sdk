@@ -184,7 +184,8 @@ class ConversationState(OpenHandsModel):
 
         inline_mode = should_inline_conversations()
         # Keep validation and serialization in sync when loading previously
-        # persisted state.
+        # persisted state. Include inline preference and optional registry so
+        # LLM.model_validate can expand profile references at field level.
         context = {INLINE_CONTEXT_KEY: inline_mode}
 
         # ---- Resume path ----
@@ -202,7 +203,8 @@ class ConversationState(OpenHandsModel):
                     from openhands.sdk.llm.llm_registry import LLMRegistry
 
                     registry = LLMRegistry()
-                _expand_profile_references(base_payload, registry)
+                # Pass registry via context so LLM.model_validator can expand stubs
+                context = {**context, "llm_registry": registry}
 
             state = cls.model_validate(base_payload, context=context)
 
@@ -323,6 +325,20 @@ class ConversationState(OpenHandsModel):
         except KeyError as exc:
             raise ValueError(str(exc)) from exc
 
+        # Carry over secret fields from the current LLM when the switched-in profile
+        # omits them (profiles typically exclude secrets on disk).
+        current_llm = self.agent.llm
+        updates: dict[str, object] = {}
+        for field in getattr(
+            current_llm, "OVERRIDE_ON_SERIALIZE", ()
+        ):  # api_key, aws_*
+            new_val = getattr(new_llm, field, None)
+            cur_val = getattr(current_llm, field, None)
+            if new_val is None and cur_val is not None:
+                updates[field] = cur_val
+        if updates:
+            new_llm = new_llm.model_copy(update=updates)
+
         self.agent = self.agent._clone_with_llm(new_llm)
         if self.execution_status == ConversationExecutionStatus.FINISHED:
             self.execution_status = ConversationExecutionStatus.IDLE
@@ -415,22 +431,3 @@ def _contains_profile_reference(node: Any) -> bool:
         return any(_contains_profile_reference(item) for item in node)
 
     return False
-
-
-def _expand_profile_references(node: Any, registry: "LLMRegistry") -> None:
-    """Inline LLM payloads for any profile references contained in ``node``."""
-
-    if isinstance(node, dict):
-        if "profile_id" in node and "model" not in node:
-            profile_id = node["profile_id"]
-            llm = registry.load_profile(profile_id)
-            expanded = llm.model_dump(exclude_none=True)
-            expanded["profile_id"] = profile_id
-            node.clear()
-            node.update(expanded)
-            return
-        for value in node.values():
-            _expand_profile_references(value, registry)
-    elif isinstance(node, list):
-        for item in node:
-            _expand_profile_references(item, registry)

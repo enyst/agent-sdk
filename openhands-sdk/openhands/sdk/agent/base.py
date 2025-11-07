@@ -13,7 +13,6 @@ from openhands.sdk.context.condenser import CondenserBase, LLMSummarizingCondens
 from openhands.sdk.context.prompts.prompt import render_template
 from openhands.sdk.llm import LLM
 from openhands.sdk.logger import get_logger
-from openhands.sdk.mcp import create_mcp_tools
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
 from openhands.sdk.tool import BUILT_IN_TOOLS, Tool, ToolDefinition, resolve_tool
 from openhands.sdk.utils.models import DiscriminatedUnionMixin
@@ -208,6 +207,10 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
 
         # Add MCP tools if configured
         if self.mcp_config:
+            # Lazy import to avoid importing FastMCP (and transitive deps)
+            # unless MCP is actually configured
+            from openhands.sdk.mcp import create_mcp_tools  # type: ignore
+
             mcp_tools = create_mcp_tools(self.mcp_config, timeout=30)
             tools.extend(mcp_tools)
 

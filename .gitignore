@@ -210,3 +210,5 @@ openapi.json
 agent-sdk.workspace.code-workspace
 *.code-workspace
 scripts/worktree.sh
+tests_all_done.flag
+tests_exit_code*.txt

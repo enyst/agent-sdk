@@ -77,6 +77,8 @@ The `examples/` directory contains comprehensive usage examples:
 - **Standalone SDK** (`examples/01_standalone_sdk/`) - Basic agent usage, custom tools, and microagents
 - **Remote Agent Server** (`examples/02_remote_agent_server/`) - Client-server architecture and WebSocket connections
 - **GitHub Workflows** (`examples/03_github_workflows/`) - CI/CD integration and automated workflows
+- **LLM Profiles TUI** (`examples/llm_profiles_tui/cli.py`) - Interactive text UI to create profiles with /model and switch at runtime with /profile
+- **Runtime LLM Switch** (`examples/01_standalone_sdk/26_runtime_llm_switch.py`) - Programmatic example of switching the active LLM profile during a conversation
 
 ## Contributing
 
