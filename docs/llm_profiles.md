@@ -33,9 +33,9 @@ Implementation notes
 
 CLI
 
-- Use a single flag: --llm <profile_name> to select a profile for the agent LLM.
-- Also support an environment fallback: OPENHANDS_LLM_PROFILE.
-- Provide commands: `openhands llm list`, `openhands llm show <profile_name>` (redacts secrets).
+- For generic CLIs, a common pattern is a flag like --llm <profile_name> to select a profile for the agent LLM. In the demo TUI (examples/llm_profiles_tui/cli.py) the equivalent flag is --profile.
+- Also support an environment fallback: OPENHANDS_LLM_PROFILE (the demo also accepts LLM_PROFILE_NAME when --profile is not provided).
+- Provide commands in interactive demos: /list, /show <profile_name> (redacts secrets), /model, /profile, /save, /edit, /delete.
 
 Migration
 
