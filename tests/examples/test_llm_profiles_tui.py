@@ -9,6 +9,27 @@ import pytest
 from examples.llm_profiles_tui import cli as tui
 
 
+def test_help_mentions_env_and_inline(monkeypatch, dummy_ctx):
+    # Drive the loop with /help then /exit to capture printed text
+    inputs = iter(["/help", "/exit"])
+    outputs: list[str] = []
+
+    def fake_input(_prompt: str) -> str:
+        return next(inputs)
+
+    def fake_print(*args, **kwargs):
+        outputs.append(" ".join(str(a) for a in args))
+
+    monkeypatch.setattr("builtins.input", fake_input)
+    monkeypatch.setattr("builtins.print", fake_print)
+
+    tui.run_loop(dummy_ctx)
+
+    blob = "\n".join(outputs)
+    assert "OPENHANDS_LLM_PROFILE" in blob or "LLM_PROFILE_NAME" in blob
+    assert "--inline" in blob
+
+
 def test_main_env_var_fallback(monkeypatch):
     calls = {}
 

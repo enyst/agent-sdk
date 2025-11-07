@@ -184,6 +184,13 @@ Commands:
   /help                                              Show this help
   /exit | /quit                                      Exit the app
 
+Notes:
+  - Initial profile can be selected via env if --profile is not provided:
+      OPENHANDS_LLM_PROFILE or LLM_PROFILE_NAME
+  - Switching works by default (OPENHANDS_INLINE_CONVERSATIONS=false). Use --inline
+    to persist inline payloads and disable switching.
+  - Recommended env: set LLM_BASE_URL and LLM_API_KEY; optionally LLM_MODEL.
+
 Examples:
   /model fast-gpt model=openai/gpt-4o-mini temperature=0.2
   /model heavy-sonnet model=anthropic/claude-sonnet-4-20250514 reasoning_effort=high
