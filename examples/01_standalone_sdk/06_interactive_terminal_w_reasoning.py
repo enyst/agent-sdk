@@ -11,7 +11,7 @@ from openhands.sdk import (
     get_logger,
 )
 from openhands.sdk.tool import Tool
-from openhands.tools.execute_bash import BashTool
+from openhands.tools.terminal import TerminalTool
 
 
 logger = get_logger(__name__)
@@ -19,7 +19,7 @@ logger = get_logger(__name__)
 # Configure LLM
 api_key = os.getenv("LLM_API_KEY")
 assert api_key is not None, "LLM_API_KEY environment variable is not set."
-model = os.getenv("LLM_MODEL", "openhands/claude-sonnet-4-5-20250929")
+model = os.getenv("LLM_MODEL", "anthropic/claude-sonnet-4-5-20250929")
 base_url = os.getenv("LLM_BASE_URL")
 llm = LLM(
     usage_id="agent",
@@ -32,7 +32,7 @@ llm = LLM(
 cwd = os.getcwd()
 tools = [
     Tool(
-        name=BashTool.name,
+        name=TerminalTool.name,
         params={"no_change_timeout_seconds": 3},
     )
 ]

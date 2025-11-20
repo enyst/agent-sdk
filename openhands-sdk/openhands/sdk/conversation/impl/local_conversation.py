@@ -15,18 +15,20 @@ from openhands.sdk.conversation.stuck_detector import StuckDetector
 from openhands.sdk.conversation.title_utils import generate_conversation_title
 from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
 from openhands.sdk.conversation.visualizer import (
-    ConversationVisualizer,
-    create_default_visualizer,
+    ConversationVisualizerBase,
+    DefaultConversationVisualizer,
 )
 from openhands.sdk.event import (
     MessageEvent,
     PauseEvent,
     UserRejectObservation,
 )
+from openhands.sdk.event.conversation_error import ConversationErrorEvent
 from openhands.sdk.llm import LLM, Message, TextContent
 from openhands.sdk.llm.llm_registry import LLMRegistry
 from openhands.sdk.logger import get_logger
 from openhands.sdk.observability.laminar import observe
+from openhands.sdk.security.analyzer import SecurityAnalyzerBase
 from openhands.sdk.security.confirmation_policy import (
     ConfirmationPolicyBase,
 )
@@ -40,7 +42,7 @@ class LocalConversation(BaseConversation):
     agent: AgentBase
     workspace: LocalWorkspace
     _state: ConversationState
-    _visualizer: ConversationVisualizer | None
+    _visualizer: ConversationVisualizerBase | None
     _on_event: ConversationCallbackType
     max_iteration_per_run: int
     _stuck_detector: StuckDetector | None
@@ -50,14 +52,15 @@ class LocalConversation(BaseConversation):
     def __init__(
         self,
         agent: AgentBase,
-        workspace: str | LocalWorkspace,
-        persistence_dir: str | None = None,
+        workspace: str | Path | LocalWorkspace,
+        persistence_dir: str | Path | None = None,
         conversation_id: ConversationID | None = None,
         callbacks: list[ConversationCallbackType] | None = None,
         max_iteration_per_run: int = 500,
         stuck_detection: bool = True,
-        visualize: bool = True,
-        name_for_visualization: str | None = None,
+        visualizer: (
+            type[ConversationVisualizerBase] | ConversationVisualizerBase | None
+        ) = DefaultConversationVisualizer,
         secrets: Mapping[str, SecretValue] | None = None,
         **_: object,
     ):
@@ -65,32 +68,41 @@ class LocalConversation(BaseConversation):
 
         Args:
             agent: The agent to use for the conversation
-            workspace: Working directory for agent operations and tool execution
-            persistence_dir: Directory for persisting conversation state and events
+            workspace: Working directory for agent operations and tool execution.
+                Can be a string path, Path object, or LocalWorkspace instance.
+            persistence_dir: Directory for persisting conversation state and events.
+                Can be a string path or Path object.
             conversation_id: Optional ID for the conversation. If provided, will
                       be used to identify the conversation. The user might want to
                       suffix their persistent filestore with this ID.
             callbacks: Optional list of callback functions to handle events
             max_iteration_per_run: Maximum number of iterations per run
-            visualize: Whether to enable default visualization. If True, adds
-                      a default visualizer callback. If False, relies on
-                      application to provide visualization through callbacks.
-            name_for_visualization: Optional name to prefix in panel titles to identify
-                                  which agent/conversation is speaking.
+            visualizer: Visualization configuration. Can be:
+                       - ConversationVisualizerBase subclass: Class to instantiate
+                         (default: ConversationVisualizer)
+                       - ConversationVisualizerBase instance: Use custom visualizer
+                       - None: No visualization
             stuck_detection: Whether to enable stuck detection
         """
         # Initialize the registry early so profile references resolve during resume.
         self.llm_registry = LLMRegistry()
+        
+        super().__init__()  # Initialize with span tracking
+        # Mark cleanup as initiated as early as possible to avoid races or partially
+        # initialized instances during interpreter shutdown.
+        self._cleanup_initiated = False
 
         self.agent = agent
-        if isinstance(workspace, str):
+        if isinstance(workspace, (str, Path)):
+            # LocalWorkspace accepts both str and Path via BeforeValidator
             workspace = LocalWorkspace(working_dir=workspace)
         assert isinstance(workspace, LocalWorkspace), (
             "workspace must be a LocalWorkspace instance"
         )
         self.workspace = workspace
-        if not Path(self.workspace.working_dir).exists():
-            Path(self.workspace.working_dir).mkdir(parents=True, exist_ok=True)
+        ws_path = Path(self.workspace.working_dir)
+        if not ws_path.exists():
+            ws_path.mkdir(parents=True, exist_ok=True)
 
         # Create-or-resume: factory inspects BASE_STATE to decide
         desired_id = conversation_id or uuid.uuid4()
@@ -111,15 +123,25 @@ class LocalConversation(BaseConversation):
             self._state.events.append(e)
 
         composed_list = (callbacks if callbacks else []) + [_default_callback]
-        # Add default visualizer if requested
-        if visualize:
-            self._visualizer = create_default_visualizer(
-                conversation_stats=self._state.stats,
-                name_for_visualization=name_for_visualization,
-            )
+        # Handle visualization configuration
+        if isinstance(visualizer, ConversationVisualizerBase):
+            # Use custom visualizer instance
+            self._visualizer = visualizer
+            # Initialize the visualizer with conversation state
+            self._visualizer.initialize(self._state)
             composed_list = [self._visualizer.on_event] + composed_list
-            # visualize should happen first for visibility
+            # visualizer should happen first for visibility
+        elif isinstance(visualizer, type) and issubclass(
+            visualizer, ConversationVisualizerBase
+        ):
+            # Instantiate the visualizer class with appropriate parameters
+            self._visualizer = visualizer()
+            # Initialize with state
+            self._visualizer.initialize(self._state)
+            composed_list = [self._visualizer.on_event] + composed_list
+            # visualizer should happen first for visibility
         else:
+            # No visualization (visualizer is None)
             self._visualizer = None
 
         self._on_event = BaseConversation.compose_callbacks(composed_list)
@@ -148,8 +170,6 @@ class LocalConversation(BaseConversation):
             secret_values: dict[str, SecretValue] = {k: v for k, v in secrets.items()}
             self.update_secrets(secret_values)
 
-        super().__init__()  # Initialize base class with span tracking
-        self._cleanup_initiated = False
         atexit.register(self.close)
         self._start_observability_span(str(desired_id))
 
@@ -179,13 +199,17 @@ class LocalConversation(BaseConversation):
         return self._stuck_detector
 
     @observe(name="conversation.send_message")
-    def send_message(self, message: str | Message) -> None:
+    def send_message(self, message: str | Message, sender: str | None = None) -> None:
         """Send a message to the agent.
 
         Args:
             message: Either a string (which will be converted to a user message)
 
                     or a Message object
+            sender: Optional identifier of the sender. Can be used to track
+                   message origin in multi-agent scenarios. For example, when
+                   one agent delegates to another, the sender can be set to
+                   identify which agent is sending the message.
         """
         # Convert string to Message if needed
         if isinstance(message, str):
@@ -228,6 +252,7 @@ class LocalConversation(BaseConversation):
                 llm_message=message,
                 activated_skills=activated_skill_names,
                 extended_content=extended_content,
+                sender=sender,
             )
             self._on_event(user_msg_event)
 
@@ -308,6 +333,16 @@ class LocalConversation(BaseConversation):
                         break
         except Exception as e:
             self._state.execution_status = ConversationExecutionStatus.ERROR
+
+            # Add an error event
+            self._on_event(
+                ConversationErrorEvent(
+                    source="environment",
+                    code=e.__class__.__name__,
+                    detail=str(e),
+                )
+            )
+
             # Re-raise with conversation id for better UX; include original traceback
             raise ConversationRunError(self._state.id, e) from e
         finally:
@@ -388,13 +423,22 @@ class LocalConversation(BaseConversation):
         secret_registry.update_secrets(secrets)
         logger.info(f"Added {len(secrets)} secrets to conversation")
 
+    def set_security_analyzer(self, analyzer: SecurityAnalyzerBase | None) -> None:
+        """Set the security analyzer for the conversation."""
+        with self._state:
+            self._state.security_analyzer = analyzer
+
     def close(self) -> None:
         """Close the conversation and clean up all tool executors."""
         if self._cleanup_initiated:
             return
         self._cleanup_initiated = True
         logger.debug("Closing conversation and cleaning up tool executors")
-        self._end_observability_span()
+        try:
+            self._end_observability_span()
+        except AttributeError:
+            # Object may be partially constructed; span fields may be missing.
+            pass
         for tool in self.agent.tools_map.values():
             try:
                 executable_tool = tool.as_executable()

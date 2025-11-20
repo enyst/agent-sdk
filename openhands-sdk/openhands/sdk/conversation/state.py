@@ -27,6 +27,7 @@ from openhands.sdk.persistence.settings import (
     INLINE_CONTEXT_KEY,
     should_inline_conversations,
 )
+from openhands.sdk.security.analyzer import SecurityAnalyzerBase
 from openhands.sdk.security.confirmation_policy import (
     ConfirmationPolicyBase,
     NeverConfirm,
@@ -91,6 +92,10 @@ class ConversationState(OpenHandsModel):
         default=ConversationExecutionStatus.IDLE
     )
     confirmation_policy: ConfirmationPolicyBase = NeverConfirm()
+    security_analyzer: SecurityAnalyzerBase | None = Field(
+        default=None,
+        description="Optional security analyzer to evaluate action risks.",
+    )
 
     activated_knowledge_skills: list[str] = Field(
         default_factory=list,
@@ -245,6 +250,8 @@ class ConversationState(OpenHandsModel):
             max_iterations=max_iterations,
             stuck_detection=stuck_detection,
         )
+        # Record existing analyzer configuration in state
+        state.security_analyzer = state.security_analyzer
         state._fs = file_store
         state._events = EventLog(file_store, dir_path=EVENTS_DIR)
         state.stats = ConversationStats()

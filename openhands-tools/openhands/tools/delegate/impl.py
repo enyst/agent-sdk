@@ -8,6 +8,7 @@ from openhands.sdk.conversation.response_utils import get_agent_final_response
 from openhands.sdk.logger import get_logger
 from openhands.sdk.tool.tool import ToolExecutor
 from openhands.tools.delegate.definition import DelegateObservation
+from openhands.tools.delegate.visualizer import DelegationVisualizer
 from openhands.tools.preset.default import get_default_agent
 
 
@@ -98,7 +99,8 @@ class DelegateExecutor(ToolExecutor):
         try:
             parent_conversation = self.parent_conversation
             parent_llm = parent_conversation.agent.llm
-            visualize = getattr(parent_conversation, "visualize", True)
+            parent_visualizer = parent_conversation._visualizer
+
             workspace_path = parent_conversation.state.workspace.working_dir
 
             for agent_id in action.ids:
@@ -109,11 +111,22 @@ class DelegateExecutor(ToolExecutor):
                     ),
                 )
 
+                # If parent uses DelegationVisualizer, create sub-agent visualizer
+                # Pass raw agent_id - visualizer handles formatting
+                if isinstance(parent_visualizer, DelegationVisualizer):
+                    sub_visualizer = DelegationVisualizer(
+                        name=agent_id,
+                        highlight_regex=parent_visualizer._highlight_patterns,
+                        skip_user_messages=parent_visualizer._skip_user_messages,
+                    )
+                else:
+                    # No visualizer for sub-agents if parent doesn't use one
+                    sub_visualizer = None
+
                 sub_conversation = LocalConversation(
                     agent=worker_agent,
                     workspace=workspace_path,
-                    visualize=visualize,
-                    name_for_visualization=agent_id,
+                    visualizer=sub_visualizer,
                 )
 
                 self._sub_agents[agent_id] = sub_conversation
@@ -170,11 +183,25 @@ class DelegateExecutor(ToolExecutor):
             results = {}
             errors = {}
 
-            def run_task(agent_id: str, conversation: LocalConversation, task: str):
+            # Get the parent agent's name from the visualizer
+            parent_conversation = self.parent_conversation
+            parent_name = None
+            if hasattr(parent_conversation, "_visualizer"):
+                visualizer = parent_conversation._visualizer
+                if isinstance(visualizer, DelegationVisualizer):
+                    parent_name = visualizer._name
+
+            def run_task(
+                agent_id: str,
+                conversation: LocalConversation,
+                task: str,
+                parent_name: str | None,
+            ):
                 """Run a single task on a sub-agent."""
                 try:
                     logger.info(f"Sub-agent {agent_id} starting task: {task[:100]}...")
-                    conversation.send_message(task)
+                    # Pass raw parent_name - visualizer handles formatting
+                    conversation.send_message(task, sender=parent_name)
                     conversation.run()
 
                     # Extract the final response using get_agent_final_response
@@ -198,7 +225,7 @@ class DelegateExecutor(ToolExecutor):
                 conversation = self._sub_agents[agent_id]
                 thread = threading.Thread(
                     target=run_task,
-                    args=(agent_id, conversation, task),
+                    args=(agent_id, conversation, task, parent_name),
                     name=f"Task-{agent_id}",
                 )
                 threads.append(thread)

@@ -18,8 +18,8 @@ from openhands.sdk.conversation.state import (
 from openhands.sdk.security.confirmation_policy import ConfirmRisky
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
 from openhands.sdk.tool import Tool
-from openhands.tools.execute_bash import BashTool
 from openhands.tools.file_editor import FileEditorTool
+from openhands.tools.terminal import TerminalTool
 
 
 # Clean ^C exit: no stack trace noise
@@ -94,7 +94,7 @@ def run_until_finished_with_security(
 # Configure LLM
 api_key = os.getenv("LLM_API_KEY")
 assert api_key is not None, "LLM_API_KEY environment variable is not set."
-model = os.getenv("LLM_MODEL", "openhands/claude-sonnet-4-5-20250929")
+model = os.getenv("LLM_MODEL", "anthropic/claude-sonnet-4-5-20250929")
 base_url = os.getenv("LLM_BASE_URL")
 llm = LLM(
     usage_id="security-analyzer",
@@ -106,7 +106,7 @@ llm = LLM(
 # Tools
 tools = [
     Tool(
-        name=BashTool.name,
+        name=TerminalTool.name,
     ),
     Tool(name=FileEditorTool.name),
 ]
