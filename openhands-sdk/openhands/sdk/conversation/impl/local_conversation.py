@@ -129,8 +129,8 @@ class LocalConversation(BaseConversation):
         # Eagerly register LLM profiles from disk.
         try:
             self.llm_registry.register_profiles()
-        except Exception:
-            logger.debug("No LLM profiles registered")
+        except OSError:
+            logger.warning("Failed to register LLM profiles from disk due to a file system error.", exc_info=True)
 
         # Initialize secrets if provided
         if secrets:
