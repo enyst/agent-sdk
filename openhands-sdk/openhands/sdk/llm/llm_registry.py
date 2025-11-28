@@ -10,9 +10,6 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 
 from openhands.sdk.llm.llm import LLM
 from openhands.sdk.logger import get_logger
-from openhands.sdk.utils.deprecation import (
-    deprecated,
-)
 
 
 logger = get_logger(__name__)
@@ -26,15 +23,6 @@ _SECRET_FIELDS: tuple[str, ...] = (
 _DEFAULT_PROFILE_DIR = Path.home() / ".openhands" / "llm-profiles"
 
 _PROFILE_ID_PATTERN = re.compile(r"^[A-Za-z0-9._-]+$")
-
-SERVICE_TO_LLM_DEPRECATION_MSG = (
-    "LLMRegistry.service_to_llm is deprecated and will be removed in a future "
-    "release; use usage_to_llm instead."
-)
-SERVICE_TO_LLM_DEPRECATION_DETAILS = "Use usage_to_llm instead of service_to_llm."
-
-LIST_SERVICES_DEPRECATION_DETAILS = "Use list_usage_ids instead of list_services."
-
 
 class RegistryEvent(BaseModel):
     llm: LLM
@@ -95,15 +83,6 @@ class LLMRegistry:
     def usage_to_llm(self) -> dict[str, LLM]:
         """Access the internal usage-ID-to-LLM mapping."""
 
-        return self._usage_to_llm
-
-    @property
-    @deprecated(
-        deprecated_in="1.1.0",
-        removed_in="1.3.0",
-        details=SERVICE_TO_LLM_DEPRECATION_DETAILS,
-    )
-    def service_to_llm(self) -> dict[str, LLM]:  # pragma: no cover - compatibility shim
         return self._usage_to_llm
 
     def add(self, llm: LLM) -> None:
@@ -272,15 +251,5 @@ class LLMRegistry:
 
     def list_usage_ids(self) -> list[str]:
         """List all registered usage IDs."""
-
-        return list(self._usage_to_llm.keys())
-
-    @deprecated(
-        deprecated_in="1.1.0",
-        removed_in="1.3.0",
-        details=LIST_SERVICES_DEPRECATION_DETAILS,
-    )
-    def list_services(self) -> list[str]:  # pragma: no cover - compatibility shim
-        """Deprecated alias for :meth:`list_usage_ids`."""
 
         return list(self._usage_to_llm.keys())

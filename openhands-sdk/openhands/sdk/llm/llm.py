@@ -33,10 +33,6 @@ from openhands.sdk.utils.pydantic_secrets import serialize_secret, validate_secr
 if TYPE_CHECKING:  # type hints only, avoid runtime import cycle
     from openhands.sdk.tool.tool import ToolDefinition
 
-from openhands.sdk.utils.deprecation import (
-    deprecated,
-    warn_deprecated,
-)
 from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
 
 
@@ -48,6 +44,7 @@ from typing import cast
 
 from litellm import (
     ChatCompletionToolParam,
+    CustomStreamWrapper,
     ResponseInputParam,
     completion as litellm_completion,
 )
@@ -80,6 +77,9 @@ from openhands.sdk.llm.message import (
 from openhands.sdk.llm.mixins.non_native_fc import NonNativeToolCallingMixin
 from openhands.sdk.llm.options.chat_options import select_chat_options
 from openhands.sdk.llm.options.responses_options import select_responses_options
+from openhands.sdk.llm.streaming import (
+    TokenCallbackType,
+)
 from openhands.sdk.llm.utils.metrics import Metrics, MetricsSnapshot
 from openhands.sdk.llm.utils.model_features import get_default_temperature, get_features
 from openhands.sdk.llm.utils.retry_mixin import RetryMixin
@@ -105,8 +105,6 @@ LLM_RETRY_EXCEPTIONS: tuple[type[Exception], ...] = (
     InternalServerError,
     LLMNoResponseError,
 )
-
-SERVICE_ID_DEPRECATION_DETAILS = "Use LLM.usage_id instead of LLM.service_id."
 
 
 class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
@@ -198,6 +196,14 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     )
     ollama_base_url: str | None = Field(default=None)
 
+    stream: bool = Field(
+        default=False,
+        description=(
+            "Enable streaming responses from the LLM. "
+            "When enabled, the provided `on_token` callback in .completions "
+            "and .responses will be invoked for each chunk of tokens."
+        ),
+    )
     drop_params: bool = Field(default=True)
     modify_params: bool = Field(
         default=True,
@@ -487,24 +493,6 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     # Public API
     # =========================================================================
     @property
-    @deprecated(
-        deprecated_in="1.1.0",
-        removed_in="1.3.0",
-        details=SERVICE_ID_DEPRECATION_DETAILS,
-    )
-    def service_id(self) -> str:
-        return self.usage_id
-
-    @service_id.setter
-    @deprecated(
-        deprecated_in="1.1.0",
-        removed_in="1.3.0",
-        details=SERVICE_ID_DEPRECATION_DETAILS,
-    )
-    def service_id(self, value: str) -> None:
-        self.usage_id = value
-
-    @property
     def metrics(self) -> Metrics:
         """Get usage metrics for this LLM instance.
 
@@ -520,6 +508,21 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         )
         return self._metrics
 
+    @property
+    def telemetry(self) -> Telemetry:
+        """Get telemetry handler for this LLM instance.
+
+        Returns:
+            Telemetry object for managing logging and metrics callbacks.
+
+        Example:
+            >>> llm.telemetry.set_log_completions_callback(my_callback)
+        """
+        assert self._telemetry is not None, (
+            "Telemetry should be initialized after model validation"
+        )
+        return self._telemetry
+
     def restore_metrics(self, metrics: Metrics) -> None:
         # Only used by ConversationStats to seed metrics
         self._metrics = metrics
@@ -530,6 +533,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         tools: Sequence[ToolDefinition] | None = None,
         _return_metrics: bool = False,
         add_security_risk_prediction: bool = False,
+        on_token: TokenCallbackType | None = None,
         **kwargs,
     ) -> LLMResponse:
         """Generate a completion from the language model.
@@ -549,9 +553,11 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             >>> response = llm.completion(messages)
             >>> print(response.content)
         """
-        # Check if streaming is requested
-        if kwargs.get("stream", False):
-            raise ValueError("Streaming is not supported")
+        enable_streaming = bool(kwargs.get("stream", False)) or self.stream
+        if enable_streaming:
+            if on_token is None:
+                raise ValueError("Streaming requires an on_token callback")
+            kwargs["stream"] = True
 
         # 1) serialize messages
         formatted_messages = self.format_messages_for_llm(messages)
@@ -614,7 +620,12 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             self._telemetry.on_request(log_ctx=log_ctx)
             # Merge retry-modified kwargs (like temperature) with call_kwargs
             final_kwargs = {**call_kwargs, **retry_kwargs}
-            resp = self._transport_call(messages=formatted_messages, **final_kwargs)
+            resp = self._transport_call(
+                messages=formatted_messages,
+                **final_kwargs,
+                enable_streaming=enable_streaming,
+                on_token=on_token,
+            )
             raw_resp: ModelResponse | None = None
             if use_mock_tools:
                 raw_resp = copy.deepcopy(resp)
@@ -671,15 +682,15 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         store: bool | None = None,
         _return_metrics: bool = False,
         add_security_risk_prediction: bool = False,
+        on_token: TokenCallbackType | None = None,
         **kwargs,
     ) -> LLMResponse:
         """Alternative invocation path using OpenAI Responses API via LiteLLM.
 
         Maps Message[] -> (instructions, input[]) and returns LLMResponse.
-        Non-stream only for v1.
         """
         # Streaming not yet supported
-        if kwargs.get("stream", False):
+        if kwargs.get("stream", False) or self.stream or on_token is not None:
             raise ValueError("Streaming is not supported for Responses API yet")
 
         # Build instructions + input list using dedicated Responses formatter
@@ -790,7 +801,12 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     # Transport + helpers
     # =========================================================================
     def _transport_call(
-        self, *, messages: list[dict[str, Any]], **kwargs
+        self,
+        *,
+        messages: list[dict[str, Any]],
+        enable_streaming: bool = False,
+        on_token: TokenCallbackType | None = None,
+        **kwargs,
     ) -> ModelResponse:
         # litellm.modify_params is GLOBAL; guard it for thread-safety
         with self._litellm_modify_params_ctx(self.modify_params):
@@ -812,6 +828,11 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                     "ignore",
                     category=UserWarning,
                 )
+                warnings.filterwarnings(
+                    "ignore",
+                    category=DeprecationWarning,
+                    message="Accessing the 'model_fields' attribute.*",
+                )
                 # Extract api_key value with type assertion for type checker
                 api_key_value: str | None = None
                 if self.api_key:
@@ -830,6 +851,14 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                     messages=messages,
                     **kwargs,
                 )
+                if enable_streaming and on_token is not None:
+                    assert isinstance(ret, CustomStreamWrapper)
+                    chunks = []
+                    for chunk in ret:
+                        on_token(chunk)
+                        chunks.append(chunk)
+                    ret = litellm.stream_chunk_builder(chunks, messages=messages)
+
                 assert isinstance(ret, ModelResponse), (
                     f"Expected ModelResponse, got {type(ret)}"
                 )
@@ -867,7 +896,6 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 m in self.model
                 for m in [
                     "claude-3-7-sonnet",
-                    "claude-3.7-sonnet",
                     "claude-sonnet-4",
                     "kimi-k2-thinking",
                 ]
