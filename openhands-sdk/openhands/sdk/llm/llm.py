@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING, Any, ClassVar, Literal, get_args, get_origin
 
 import httpx  # noqa: F401
 from pydantic import (
-    AliasChoices,
     BaseModel,
     ConfigDict,
     Field,
@@ -280,7 +279,6 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     )
     usage_id: str = Field(
         default="default",
-        validation_alias=AliasChoices("usage_id", "service_id"),
         serialization_alias="usage_id",
         description=(
             "Unique usage identifier for the LLM. Used for registry lookups, "
@@ -401,16 +399,6 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             expanded = llm.model_dump(exclude_none=True)
             expanded["profile_id"] = profile_id
             d.update(expanded)
-
-        if "service_id" in d and "usage_id" not in d:
-            warn_deprecated(
-                "LLM.service_id",
-                deprecated_in="1.1.0",
-                removed_in="1.3.0",
-                details=SERVICE_ID_DEPRECATION_DETAILS,
-                stacklevel=3,
-            )
-            d["usage_id"] = d.pop("service_id")
 
         model_val = d.get("model")
         if not model_val:
