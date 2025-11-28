@@ -2,7 +2,7 @@
 import json
 from collections.abc import Sequence
 from enum import Enum
-from typing import Any, Self
+from typing import TYPE_CHECKING, Any, Self
 
 from pydantic import AliasChoices, Field, PrivateAttr
 

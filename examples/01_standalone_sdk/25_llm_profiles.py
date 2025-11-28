@@ -15,11 +15,14 @@ from pathlib import Path
 
 from pydantic import SecretStr
 
-from openhands.sdk import Agent, Conversation
-from openhands.sdk.llm.llm import LLM
-from openhands.sdk.llm.llm_registry import LLMRegistry
-from openhands.sdk.tool import Tool, register_tool
-from openhands.tools.execute_bash import BashTool
+from openhands.sdk import (
+    LLM,
+    Agent,
+    Conversation,
+    LLMRegistry,
+    Tool,
+)
+from openhands.tools.terminal import TerminalTool
 
 
 PROFILE_NAME = os.getenv("LLM_PROFILE_NAME", "gpt-5-mini")
@@ -31,15 +34,15 @@ def ensure_profile_exists(registry: LLMRegistry, name: str) -> None:
     if name in registry.list_profiles():
         return
 
+    model = os.getenv("LLM_MODEL", "anthropic/claude-sonnet-4-5-20250929")
+    base_url = os.getenv("LLM_BASE_URL")
+
     profile_defaults = LLM(
-        model="litellm_proxy/openai/gpt-5-mini",
-        base_url="https://llm-proxy.eval.all-hands.dev",
+        usage_id="agent",
+        model=model,
+        base_url=base_url,
         temperature=0.2,
         max_output_tokens=4096,
-        usage_id="agent",
-        metadata={
-            "profile_description": "Sample GPT-5 Mini profile created by example 25.",
-        },
     )
     path = registry.save_profile(name, profile_defaults)
     print(f"Created profile '{name}' at {path}")
@@ -64,8 +67,7 @@ def main() -> None:
 
     llm = load_profile(registry, PROFILE_NAME)
 
-    register_tool("BashTool", BashTool)
-    tools = [Tool(name="BashTool")]
+    tools = [Tool(name=TerminalTool.name)]
     agent = Agent(llm=llm, tools=tools)
 
     workspace_dir = Path(os.getcwd())
@@ -78,7 +80,7 @@ def main() -> None:
         agent=agent,
         workspace=str(workspace_dir),
         persistence_dir=str(persistence_root),
-        visualize=False,
+        visualizer=None,
     )
 
     conversation.send_message(
