@@ -1,6 +1,5 @@
 import json
 import re
-import warnings
 from collections.abc import Callable, Iterable, Mapping
 from pathlib import Path
 from typing import Any, ClassVar
@@ -23,6 +22,7 @@ _SECRET_FIELDS: tuple[str, ...] = (
 _DEFAULT_PROFILE_DIR = Path.home() / ".openhands" / "llm-profiles"
 
 _PROFILE_ID_PATTERN = re.compile(r"^[A-Za-z0-9._-]+$")
+
 
 class RegistryEvent(BaseModel):
     llm: LLM

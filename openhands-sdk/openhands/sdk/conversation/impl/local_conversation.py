@@ -94,7 +94,7 @@ class LocalConversation(BaseConversation):
         """
         # Initialize the registry early so profile references resolve during resume.
         self.llm_registry = LLMRegistry()
-        
+
         super().__init__()  # Initialize with span tracking
         # Mark cleanup as initiated as early as possible to avoid races or partially
         # initialized instances during interpreter shutdown.
