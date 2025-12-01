@@ -259,6 +259,14 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         description="If True, ask for ['reasoning.encrypted_content'] "
         "in Responses API include.",
     )
+    # Prompt cache retention only applies to GPT-5+ models; filtered in chat options
+    prompt_cache_retention: str | None = Field(
+        default="24h",
+        description=(
+            "Retention policy for prompt cache. Only sent for GPT-5+ models; "
+            "explicitly stripped for all other models."
+        ),
+    )
     extended_thinking_budget: int | None = Field(
         default=200_000,
         description="The budget tokens for extended thinking, "
@@ -412,7 +420,8 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         if model_val.startswith("openhands/"):
             model_name = model_val.removeprefix("openhands/")
             d["model"] = f"litellm_proxy/{model_name}"
-            d["base_url"] = "https://llm-proxy.app.all-hands.dev/"
+            # Set base_url (default to the app proxy when base_url is unset)
+            d["base_url"] = d.get("base_url", "https://llm-proxy.app.all-hands.dev/")
 
         # HF doesn't support the OpenAI default value for top_p (1)
         if model_val.startswith("huggingface"):
