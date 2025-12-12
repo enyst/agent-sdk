@@ -1,6 +1,6 @@
 import json
 import re
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any, ClassVar
 from uuid import uuid4
@@ -143,6 +143,7 @@ class LLMRegistry:
 
         safe_id = self._ensure_safe_profile_id(profile_id)
         path = self.get_profile_path(safe_id)
+        path.parent.mkdir(parents=True, exist_ok=True)
         data = llm.model_dump(
             exclude_none=True,
             context={"expose_secrets": include_secrets},
@@ -156,28 +157,6 @@ class LLMRegistry:
             json.dump(data, handle, indent=2, ensure_ascii=False)
         logger.info(f"Saved profile {safe_id} -> {path}")
         return path
-
-    def register_profiles(self, profile_ids: Iterable[str] | None = None) -> None:
-        """Register profiles from disk into the in-memory registry."""
-
-        candidates = profile_ids if profile_ids is not None else self.list_profiles()
-        for profile_id in candidates:
-            try:
-                safe_id = self._ensure_safe_profile_id(profile_id)
-            except ValueError as exc:
-                logger.warning(f"Skipping profile {profile_id}: {exc}")
-                continue
-
-            try:
-                llm = self.load_profile(safe_id)
-            except Exception as exc:  # noqa: BLE001
-                logger.warning(f"Failed to load profile {safe_id}: {exc}")
-                continue
-
-            try:
-                self.add(llm)
-            except Exception as exc:  # noqa: BLE001
-                logger.info(f"Skipping profile {safe_id}: registry.add failed: {exc}")
 
     def validate_profile(self, data: Mapping[str, Any]) -> tuple[bool, list[str]]:
         """Return (is_valid, errors) after validating a profile payload."""
@@ -199,13 +178,9 @@ class LLMRegistry:
     # Internal helper methods
     # ------------------------------------------------------------------
     def _resolve_profile_dir(self, profile_dir: str | Path | None) -> Path:
-        directory = (
-            Path(profile_dir).expanduser()
-            if profile_dir is not None
-            else _DEFAULT_PROFILE_DIR
-        )
-        directory.mkdir(parents=True, exist_ok=True)
-        return directory
+        if profile_dir is not None:
+            return Path(profile_dir).expanduser()
+        return _DEFAULT_PROFILE_DIR
 
     def _load_profile_with_synced_id(self, path: Path, profile_id: str) -> LLM:
         """Load an LLM profile while keeping profile metadata aligned.

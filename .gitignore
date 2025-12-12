@@ -205,6 +205,5 @@ openapi.json
 .client/
 # Local workspace files
 .beads/*.db
-*.db
 .worktrees/
 agent-sdk.workspace.code-workspace

@@ -173,12 +173,6 @@ class LocalConversation(BaseConversation):
         for llm in list(self.agent.get_all_llms()):
             self.llm_registry.add(llm)
 
-        # Eagerly register LLM profiles from disk.
-        try:
-            self.llm_registry.register_profiles()
-        except Exception:
-            logger.debug("No LLM profiles registered")
-
         # Initialize secrets if provided
         if secrets:
             # Convert dict[str, str] to dict[str, SecretValue]
