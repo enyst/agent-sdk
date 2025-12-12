@@ -20,7 +20,6 @@ _SECRET_FIELDS: tuple[str, ...] = (
     "aws_secret_access_key",
 )
 _DEFAULT_PROFILE_DIR = Path.home() / ".openhands" / "llm-profiles"
-_PROFILE_EXTRA_KEYS: frozenset[str] = frozenset({"metadata"})
 
 _PROFILE_ID_PATTERN = re.compile(r"^[A-Za-z0-9._-]+$")
 
@@ -222,25 +221,7 @@ class LLMRegistry:
         mirrors previous behavior while avoiding in-place mutation.
         """
 
-        raw_data = json.loads(path.read_text(encoding="utf-8"))
-        if not isinstance(raw_data, Mapping):
-            raise ValueError(
-                f"Invalid profile payload in {path}. Expected a JSON object."
-            )
-
-        allowed_fields = set(LLM.model_fields.keys())
-        unknown_fields = set(raw_data.keys()) - allowed_fields - _PROFILE_EXTRA_KEYS
-        if unknown_fields:
-            logger.info(
-                "Ignoring unknown fields in LLM profile %s (%s): %s",
-                profile_id,
-                path,
-                ", ".join(sorted(unknown_fields)),
-            )
-
-        data = {key: value for key, value in raw_data.items() if key in allowed_fields}
-        llm = LLM(**data)
-
+        llm = LLM.load_from_json(str(path))
         if llm.profile_id != profile_id:
             return llm.model_copy(update={"profile_id": profile_id})
         return llm

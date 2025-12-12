@@ -1,7 +1,7 @@
 import json
 
 import pytest
-from pydantic import SecretStr
+from pydantic import SecretStr, ValidationError
 
 from openhands.sdk.llm.llm import LLM
 from openhands.sdk.llm.llm_registry import LLMRegistry
@@ -68,7 +68,7 @@ def test_load_profile_assigns_profile_id_when_missing(tmp_path):
     assert llm.usage_id == "svc"
 
 
-def test_load_profile_ignores_unknown_fields(tmp_path):
+def test_load_profile_rejects_unknown_fields(tmp_path):
     registry = LLMRegistry(profile_dir=tmp_path)
     profile_path = tmp_path / "legacy.json"
     profile_path.write_text(
@@ -83,11 +83,8 @@ def test_load_profile_ignores_unknown_fields(tmp_path):
         encoding="utf-8",
     )
 
-    llm = registry.load_profile("legacy")
-
-    assert llm.profile_id == "legacy"
-    assert llm.model == "gpt-4o-mini"
-    assert llm.usage_id == "svc"
+    with pytest.raises(ValidationError):
+        registry.load_profile("legacy")
 
 
 def test_register_profiles_skips_invalid_and_duplicate_profiles(tmp_path):

@@ -4,8 +4,5 @@
   "api_key": null,
   "temperature": 0.2,
   "max_output_tokens": 4096,
-  "usage_id": "agent",
-  "metadata": {
-    "profile_description": "Sample configuration for the GPT-5 Mini profile managed by the LLM registry."
-  }
+  "usage_id": "agent"
 }

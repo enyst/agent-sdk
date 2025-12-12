@@ -24,7 +24,6 @@ Implementation notes
 - LLMRegistry is the single entry point for both in-memory registration and on-disk profile persistence. Pass ``profile_dir`` to the constructor to override the default location when embedding the SDK.
 - Use LLMRegistry.load_profile(profile_id) for loading and llm.model_dump(exclude_none=True) for saving (via LLMRegistry.save_profile).
 - Default directory: os.path.expanduser('~/.openhands/llm-profiles/')
-- Profile JSON may include extra top-level keys (for example ``metadata`` for human annotations); unknown fields are ignored when loading to keep older profiles compatible.
 - When loading, do not inject secrets. The runtime should reconcile secrets via ConversationState/Agent resolve_diff_from_deserialized or via SecretsManager.
 - When saving, respect include_secrets flag; if False, ensure secret fields (api_key, aws_* keys) are omitted or masked.
 
