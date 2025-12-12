@@ -22,8 +22,9 @@ LLMRegistry profile API (summary)
 Implementation notes
 
 - LLMRegistry is the single entry point for both in-memory registration and on-disk profile persistence. Pass ``profile_dir`` to the constructor to override the default location when embedding the SDK.
-- Use LLM.load_from_json(path) for loading and llm.model_dump(exclude_none=True) for saving.
+- Use LLMRegistry.load_profile(profile_id) for loading and llm.model_dump(exclude_none=True) for saving (via LLMRegistry.save_profile).
 - Default directory: os.path.expanduser('~/.openhands/llm-profiles/')
+- Profile JSON may include extra top-level keys (for example ``metadata`` for human annotations); unknown fields are ignored when loading to keep older profiles compatible.
 - When loading, do not inject secrets. The runtime should reconcile secrets via ConversationState/Agent resolve_diff_from_deserialized or via SecretsManager.
 - When saving, respect include_secrets flag; if False, ensure secret fields (api_key, aws_* keys) are omitted or masked.
 
@@ -98,4 +99,3 @@ Migration
   - A `model_serializer(mode="json")` can honour the same inline flag via `model_dump(..., context={"inline_llm_persistence": bool})`, returning either the full inline payload or a `{ "profile_id": ... }` stub. Callers that do not provide explicit context will continue to receive inline payloads by default.
 - Have `ConversationState._save_base_state` call `model_dump_json` with the appropriate context instead of the bespoke traversal helpers. This keeps persistence logic co-located with the models, reduces drift, and keeps remote conversations working without additional glue.
 - With this approach we still support inline overrides (`OPENHANDS_INLINE_CONVERSATIONS=true`), profile-backed storage, and remote access with no behavioural changes for callers.
-
