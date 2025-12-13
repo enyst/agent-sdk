@@ -24,10 +24,7 @@ if TYPE_CHECKING:
     from openhands.sdk.llm.llm_registry import LLMRegistry
 
 
-from openhands.sdk.persistence.settings import (
-    INLINE_CONTEXT_KEY,
-    should_inline_conversations,
-)
+from openhands.sdk.persistence import INLINE_CONTEXT_KEY, should_inline_conversations
 from openhands.sdk.security.analyzer import SecurityAnalyzerBase
 from openhands.sdk.security.confirmation_policy import (
     ConfirmationPolicyBase,

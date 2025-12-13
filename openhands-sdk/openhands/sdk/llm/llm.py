@@ -84,10 +84,7 @@ from openhands.sdk.llm.utils.model_features import get_default_temperature, get_
 from openhands.sdk.llm.utils.retry_mixin import RetryMixin
 from openhands.sdk.llm.utils.telemetry import Telemetry
 from openhands.sdk.logger import ENV_LOG_DIR, get_logger
-from openhands.sdk.persistence.settings import (
-    INLINE_CONTEXT_KEY,
-    should_inline_conversations,
-)
+from openhands.sdk.persistence import INLINE_CONTEXT_KEY, should_inline_conversations
 
 
 logger = get_logger(__name__)

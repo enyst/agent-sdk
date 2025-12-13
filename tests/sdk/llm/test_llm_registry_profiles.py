@@ -5,7 +5,7 @@ from pydantic import SecretStr, ValidationError
 
 from openhands.sdk.llm.llm import LLM
 from openhands.sdk.llm.llm_registry import LLMRegistry
-from openhands.sdk.persistence.settings import INLINE_CONTEXT_KEY
+from openhands.sdk.persistence import INLINE_CONTEXT_KEY
 
 
 def test_list_profiles_returns_sorted_names(tmp_path):
