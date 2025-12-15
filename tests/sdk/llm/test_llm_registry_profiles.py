@@ -16,7 +16,7 @@ def test_list_profiles_returns_sorted_names(tmp_path):
     assert registry.list_profiles() == ["a", "b"]
 
 
-def test_save_profile_excludes_secret_fields(tmp_path):
+def test_save_profile_includes_secret_fields_by_default(tmp_path):
     registry = LLMRegistry(profile_dir=tmp_path)
     llm = LLM(
         model="gpt-4o-mini",
@@ -31,12 +31,12 @@ def test_save_profile_excludes_secret_fields(tmp_path):
 
     assert data["profile_id"] == "sample"
     assert data["usage_id"] == "service"
-    assert "api_key" not in data
-    assert "aws_access_key_id" not in data
-    assert "aws_secret_access_key" not in data
+    assert data["api_key"] == "secret"
+    assert data["aws_access_key_id"] == "id"
+    assert data["aws_secret_access_key"] == "value"
 
 
-def test_save_profile_can_include_secret_fields(tmp_path):
+def test_save_profile_can_exclude_secret_fields(tmp_path):
     registry = LLMRegistry(profile_dir=tmp_path)
     llm = LLM(
         model="gpt-4o-mini",
@@ -46,12 +46,12 @@ def test_save_profile_can_include_secret_fields(tmp_path):
         aws_secret_access_key=SecretStr("value"),
     )
 
-    path = registry.save_profile("sample", llm, include_secrets=True)
+    path = registry.save_profile("sample", llm, include_secrets=False)
     data = json.loads(path.read_text(encoding="utf-8"))
 
-    assert data["api_key"] == "secret"
-    assert data["aws_access_key_id"] == "id"
-    assert data["aws_secret_access_key"] == "value"
+    assert "api_key" not in data
+    assert "aws_access_key_id" not in data
+    assert "aws_secret_access_key" not in data
 
 
 def test_load_profile_assigns_profile_id_when_missing(tmp_path):
@@ -219,6 +219,22 @@ def test_load_profile_without_registry_context_requires_inline_mode(tmp_path):
         LLM.model_validate(
             {"profile_id": "test-profile"}, context={INLINE_CONTEXT_KEY: False}
         )
+
+
+def test_save_profile_sets_restrictive_permissions_on_create(tmp_path):
+    registry = LLMRegistry(profile_dir=tmp_path)
+    llm = LLM(model="gpt-4o-mini", usage_id="svc", api_key=SecretStr("k"))
+
+    path = registry.save_profile("perm-test", llm)
+
+    # On POSIX, expect 0o600. On platforms without chmod, at least ensure
+    # the file is not executable and is owner-readable/writable.
+    mode = path.stat().st_mode
+    # Mask to permission bits
+    perm_bits = mode & 0o777
+    assert (perm_bits & 0o111) == 0  # no execute bits
+    # Expect owner read/write
+    assert (perm_bits & 0o600) == 0o600
 
 
 def test_profile_directory_created_on_save_profile(tmp_path):

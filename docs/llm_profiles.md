@@ -22,15 +22,15 @@ APIs:
 
 - `LLMRegistry.list_profiles()` returns available `profile_id`s
 - `LLMRegistry.load_profile(profile_id)` loads the profile from disk
-- `LLMRegistry.save_profile(profile_id, llm, include_secrets=False)` writes a profile
+- `LLMRegistry.save_profile(profile_id, llm, include_secrets=True)` writes a profile
 
 ### Secrets
 
-By default, `save_profile(..., include_secrets=False)` omits secret fields (for
-example `api_key`, `aws_access_key_id`, `aws_secret_access_key`).
+By default, profiles are saved with secrets included (e.g., `api_key`, `aws_access_key_id`, `aws_secret_access_key`).
+- To omit secrets on disk, call `save_profile(..., include_secrets=False)`
+- New files are created with restrictive permissions (0600) when possible
 
-Prefer providing secrets at runtime (env vars / SecretsManager) rather than
-committing them to disk.
+If you prefer not to store secrets locally, supply them at runtime via environment variables or a secrets manager.
 
 ## Conversation persistence and profile references
 

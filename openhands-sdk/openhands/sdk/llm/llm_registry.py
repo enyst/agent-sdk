@@ -137,12 +137,17 @@ class LLMRegistry:
         return self._load_profile_with_synced_id(path, profile_id)
 
     def save_profile(
-        self, profile_id: str, llm: LLM, include_secrets: bool = False
+        self, profile_id: str, llm: LLM, include_secrets: bool = True
     ) -> Path:
-        """Persist ``llm`` under ``profile_id``."""
+        """Persist ``llm`` under ``profile_id``.
+
+        By default, secrets are included in the saved JSON. Set
+        ``include_secrets=False`` to omit secret fields.
+        """
 
         safe_id = self._ensure_safe_profile_id(profile_id)
         path = self.get_profile_path(safe_id)
+        existed_before = path.exists()
         path.parent.mkdir(parents=True, exist_ok=True)
         data = llm.model_dump(
             exclude_none=True,
@@ -155,6 +160,12 @@ class LLMRegistry:
 
         with path.open("w", encoding="utf-8") as handle:
             json.dump(data, handle, indent=2, ensure_ascii=False)
+        # Apply restrictive permissions when creating a new file
+        if not existed_before:
+            try:
+                path.chmod(0o600)
+            except Exception as e:  # best-effort on non-POSIX systems
+                logger.debug(f"Unable to chmod profile file {path}: {e}")
         logger.info(f"Saved profile {safe_id} -> {path}")
         return path
 

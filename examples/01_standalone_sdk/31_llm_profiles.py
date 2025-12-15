@@ -5,8 +5,11 @@ Run with::
     uv run python examples/01_standalone_sdk/31_llm_profiles.py
 
 Profiles are stored under ``~/.openhands/llm-profiles/<name>.json`` by default.
-Set ``LLM_PROFILE_NAME`` to pick a profile and ``LLM_API_KEY`` to supply
-credentials when the profile omits secrets.
+Set ``LLM_PROFILE_NAME`` to pick a profile.
+
+Notes on credentials:
+- New profiles include API keys by default when saved
+- To omit secrets on disk, pass include_secrets=False to LLMRegistry.save_profile
 """
 
 import json
@@ -36,11 +39,13 @@ def ensure_profile_exists(registry: LLMRegistry, name: str) -> None:
 
     model = os.getenv("LLM_MODEL", "anthropic/claude-sonnet-4-5-20250929")
     base_url = os.getenv("LLM_BASE_URL")
+    api_key = os.getenv("LLM_API_KEY")
 
     profile_defaults = LLM(
         usage_id="agent",
         model=model,
         base_url=base_url,
+        api_key=SecretStr(api_key) if api_key else None,
         temperature=0.2,
         max_output_tokens=4096,
     )
@@ -50,14 +55,11 @@ def ensure_profile_exists(registry: LLMRegistry, name: str) -> None:
 
 def load_profile(registry: LLMRegistry, name: str) -> LLM:
     llm = registry.load_profile(name)
+    # If profile was saved without secrets, allow providing API key via env var
     if llm.api_key is None:
         api_key = os.getenv("LLM_API_KEY")
-        if api_key is None:
-            raise RuntimeError(
-                "Set LLM_API_KEY to authenticate, or save the profile with "
-                "include_secrets=True."
-            )
-        llm = llm.model_copy(update={"api_key": SecretStr(api_key)})
+        if api_key:
+            llm = llm.model_copy(update={"api_key": SecretStr(api_key)})
     return llm
 
 
