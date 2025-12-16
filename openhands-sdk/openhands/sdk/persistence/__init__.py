@@ -10,7 +10,7 @@ and helpers) to provide a small, stable import surface:
   package level rather than requiring deep imports.
 
 Anything exported via ``__all__`` should be treated as part of the supported SDK
-surface.
+API.
 """
 
 from .settings import INLINE_CONTEXT_KEY, INLINE_ENV_VAR, should_inline_conversations
