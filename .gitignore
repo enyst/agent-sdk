@@ -207,3 +207,6 @@ openapi.json
 .beads/*.db
 .worktrees/
 agent-sdk.workspace.code-workspace
+
+# Integration test outputs
+tests/integration/outputs/
