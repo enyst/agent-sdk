@@ -294,7 +294,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     )
     profile_id: str | None = Field(
         default=None,
-        description="Optional profile id (filename under ~/.openhands/llm-profiles).",
+        description="Optional profile id (filename under the profiles directory).",
     )
     usage_id: str = Field(
         default="default",
