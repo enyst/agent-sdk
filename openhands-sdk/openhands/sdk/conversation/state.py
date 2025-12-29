@@ -201,9 +201,10 @@ class ConversationState(OpenHandsModel):
         llm_registry: "LLMRegistry | None" = None,
     ) -> "ConversationState":
         """
-        If base_state.json exists: resume (attach EventLog,
-            reconcile agent, enforce id).
-        Else: create fresh (agent required), persist base, and return.
+        If base_state.json exists: resume (attach EventLog, validate id, and apply
+        restore-time configuration overrides).
+
+        Else: create fresh, persist base snapshot, and return.
 
         Args:
             llm_registry: Optional registry used to expand profile references when
