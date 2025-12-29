@@ -26,15 +26,15 @@ assert api_key is not None, "LLM_API_KEY environment variable is not set."
 os.environ.setdefault("OPENHANDS_INLINE_CONVERSATIONS", "false")
 
 # 3. Profiles live under ~/.openhands/llm-profiles by default. We create two
-#    variants that share the same service_id so they can be swapped at runtime.
+#    variants that share the same usage_id so they can be swapped at runtime.
 registry = LLMRegistry()
-service_id = "support-agent"
+usage_id = "support-agent"
 
 base_profile_id = "support-mini"
 alt_profile_id = "support-pro"
 
 base_llm = LLM(
-    service_id=service_id,
+    usage_id=usage_id,
     model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
@@ -65,7 +65,7 @@ conversation = Conversation(
     workspace=str(workspace_dir),
     persistence_dir=str(persistence_dir),
     conversation_id=conversation_id,
-    visualize=False,
+    visualizer=None,
 )
 
 conversation.send_message(
@@ -111,7 +111,7 @@ reloaded = Conversation(
     workspace=str(workspace_dir),
     persistence_dir=str(persistence_dir),
     conversation_id=conversation_id,
-    visualize=False,
+    visualizer=None,
 )
 
 print("Reloaded conversation is using profile:", reloaded.state.agent.llm.profile_id)
@@ -140,7 +140,7 @@ inline_conversation = Conversation(
     workspace=str(workspace_dir),
     persistence_dir=str(inline_persistence_dir),
     conversation_id=uuid.uuid4(),
-    visualize=False,
+    visualizer=None,
 )
 
 try:

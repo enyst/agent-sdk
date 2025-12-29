@@ -344,6 +344,7 @@ def test_profile_serialization_mode_reference_only(tmp_path):
     assert "model" not in ref_data
     assert "usage_id" not in ref_data
 
+
 def test_switch_profile_replaces_active_llm(tmp_path):
     registry = LLMRegistry(profile_dir=tmp_path)
     base_llm = LLM(model="gpt-4o-mini", usage_id="primary")

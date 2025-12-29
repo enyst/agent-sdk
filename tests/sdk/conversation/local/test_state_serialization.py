@@ -674,7 +674,7 @@ def test_local_conversation_switch_llm_persists_profile(tmp_path, monkeypatch):
         agent=agent,
         workspace=str(workspace_dir),
         persistence_dir=str(persistence_dir),
-        visualize=False,
+        visualizer=None,
     )
     assert isinstance(conversation, LocalConversation)
 
@@ -697,7 +697,7 @@ def test_local_conversation_switch_llm_persists_profile(tmp_path, monkeypatch):
         workspace=str(workspace_dir),
         persistence_dir=str(persistence_dir),
         conversation_id=conversation.id,
-        visualize=False,
+        visualizer=None,
     )
     assert isinstance(reloaded, LocalConversation)
     assert reloaded.state.agent.llm.profile_id == "alt"
@@ -719,7 +719,7 @@ def test_local_conversation_switch_llm_inline_mode_rejected(tmp_path, monkeypatc
         agent=agent,
         workspace=str(tmp_path / "workspace"),
         persistence_dir=str(tmp_path / "persist"),
-        visualize=False,
+        visualizer=None,
     )
     assert isinstance(conversation, LocalConversation)
 
@@ -743,7 +743,7 @@ def test_local_conversation_switch_llm_requires_idle(tmp_path, monkeypatch):
         agent=agent,
         workspace=str(tmp_path / "workspace"),
         persistence_dir=str(tmp_path / "persist"),
-        visualize=False,
+        visualizer=None,
     )
     assert isinstance(conversation, LocalConversation)
 
