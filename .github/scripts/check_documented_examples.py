@@ -35,7 +35,7 @@ def find_documented_examples(docs_path: Path) -> set[str]:
     # so we intentionally support *arbitrary* nesting depth under examples/.
     #
     # Matches: examples/<dir>/.../<file>.py
-    pattern = r"examples/(?:[-\\w]+/)+[-\\w]+\\.py"
+    pattern = r"examples/(?:[-\w]+/)+[-\w]+\.py"
 
     for root, _, files in os.walk(docs_path):
         for file in files:
