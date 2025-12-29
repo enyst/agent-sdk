@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from openhands.sdk.llm.llm_registry import LLMRegistry
 
 
-from openhands.sdk.persistence import INLINE_CONTEXT_KEY, should_inline_conversations
+from openhands.sdk.persistence import INLINE_CONTEXT_KEY
 from openhands.sdk.security.analyzer import SecurityAnalyzerBase
 from openhands.sdk.security.confirmation_policy import (
     ConfirmationPolicyBase,
@@ -166,12 +166,12 @@ class ConversationState(OpenHandsModel):
         """
         Persist base state snapshot (no events; events are file-backed).
         """
-        inline_mode = should_inline_conversations()
-        # Pass the inline preference down so LLM serialization knows whether to
-        # inline credentials or persist a profile reference.
         payload = self.model_dump_json(
             exclude_none=True,
-            context={INLINE_CONTEXT_KEY: inline_mode},
+            # Persist conversations using profile references when available, and
+            # include secrets so inline LLM configurations can restore without
+            # external reconciliation.
+            context={INLINE_CONTEXT_KEY: False, "expose_secrets": True},
         )
         fs.write(BASE_STATE, payload)
 
@@ -207,17 +207,14 @@ class ConversationState(OpenHandsModel):
         except FileNotFoundError:
             base_text = None
 
-        inline_mode = should_inline_conversations()
-        # Keep validation and serialization in sync when loading previously
-        # persisted state.
-        context: dict[str, object] = {INLINE_CONTEXT_KEY: inline_mode}
-        if not inline_mode:
-            registry = llm_registry
-            if registry is None:
-                from openhands.sdk.llm.llm_registry import LLMRegistry
+        registry = llm_registry
+        if registry is None:
+            from openhands.sdk.llm.llm_registry import LLMRegistry
 
-                registry = LLMRegistry()
-            context["llm_registry"] = registry
+            registry = LLMRegistry()
+        # Provide the registry so LLM profile references can be expanded while
+        # materialising persisted state.
+        context: dict[str, object] = {"llm_registry": registry}
 
         # ---- Resume path ----
         if base_text:
@@ -231,14 +228,10 @@ class ConversationState(OpenHandsModel):
                     f"but persisted state has {state.id}"
                 )
 
-            # Reconcile agent config with deserialized one
-            resolved = agent.resolve_diff_from_deserialized(state.agent)
-
-            # Attach runtime handles and commit reconciled agent (may autosave)
+            # Attach runtime handles.
             state._fs = file_store
             state._events = EventLog(file_store, dir_path=EVENTS_DIR)
             state._autosave_enabled = True
-            state.agent = resolved
 
             state.stats = ConversationStats()
 
@@ -263,8 +256,6 @@ class ConversationState(OpenHandsModel):
             max_iterations=max_iterations,
             stuck_detection=stuck_detection,
         )
-        # Record existing analyzer configuration in state
-        state.security_analyzer = state.security_analyzer
         state._fs = file_store
         state._events = EventLog(file_store, dir_path=EVENTS_DIR)
         state.stats = ConversationStats()
@@ -350,17 +341,6 @@ class ConversationState(OpenHandsModel):
     def switch_agent_llm(self, profile_id: str, *, registry: "LLMRegistry") -> None:
         """Swap the agent's primary LLM to ``profile_id`` using ``registry``."""
 
-        if should_inline_conversations():
-            raise RuntimeError(
-                "LLM switching requires OPENHANDS_INLINE_CONVERSATIONS to be false."
-            )
-
-        if self.execution_status not in (
-            ConversationExecutionStatus.IDLE,
-            ConversationExecutionStatus.FINISHED,
-        ):
-            raise RuntimeError("Agent must be idle before switching LLM profiles.")
-
         usage_id = self.agent.llm.usage_id
         try:
             new_llm = registry.switch_profile(usage_id, profile_id)
@@ -369,6 +349,19 @@ class ConversationState(OpenHandsModel):
         except KeyError as exc:
             raise ValueError(str(exc)) from exc
 
+        self.agent = self.agent._clone_with_llm(new_llm)
+        if self.execution_status == ConversationExecutionStatus.FINISHED:
+            self.execution_status = ConversationExecutionStatus.IDLE
+
+    def set_agent_llm(self, llm: "Any", *, registry: "LLMRegistry") -> None:
+        """Replace the agent's primary LLM instance for future requests.
+
+        This supports remote clients that want to switch LLMs by sending an inline
+        LLM payload (as opposed to a server-side profile_id reference).
+        """
+
+        usage_id = self.agent.llm.usage_id
+        new_llm = registry.set(usage_id, llm)
         self.agent = self.agent._clone_with_llm(new_llm)
         if self.execution_status == ConversationExecutionStatus.FINISHED:
             self.execution_status = ConversationExecutionStatus.IDLE

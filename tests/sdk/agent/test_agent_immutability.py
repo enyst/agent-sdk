@@ -16,19 +16,26 @@ class TestAgentImmutability:
             model="gpt-4", api_key=SecretStr("test-key"), usage_id="test-llm"
         )
 
-    def test_agent_is_frozen(self):
-        """Test that Agent instances are frozen (immutable)."""
+    def test_agent_allows_component_swaps(self):
+        """Agent should allow swapping components, with assignment validation."""
         agent = Agent(llm=self.llm, tools=[])
 
-        # Test that we cannot modify core fields after creation
-        with pytest.raises(ValidationError, match="Instance is frozen"):
+        new_llm = LLM(
+            model="gpt-4",
+            api_key=SecretStr("new-key"),
+            usage_id="test-llm",
+        )
+        agent.llm = new_llm
+        assert agent.llm == new_llm
+
+        with pytest.raises(ValidationError):
             agent.llm = "new_value"  # type: ignore[assignment]
 
-        with pytest.raises(ValidationError, match="Instance is frozen"):
-            agent.agent_context = None
+        # Verify the agent remains functional after modification attempts
+        assert isinstance(agent.system_message, str)
+        assert len(agent.system_message) > 0
 
-        # Verify the agent remains functional after failed modification attempts
-        assert agent.llm == self.llm
+        agent.agent_context = None
         assert isinstance(agent.system_message, str)
         assert len(agent.system_message) > 0
 

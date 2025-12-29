@@ -543,6 +543,28 @@ class EventService:
             None, self._conversation.set_security_analyzer, security_analyzer
         )
 
+    async def switch_llm(self, profile_id: str) -> None:
+        """Switch the conversation's active agent LLM to the given profile."""
+        if not self._conversation:
+            raise ValueError("inactive_service")
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, self._conversation.switch_llm, profile_id)
+        # The agent may now hold a new LLM instance; re-wire telemetry callbacks so
+        # clients continue receiving logs/stats for future completions.
+        self._setup_llm_log_streaming(self._conversation.agent)
+        self._setup_stats_streaming(self._conversation.agent)
+
+    async def set_llm(self, llm: LLM) -> None:
+        """Replace the conversation's active agent LLM instance."""
+        if not self._conversation:
+            raise ValueError("inactive_service")
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, self._conversation.set_llm, llm)
+        # The agent may now hold a new LLM instance; re-wire telemetry callbacks so
+        # clients continue receiving logs/stats for future completions.
+        self._setup_llm_log_streaming(self._conversation.agent)
+        self._setup_stats_streaming(self._conversation.agent)
+
     async def close(self):
         await self._pub_sub.close()
         if self._conversation:

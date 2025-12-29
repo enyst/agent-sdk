@@ -4,7 +4,7 @@ from enum import Enum
 from typing import Any, Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from openhands.agent_server.utils import OpenHandsUUID, utc_now
 from openhands.sdk import LLM, AgentBase, Event, ImageContent, Message, TextContent
@@ -106,6 +106,47 @@ class StartConversationRequest(BaseModel):
             "to register the tools for this conversation."
         ),
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _expand_agent_llm_profile_reference(cls, data: Any):
+        """Expand profile_id-only LLM payloads for server-side execution.
+
+        FastAPI request parsing does not provide Pydantic validation context, so
+        we expand `{profile_id: ...}` here before the SDK's `LLM` model validates.
+        """
+        if not isinstance(data, dict):
+            return data
+
+        agent = data.get("agent")
+        if not isinstance(agent, dict):
+            return data
+
+        llm = agent.get("llm")
+        if not isinstance(llm, dict):
+            return data
+
+        profile_id = llm.get("profile_id")
+        if not profile_id or "model" in llm:
+            return data
+
+        from openhands.sdk.llm import LLMRegistry
+
+        registry = LLMRegistry()
+        loaded = registry.load_profile(str(profile_id))
+        usage_id = llm.get("usage_id") or "agent"
+
+        expanded = loaded.model_dump(
+            exclude_none=True, context={"expose_secrets": True}
+        )
+        expanded["profile_id"] = str(profile_id)
+        expanded["usage_id"] = str(usage_id)
+
+        new_agent = dict(agent)
+        new_agent["llm"] = expanded
+        new_data = dict(data)
+        new_data["agent"] = new_agent
+        return new_data
 
 
 class StoredConversation(StartConversationRequest):
@@ -236,6 +277,39 @@ class GenerateTitleRequest(BaseModel):
     llm: LLM | None = Field(
         default=None, description="Optional LLM to use for title generation"
     )
+
+
+class SwitchLLMProfileRequest(BaseModel):
+    """Payload to switch the active agent LLM profile for a conversation."""
+
+    profile_id: str = Field(
+        ...,
+        min_length=1,
+        description="LLM profile ID to activate for the conversation",
+    )
+
+
+class UpdateConversationLLMRequest(BaseModel):
+    """Payload to update a conversation's active agent LLM.
+
+    Supports either:
+    - `profile_id`: switch via server-side profile loading
+    - `llm`: set an inline LLM payload (for clients whose profile schema differs)
+    """
+
+    profile_id: str | None = Field(
+        default=None,
+        description="Optional LLM profile ID to activate for the conversation",
+    )
+    llm: LLM | None = Field(
+        default=None, description="Optional inline LLM payload to activate"
+    )
+
+    @model_validator(mode="after")
+    def _validate_one_of(self):
+        if bool(self.profile_id) == bool(self.llm):
+            raise ValueError("Exactly one of profile_id or llm must be provided.")
+        return self
 
 
 class GenerateTitleResponse(BaseModel):
