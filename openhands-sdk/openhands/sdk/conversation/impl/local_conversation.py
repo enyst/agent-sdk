@@ -151,6 +151,12 @@ class LocalConversation(BaseConversation):
         # Default callback: persist every event to state
         def _default_callback(e):
             self._state.events.append(e)
+            # Flush the base snapshot so nested updates (e.g. usage metrics)
+            # are persisted alongside the event stream.
+            try:
+                self._state.persist_base_state()
+            except Exception:
+                logger.exception("Failed to persist base state after event append")
 
         self._hook_processor = None
         hook_callback = None
@@ -543,9 +549,6 @@ class LocalConversation(BaseConversation):
             pass
         try:
             tools_map = self.agent.tools_map
-        except (AttributeError, RuntimeError):
-            # Agent not initialized or partially constructed
-            return
         except (AttributeError, RuntimeError):
             # Conversation may be partially constructed (e.g. validation failure)
             # and the agent may not have been initialized.

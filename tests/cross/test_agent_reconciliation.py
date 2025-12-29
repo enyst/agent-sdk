@@ -106,10 +106,8 @@ def test_conversation_restarted_with_changed_working_directory(tmp_path_factory)
 
 
 # Tests from test_local_conversation_tools_integration.py
-def test_conversation_with_different_agent_tools_fails():
-    """Test that using an agent with different tools fails (tools must match)."""
-    import pytest
-
+def test_conversation_with_different_agent_tools_succeeds():
+    """Conversation restart should allow swapping the agent's tool set."""
     with tempfile.TemporaryDirectory() as temp_dir:
         # Create and save conversation with original agent
         original_tools = [
@@ -145,17 +143,18 @@ def test_conversation_with_different_agent_tools_fails():
         )
         different_agent = Agent(llm=llm2, tools=different_tools)
 
-        # This should fail - tools must match during reconciliation
-        with pytest.raises(
-            ValueError, match="Tools don't match between runtime and persisted agents"
-        ):
-            LocalConversation(
-                agent=different_agent,
-                workspace=temp_dir,
-                persistence_dir=temp_dir,
-                conversation_id=conversation_id,  # Use same ID to avoid ID mismatch
-                visualizer=None,
-            )
+        # Restart should succeed, adopting the runtime agent's tools.
+        restarted = LocalConversation(
+            agent=different_agent,
+            workspace=temp_dir,
+            persistence_dir=temp_dir,
+            conversation_id=conversation_id,  # Use same ID to avoid ID mismatch
+            visualizer=None,
+        )
+        assert len(restarted.agent.tools) == 1
+        assert restarted.agent.tools[0].name == "TerminalTool"
+        assert "terminal" in restarted.agent.tools_map
+        assert "file_editor" not in restarted.agent.tools_map
 
 
 def test_conversation_with_same_agent_succeeds():

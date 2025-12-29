@@ -9,15 +9,10 @@ import pytest
 from pydantic import SecretStr
 
 from openhands.sdk import Agent, Conversation
-from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.conversation.impl.local_conversation import LocalConversation
 from openhands.sdk.conversation.state import (
     ConversationExecutionStatus,
     ConversationState,
-)
-from openhands.sdk.conversation.types import (
-    ConversationCallbackType,
-    ConversationTokenCallbackType,
 )
 from openhands.sdk.event.llm_convertible import MessageEvent, SystemPromptEvent
 from openhands.sdk.llm import LLM, Message, TextContent
@@ -140,8 +135,8 @@ def test_conversation_state_persistence_save_load():
         assert loaded_dump == original_dump
         if original_stats is not None:
             assert loaded_stats is not None
-            loaded_metrics = loaded_stats.get("service_to_metrics", {})
-            for key, metric in original_stats.get("service_to_metrics", {}).items():
+            loaded_metrics = loaded_stats.get("usage_to_metrics", {})
+            for key, metric in original_stats.get("usage_to_metrics", {}).items():
                 assert key in loaded_metrics
                 assert loaded_metrics[key] == metric
         # Also verify key fields are preserved
@@ -150,11 +145,10 @@ def test_conversation_state_persistence_save_load():
 
 
 def test_conversation_state_profile_reference_mode(tmp_path, monkeypatch):
-    """When inline persistence is disabled we store profile references."""
+    """Conversation persistence stores LLM profile references."""
 
     home_dir = tmp_path / "home"
     monkeypatch.setenv("HOME", str(home_dir))
-    monkeypatch.setenv("OPENHANDS_INLINE_CONVERSATIONS", "false")
 
     registry = LLMRegistry()
     llm = LLM(model="litellm_proxy/openai/gpt-5-mini", usage_id="agent")
@@ -185,45 +179,6 @@ def test_conversation_state_profile_reference_mode(tmp_path, monkeypatch):
     loaded_state = conversation.state
     assert loaded_state.agent.llm.profile_id == "profile-tests"
     assert loaded_state.agent.llm.model == llm.model
-
-
-def test_conversation_state_inline_mode_errors_on_profile_reference(
-    tmp_path, monkeypatch
-):
-    """Inline mode raises when encountering a persisted profile reference."""
-
-    home_dir = tmp_path / "home"
-    monkeypatch.setenv("HOME", str(home_dir))
-    monkeypatch.setenv("OPENHANDS_INLINE_CONVERSATIONS", "false")
-
-    registry = LLMRegistry()
-    llm = LLM(model="litellm_proxy/openai/gpt-5-mini", usage_id="agent")
-    registry.save_profile("profile-inline", llm)
-    agent = Agent(llm=registry.load_profile("profile-inline"), tools=[])
-
-    conv_id = uuid.UUID("12345678-1234-5678-9abc-1234567890aa")
-    persistence_root = tmp_path / "conv"
-    persistence_dir = LocalConversation.get_persistence_dir(persistence_root, conv_id)
-
-    ConversationState.create(
-        workspace=LocalWorkspace(working_dir="/tmp"),
-        persistence_dir=persistence_dir,
-        agent=agent,
-        id=conv_id,
-    )
-
-    # Switch env back to inline mode and expect a failure on reload
-    monkeypatch.setenv("OPENHANDS_INLINE_CONVERSATIONS", "true")
-
-    with pytest.raises(ValueError) as exc:
-        Conversation(
-            agent=agent,
-            persistence_dir=persistence_root,
-            workspace=LocalWorkspace(working_dir="/tmp"),
-            conversation_id=conv_id,
-        )
-
-    assert "OPENHANDS_INLINE_CONVERSATIONS" in str(exc.value)
 
 
 def test_conversation_state_incremental_save():
@@ -286,8 +241,8 @@ def test_conversation_state_incremental_save():
         assert loaded_dump == original_dump
         if original_stats is not None:
             assert loaded_stats is not None
-            loaded_metrics = loaded_stats.get("service_to_metrics", {})
-            for key, metric in original_stats.get("service_to_metrics", {}).items():
+            loaded_metrics = loaded_stats.get("usage_to_metrics", {})
+            for key, metric in original_stats.get("usage_to_metrics", {}).items():
                 assert key in loaded_metrics
                 assert loaded_metrics[key] == metric
 
@@ -523,37 +478,6 @@ def test_conversation_state_thread_safety():
     assert not state.owned()
 
 
-def test_agent_resolve_diff_different_class_raises_error():
-    """Test that resolve_diff_from_deserialized raises error for different agent classes."""  # noqa: E501
-
-    class DifferentAgent(AgentBase):
-        def __init__(self):
-            llm = LLM(
-                model="gpt-4o-mini",
-                api_key=SecretStr("test-key"),
-                usage_id="test-llm",
-            )
-            super().__init__(llm=llm, tools=[])
-
-        def init_state(self, state, on_event):
-            pass
-
-        def step(
-            self,
-            conversation,
-            on_event: ConversationCallbackType,
-            on_token: ConversationTokenCallbackType | None = None,
-        ):
-            pass
-
-    llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"), usage_id="test-llm")
-    original_agent = Agent(llm=llm, tools=[])
-    different_agent = DifferentAgent()
-
-    with pytest.raises(ValueError, match="Cannot resolve from deserialized"):
-        original_agent.resolve_diff_from_deserialized(different_agent)
-
-
 def test_conversation_state_flags_persistence():
     """Test that conversation state flags are properly persisted."""
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -594,9 +518,6 @@ def test_conversation_state_flags_persistence():
         assert loaded_state.execution_status == ConversationExecutionStatus.FINISHED
         assert loaded_state.confirmation_policy == AlwaysConfirm()
         assert loaded_state.activated_knowledge_skills == ["agent1", "agent2"]
-        # Test model_dump equality
-        assert loaded_state.model_dump(mode="json") != state.model_dump(mode="json")
-        loaded_state.stats.register_llm(RegistryEvent(llm=llm))
         assert loaded_state.model_dump(mode="json") == state.model_dump(mode="json")
 
 
@@ -658,7 +579,6 @@ def test_local_conversation_switch_llm_persists_profile(tmp_path, monkeypatch):
     home_dir = tmp_path / "home"
     home_dir.mkdir()
     monkeypatch.setenv("HOME", str(home_dir))
-    monkeypatch.setenv("OPENHANDS_INLINE_CONVERSATIONS", "false")
 
     registry = LLMRegistry()
     base_llm = LLM(model="gpt-4o-mini", usage_id="test-llm")
@@ -703,35 +623,10 @@ def test_local_conversation_switch_llm_persists_profile(tmp_path, monkeypatch):
     assert reloaded.state.agent.llm.profile_id == "alt"
 
 
-def test_local_conversation_switch_llm_inline_mode_rejected(tmp_path, monkeypatch):
-    home_dir = tmp_path / "home"
-    home_dir.mkdir()
-    monkeypatch.setenv("HOME", str(home_dir))
-    monkeypatch.setenv("OPENHANDS_INLINE_CONVERSATIONS", "true")
-
-    registry = LLMRegistry()
-    base_llm = LLM(model="gpt-4o-mini", usage_id="test-llm")
-    registry.save_profile("base", base_llm)
-    registry.save_profile("alt", LLM(model="gpt-4o", usage_id="alternate"))
-
-    agent = Agent(llm=registry.load_profile("base"), tools=[])
-    conversation = Conversation(
-        agent=agent,
-        workspace=str(tmp_path / "workspace"),
-        persistence_dir=str(tmp_path / "persist"),
-        visualizer=None,
-    )
-    assert isinstance(conversation, LocalConversation)
-
-    with pytest.raises(RuntimeError, match="OPENHANDS_INLINE_CONVERSATIONS"):
-        conversation.switch_llm("alt")
-
-
 def test_local_conversation_switch_llm_requires_idle(tmp_path, monkeypatch):
     home_dir = tmp_path / "home"
     home_dir.mkdir()
     monkeypatch.setenv("HOME", str(home_dir))
-    monkeypatch.setenv("OPENHANDS_INLINE_CONVERSATIONS", "false")
 
     registry = LLMRegistry()
     base_llm = LLM(model="gpt-4o-mini", usage_id="test-llm")

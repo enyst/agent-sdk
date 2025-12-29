@@ -175,6 +175,19 @@ class ConversationState(OpenHandsModel):
         )
         fs.write(BASE_STATE, payload)
 
+    def persist_base_state(self) -> None:
+        """Persist the latest base_state snapshot if persistence is enabled.
+
+        Note: This is intentionally explicit so nested mutations (e.g. stats /
+        metrics updates) can be flushed to disk even when `__setattr__` is not
+        triggered.
+        """
+
+        fs = getattr(self, "_fs", None)
+        if fs is None:
+            return
+        self._save_base_state(fs)
+
     # ===== Factory: open-or-create (no load/save methods needed) =====
     @classmethod
     def create(
@@ -220,6 +233,7 @@ class ConversationState(OpenHandsModel):
         if base_text:
             base_payload = json.loads(base_text)
             state = cls.model_validate(base_payload, context=context)
+            persisted_agent = state.agent
 
             # Enforce conversation id match
             if state.id != id:
@@ -233,7 +247,34 @@ class ConversationState(OpenHandsModel):
             state._events = EventLog(file_store, dir_path=EVENTS_DIR)
             state._autosave_enabled = True
 
-            state.stats = ConversationStats()
+            # Restore-time configuration:
+            # - The persisted state owns the *active* LLM by default (so a switched
+            #   profile survives restarts).
+            # - The caller-provided agent (tools/context/etc) may override this.
+            #   To explicitly override the persisted LLM on restore, pass an agent
+            #   whose `llm.profile_id` is set.
+            if agent is not None:
+                effective_llm = (
+                    agent.llm
+                    if agent.llm.profile_id is not None
+                    else persisted_agent.llm
+                )
+                # Always prefer secrets from the runtime agent, even when the
+                # persisted LLM selection is retained.
+                secret_updates: dict[str, object] = {}
+                for field in (
+                    "api_key",
+                    "aws_access_key_id",
+                    "aws_secret_access_key",
+                    "aws_region_name",
+                ):
+                    value = getattr(agent.llm, field)
+                    if value is not None:
+                        secret_updates[field] = value
+                if secret_updates:
+                    effective_llm = effective_llm.model_copy(update=secret_updates)
+                state.agent = agent._clone_with_llm(effective_llm)
+            state.workspace = workspace
 
             logger.info(
                 f"Resumed conversation {state.id} from persistent storage.\n"
@@ -258,7 +299,6 @@ class ConversationState(OpenHandsModel):
         )
         state._fs = file_store
         state._events = EventLog(file_store, dir_path=EVENTS_DIR)
-        state.stats = ConversationStats()
 
         state._save_base_state(file_store)  # initial snapshot
         state._autosave_enabled = True
@@ -341,6 +381,9 @@ class ConversationState(OpenHandsModel):
     def switch_agent_llm(self, profile_id: str, *, registry: "LLMRegistry") -> None:
         """Swap the agent's primary LLM to ``profile_id`` using ``registry``."""
 
+        if self.execution_status == ConversationExecutionStatus.RUNNING:
+            raise RuntimeError("Agent must be idle to switch LLM profiles.")
+
         usage_id = self.agent.llm.usage_id
         try:
             new_llm = registry.switch_profile(usage_id, profile_id)
@@ -359,6 +402,8 @@ class ConversationState(OpenHandsModel):
         This supports remote clients that want to switch LLMs by sending an inline
         LLM payload (as opposed to a server-side profile_id reference).
         """
+        if self.execution_status == ConversationExecutionStatus.RUNNING:
+            raise RuntimeError("Agent must be idle to switch LLMs.")
 
         usage_id = self.agent.llm.usage_id
         new_llm = registry.set(usage_id, llm)
