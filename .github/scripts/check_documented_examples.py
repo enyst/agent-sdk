@@ -28,10 +28,14 @@ def find_documented_examples(docs_path: Path) -> set[str]:
     """
     documented_examples: set[str] = set()
 
-    # Pattern to match example file references
-    # Matches: examples/[folder1]/[folder2]/[file].py or
-    # examples/[folder1]/[file].py
-    pattern = r"examples/[\w_]+(?:/[\w_]+)?/[\w_]+\.py"
+    # Pattern to match example file references.
+    #
+    # The agent-sdk examples tree includes nested modules (e.g.
+    # examples/02_remote_agent_server/05_custom_tool/custom_tools/log_data.py),
+    # so we intentionally support *arbitrary* nesting depth under examples/.
+    #
+    # Matches: examples/<dir>/.../<file>.py
+    pattern = r"examples/(?:[-\\w]+/)+[-\\w]+\\.py"
 
     for root, _, files in os.walk(docs_path):
         for file in files:
