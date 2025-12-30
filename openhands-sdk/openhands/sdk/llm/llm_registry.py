@@ -1,4 +1,5 @@
 import json
+import os
 import re
 from collections.abc import Callable, Mapping
 from pathlib import Path
@@ -20,6 +21,7 @@ _SECRET_FIELDS: tuple[str, ...] = (
     "aws_secret_access_key",
 )
 _DEFAULT_PROFILE_DIR = Path.home() / ".openhands" / "llm-profiles"
+_PROFILE_DIR_ENV_VAR = "OPENHANDS_LLM_PROFILES_DIR"
 
 _PROFILE_ID_PATTERN = re.compile(r"^[A-Za-z0-9._-]+$")
 
@@ -103,6 +105,18 @@ class LLMRegistry:
             f"[LLM registry {self.registry_id}]: Added LLM for usage {usage_id}"
         )
 
+    def set(self, usage_id: str, llm: LLM) -> LLM:
+        """Upsert the LLM for ``usage_id`` and return the stored instance."""
+
+        updated = llm.model_copy(update={"usage_id": usage_id})
+        self._usage_to_llm[usage_id] = updated
+        self.notify(RegistryEvent(llm=updated))
+        logger.info(
+            f"[LLM registry {self.registry_id}]: Set LLM for usage {usage_id} "
+            f"(model={updated.model})"
+        )
+        return updated
+
     def _ensure_safe_profile_id(self, profile_id: str) -> str:
         if not profile_id or profile_id in {".", ".."}:
             raise ValueError("Invalid profile ID.")
@@ -136,7 +150,7 @@ class LLMRegistry:
 
         current_llm = self._usage_to_llm[usage_id]
         safe_id = self._ensure_safe_profile_id(profile_id)
-        if getattr(current_llm, "profile_id", None) == safe_id:
+        if current_llm.profile_id == safe_id:
             return current_llm
 
         llm = self.load_profile(safe_id)
@@ -212,6 +226,9 @@ class LLMRegistry:
     def _resolve_profile_dir(self, profile_dir: str | Path | None) -> Path:
         if profile_dir is not None:
             return Path(profile_dir).expanduser()
+        env = os.getenv(_PROFILE_DIR_ENV_VAR)
+        if env:
+            return Path(env).expanduser()
         return _DEFAULT_PROFILE_DIR
 
     def _load_profile_with_synced_id(self, path: Path, profile_id: str) -> LLM:
@@ -219,9 +236,8 @@ class LLMRegistry:
 
         Most callers expect the loaded LLM to reflect the profile file name so the
         client apps can surface the active profile (e.g., in conversation history or CLI
-        prompts).  We construct a *new* ``LLM`` via :meth:`model_copy` instead of
-        mutating the loaded instance to respect the SDK's immutability
-        conventions.
+        prompts). We keep the runtime instance aligned with the filename so UIs can
+        accurately display the active profile ID.
 
         We always align ``profile_id`` with the filename so callers get a precise
         view of which profile is active without mutating the on-disk payload. This

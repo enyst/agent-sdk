@@ -2,6 +2,7 @@ import atexit
 import uuid
 from collections.abc import Mapping
 from pathlib import Path
+from typing import cast
 
 from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.context.prompts.prompt import render_template
@@ -139,10 +140,23 @@ class LocalConversation(BaseConversation):
             stuck_detection=stuck_detection,
             llm_registry=self.llm_registry,
         )
+        # After restore, the persisted base_state is the source of truth for the
+        # active agent/workspace configuration.
+        self.agent = self._state.agent
+        self.workspace = cast(LocalWorkspace, self._state.workspace)
+        ws_path = Path(self.workspace.working_dir)
+        if not ws_path.exists():
+            ws_path.mkdir(parents=True, exist_ok=True)
 
         # Default callback: persist every event to state
         def _default_callback(e):
             self._state.events.append(e)
+            # Flush the base snapshot so nested updates (e.g. usage metrics)
+            # are persisted alongside the event stream.
+            try:
+                self._state.persist_base_state()
+            except Exception:
+                logger.exception("Failed to persist base state after event append")
 
         self._hook_processor = None
         hook_callback = None
@@ -260,6 +274,16 @@ class LocalConversation(BaseConversation):
             "Switched conversation %s to profile %s",
             self._state.id,
             profile_id,
+        )
+
+    def set_llm(self, llm: LLM) -> None:
+        """Replace the active agent LLM instance for future requests."""
+
+        with self._state:
+            self._state.set_agent_llm(llm, registry=self.llm_registry)
+            self.agent = self._state.agent
+        logger.info(
+            "Updated conversation %s LLM (usage_id=%s)", self._state.id, llm.usage_id
         )
 
     @observe(name="conversation.send_message")
@@ -526,7 +550,8 @@ class LocalConversation(BaseConversation):
         try:
             tools_map = self.agent.tools_map
         except (AttributeError, RuntimeError):
-            # Agent not initialized or partially constructed
+            # Conversation may be partially constructed (e.g. validation failure)
+            # and the agent may not have been initialized.
             return
         for tool in tools_map.values():
             try:

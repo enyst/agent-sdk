@@ -21,6 +21,8 @@ from openhands.agent_server.models import (
     SetSecurityAnalyzerRequest,
     StartConversationRequest,
     Success,
+    SwitchLLMProfileRequest,
+    UpdateConversationLLMRequest,
     UpdateConversationRequest,
     UpdateSecretsRequest,
 )
@@ -251,6 +253,44 @@ async def set_conversation_security_analyzer(
     if event_service is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND)
     await event_service.set_security_analyzer(request.security_analyzer)
+    return Success()
+
+
+@conversation_router.post(
+    "/{conversation_id}/llm/switch",
+    responses={404: {"description": "Item not found"}},
+)
+async def switch_conversation_llm(
+    conversation_id: UUID,
+    request: SwitchLLMProfileRequest,
+    conversation_service: ConversationService = Depends(get_conversation_service),
+) -> Success:
+    """Switch the conversation's active agent LLM profile for future requests."""
+    event_service = await conversation_service.get_event_service(conversation_id)
+    if event_service is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND)
+    await event_service.switch_llm(request.profile_id)
+    return Success()
+
+
+@conversation_router.post(
+    "/{conversation_id}/llm",
+    responses={404: {"description": "Item not found"}},
+)
+async def update_conversation_llm(
+    conversation_id: UUID,
+    request: UpdateConversationLLMRequest,
+    conversation_service: ConversationService = Depends(get_conversation_service),
+) -> Success:
+    """Update the conversation's active agent LLM for future requests."""
+    event_service = await conversation_service.get_event_service(conversation_id)
+    if event_service is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND)
+    if request.profile_id is not None:
+        await event_service.switch_llm(request.profile_id)
+    else:
+        assert request.llm is not None
+        await event_service.set_llm(request.llm)
     return Success()
 
 

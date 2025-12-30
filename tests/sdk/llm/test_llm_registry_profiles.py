@@ -98,7 +98,6 @@ def test_llm_serializer_respects_inline_context():
 
 
 def test_llm_validator_loads_profile_reference(tmp_path, monkeypatch):
-    monkeypatch.setenv("OPENHANDS_INLINE_CONVERSATIONS", "false")
     registry = LLMRegistry(profile_dir=tmp_path)
     source_llm = LLM(model="gpt-4o-mini", usage_id="service")
     registry.save_profile("profile-tests", source_llm)

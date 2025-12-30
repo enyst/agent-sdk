@@ -134,6 +134,144 @@ def test_search_conversations_default_params(
         client.app.dependency_overrides.clear()
 
 
+def test_switch_conversation_llm_success(
+    client, mock_conversation_service, mock_event_service, sample_conversation_id
+):
+    mock_conversation_service.get_event_service.return_value = mock_event_service
+    client.app.dependency_overrides[get_conversation_service] = (
+        lambda: mock_conversation_service
+    )
+
+    try:
+        response = client.post(
+            f"/api/conversations/{sample_conversation_id}/llm/switch",
+            json={"profile_id": "test-profile"},
+        )
+        assert response.status_code == 200
+        assert response.json() == {"success": True}
+        mock_event_service.switch_llm.assert_awaited_once_with("test-profile")
+    finally:
+        client.app.dependency_overrides.clear()
+
+
+def test_update_conversation_llm_profile_id_success(
+    client, mock_conversation_service, mock_event_service, sample_conversation_id
+):
+    mock_conversation_service.get_event_service.return_value = mock_event_service
+    client.app.dependency_overrides[get_conversation_service] = (
+        lambda: mock_conversation_service
+    )
+
+    try:
+        response = client.post(
+            f"/api/conversations/{sample_conversation_id}/llm",
+            json={"profile_id": "test-profile"},
+        )
+        assert response.status_code == 200
+        assert response.json() == {"success": True}
+        mock_event_service.switch_llm.assert_awaited_once_with("test-profile")
+        mock_event_service.set_llm.assert_not_awaited()
+    finally:
+        client.app.dependency_overrides.clear()
+
+
+def test_update_conversation_llm_inline_payload_success(
+    client, mock_conversation_service, mock_event_service, sample_conversation_id
+):
+    mock_conversation_service.get_event_service.return_value = mock_event_service
+    client.app.dependency_overrides[get_conversation_service] = (
+        lambda: mock_conversation_service
+    )
+
+    try:
+        response = client.post(
+            f"/api/conversations/{sample_conversation_id}/llm",
+            json={
+                "llm": {
+                    "usage_id": "agent",
+                    "model": "test-provider/test-model",
+                    "api_key": "test-key",
+                }
+            },
+        )
+        assert response.status_code == 200
+        assert response.json() == {"success": True}
+        mock_event_service.switch_llm.assert_not_awaited()
+        assert mock_event_service.set_llm.await_count == 1
+
+        (called_llm,) = mock_event_service.set_llm.await_args.args
+        assert isinstance(called_llm, LLM)
+        assert called_llm.usage_id == "agent"
+        assert called_llm.model == "test-provider/test-model"
+    finally:
+        client.app.dependency_overrides.clear()
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {},
+        {"profile_id": "test-profile", "llm": {"usage_id": "agent", "model": "x"}},
+    ],
+)
+def test_update_conversation_llm_requires_exactly_one_field(
+    client,
+    mock_conversation_service,
+    mock_event_service,
+    sample_conversation_id,
+    payload,
+):
+    mock_conversation_service.get_event_service.return_value = mock_event_service
+    client.app.dependency_overrides[get_conversation_service] = (
+        lambda: mock_conversation_service
+    )
+
+    try:
+        response = client.post(
+            f"/api/conversations/{sample_conversation_id}/llm",
+            json=payload,
+        )
+        assert response.status_code == 422
+    finally:
+        client.app.dependency_overrides.clear()
+
+
+def test_update_conversation_llm_not_found(
+    client, mock_conversation_service, sample_conversation_id
+):
+    mock_conversation_service.get_event_service.return_value = None
+    client.app.dependency_overrides[get_conversation_service] = (
+        lambda: mock_conversation_service
+    )
+
+    try:
+        response = client.post(
+            f"/api/conversations/{sample_conversation_id}/llm",
+            json={"profile_id": "test-profile"},
+        )
+        assert response.status_code == 404
+    finally:
+        client.app.dependency_overrides.clear()
+
+
+def test_switch_conversation_llm_not_found(
+    client, mock_conversation_service, sample_conversation_id
+):
+    mock_conversation_service.get_event_service.return_value = None
+    client.app.dependency_overrides[get_conversation_service] = (
+        lambda: mock_conversation_service
+    )
+
+    try:
+        response = client.post(
+            f"/api/conversations/{sample_conversation_id}/llm/switch",
+            json={"profile_id": "test-profile"},
+        )
+        assert response.status_code == 404
+    finally:
+        client.app.dependency_overrides.clear()
+
+
 def test_search_conversations_with_all_params(
     client, mock_conversation_service, sample_conversation_info
 ):
@@ -485,6 +623,7 @@ def test_start_conversation_new(
         # Create request data with proper serialization
         request_data = {
             "agent": {
+                "kind": "Agent",
                 "llm": {
                     "model": "gpt-4o",
                     "api_key": "test-key",
@@ -531,6 +670,7 @@ def test_start_conversation_existing(
         # Create request data with proper serialization
         request_data = {
             "agent": {
+                "kind": "Agent",
                 "llm": {
                     "model": "gpt-4o",
                     "api_key": "test-key",
@@ -590,6 +730,7 @@ def test_start_conversation_minimal_request(
         # Create minimal valid request
         minimal_request = {
             "agent": {
+                "kind": "Agent",
                 "llm": {
                     "model": "gpt-4o",
                     "api_key": "test-key",

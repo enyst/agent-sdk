@@ -1,4 +1,4 @@
-"""Tests for Agent immutability and statelessness."""
+"""Tests for Agent component swapping and statelessness."""
 
 import pytest
 from pydantic import SecretStr, ValidationError
@@ -7,8 +7,8 @@ from openhands.sdk.agent.agent import Agent
 from openhands.sdk.llm import LLM
 
 
-class TestAgentImmutability:
-    """Test Agent immutability and statelessness."""
+class TestAgentComponentSwaps:
+    """Test Agent component swapping and statelessness."""
 
     def setup_method(self):
         """Set up test environment."""
@@ -16,21 +16,29 @@ class TestAgentImmutability:
             model="gpt-4", api_key=SecretStr("test-key"), usage_id="test-llm"
         )
 
-    def test_agent_is_frozen(self):
-        """Test that Agent instances are frozen (immutable)."""
+    def test_agent_allows_component_swaps(self):
+        """Agent should support swapping components via cloning."""
         agent = Agent(llm=self.llm, tools=[])
 
-        # Test that we cannot modify core fields after creation
-        with pytest.raises(ValidationError, match="Instance is frozen"):
-            agent.llm = "new_value"  # type: ignore[assignment]
-
-        with pytest.raises(ValidationError, match="Instance is frozen"):
-            agent.agent_context = None
-
-        # Verify the agent remains functional after failed modification attempts
+        new_llm = LLM(
+            model="gpt-4",
+            api_key=SecretStr("new-key"),
+            usage_id="test-llm",
+        )
+        swapped = agent._clone_with_llm(new_llm)
+        assert swapped.llm == new_llm
         assert agent.llm == self.llm
+
+        with pytest.raises(ValidationError):
+            Agent.model_validate({"llm": "new_value", "tools": []})
+
+        # Verify the agent remains functional after modification attempts
         assert isinstance(agent.system_message, str)
         assert len(agent.system_message) > 0
+
+        without_context = agent.model_copy(update={"agent_context": None})
+        assert isinstance(without_context.system_message, str)
+        assert len(without_context.system_message) > 0
 
     def test_system_message_is_computed_property(self):
         """Test that system_message is computed on-demand, not stored."""
