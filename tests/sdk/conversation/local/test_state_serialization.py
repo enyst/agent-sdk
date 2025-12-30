@@ -752,3 +752,26 @@ def test_local_conversation_switch_llm_requires_idle(tmp_path, monkeypatch):
 
     with pytest.raises(RuntimeError, match="Agent must be idle"):
         conversation.switch_llm("alt")
+
+
+def test_local_conversation_switch_llm_missing_profile_rejected(tmp_path, monkeypatch):
+    home_dir = tmp_path / "home"
+    home_dir.mkdir()
+    monkeypatch.setenv("HOME", str(home_dir))
+    monkeypatch.setenv("OPENHANDS_INLINE_CONVERSATIONS", "false")
+
+    registry = LLMRegistry()
+    base_llm = LLM(model="gpt-4o-mini", usage_id="test-llm")
+    registry.save_profile("base", base_llm)
+
+    agent = Agent(llm=registry.load_profile("base"), tools=[])
+    conversation = Conversation(
+        agent=agent,
+        workspace=str(tmp_path / "workspace"),
+        persistence_dir=str(tmp_path / "persist"),
+        visualizer=None,
+    )
+    assert isinstance(conversation, LocalConversation)
+
+    with pytest.raises(ValueError, match=r"Profile not found: does-not-exist"):
+        conversation.switch_llm("does-not-exist")
