@@ -203,6 +203,7 @@ cache
 /workspace/
 openapi.json
 .client/
+/.agent_server_llm_switch_demo/
 # Local workspace files
 .beads/*.db
 .worktrees/
