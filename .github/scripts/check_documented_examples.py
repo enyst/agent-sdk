@@ -85,8 +85,9 @@ def find_agent_sdk_examples(agent_sdk_path: Path) -> set[str]:
                 if relative_path_str.startswith("examples/03_github_workflows/"):
                     continue
 
-                # Skip LLM-specific tools examples: these are intentionally not
-                # enforced by the docs check. See discussion in PR #1486.
+                # Skip LLM-specific tools examples: these depend on external
+                # model/provider availability and are intentionally excluded from
+                # docs example enforcement.
                 if relative_path_str.startswith("examples/04_llm_specific_tools/"):
                     continue
 
