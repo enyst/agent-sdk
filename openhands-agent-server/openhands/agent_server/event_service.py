@@ -543,27 +543,31 @@ class EventService:
             None, self._conversation.set_security_analyzer, security_analyzer
         )
 
-    async def switch_llm(self, profile_id: str) -> None:
-        """Switch the conversation's active agent LLM to the given profile."""
-        if not self._conversation:
+    async def _update_llm(self, update_fn, *args) -> None:
+        """Apply an LLM update and re-wire telemetry for future completions."""
+        conversation = self._conversation
+        if conversation is None:
             raise ValueError("inactive_service")
         loop = asyncio.get_running_loop()
-        await loop.run_in_executor(None, self._conversation.switch_llm, profile_id)
+        await loop.run_in_executor(None, update_fn, *args)
         # The agent may now hold a new LLM instance; re-wire telemetry callbacks so
         # clients continue receiving logs/stats for future completions.
-        self._setup_llm_log_streaming(self._conversation.agent)
-        self._setup_stats_streaming(self._conversation.agent)
+        self._setup_llm_log_streaming(conversation.agent)
+        self._setup_stats_streaming(conversation.agent)
+
+    async def switch_llm(self, profile_id: str) -> None:
+        """Switch the conversation's active agent LLM to the given profile."""
+        conversation = self._conversation
+        if conversation is None:
+            raise ValueError("inactive_service")
+        await self._update_llm(conversation.switch_llm, profile_id)
 
     async def set_llm(self, llm: LLM) -> None:
         """Replace the conversation's active agent LLM instance."""
-        if not self._conversation:
+        conversation = self._conversation
+        if conversation is None:
             raise ValueError("inactive_service")
-        loop = asyncio.get_running_loop()
-        await loop.run_in_executor(None, self._conversation.set_llm, llm)
-        # The agent may now hold a new LLM instance; re-wire telemetry callbacks so
-        # clients continue receiving logs/stats for future completions.
-        self._setup_llm_log_streaming(self._conversation.agent)
-        self._setup_stats_streaming(self._conversation.agent)
+        await self._update_llm(conversation.set_llm, llm)
 
     async def close(self):
         await self._pub_sub.close()

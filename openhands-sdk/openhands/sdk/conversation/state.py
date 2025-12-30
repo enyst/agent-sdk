@@ -36,6 +36,13 @@ from openhands.sdk.workspace.base import BaseWorkspace
 
 logger = get_logger(__name__)
 
+_RUNTIME_LLM_OVERLAY_FIELDS: tuple[str, ...] = (
+    "api_key",
+    "aws_access_key_id",
+    "aws_secret_access_key",
+    "aws_region_name",
+)
+
 
 class ConversationExecutionStatus(str, Enum):
     """Enum representing the current execution state of the conversation."""
@@ -263,12 +270,7 @@ class ConversationState(OpenHandsModel):
                 # Always prefer secrets from the runtime agent, even when the
                 # persisted LLM selection is retained.
                 secret_updates: dict[str, object] = {}
-                for field in (
-                    "api_key",
-                    "aws_access_key_id",
-                    "aws_secret_access_key",
-                    "aws_region_name",
-                ):
+                for field in _RUNTIME_LLM_OVERLAY_FIELDS:
                     value = getattr(agent.llm, field)
                     if value is not None:
                         secret_updates[field] = value

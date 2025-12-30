@@ -653,7 +653,6 @@ def test_local_conversation_switch_llm_missing_profile_rejected(tmp_path, monkey
     home_dir = tmp_path / "home"
     home_dir.mkdir()
     monkeypatch.setenv("HOME", str(home_dir))
-    monkeypatch.setenv("OPENHANDS_INLINE_CONVERSATIONS", "false")
 
     registry = LLMRegistry()
     base_llm = LLM(model="gpt-4o-mini", usage_id="test-llm")
