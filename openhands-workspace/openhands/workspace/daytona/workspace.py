@@ -18,8 +18,16 @@ from typing import Any
 
 import httpx
 import tenacity
-from daytona import CreateSandboxFromImageParams, Daytona, DaytonaConfig, Sandbox
-from daytona.common.process import SessionExecuteRequest
+
+
+try:
+    from daytona import CreateSandboxFromImageParams, Daytona, DaytonaConfig, Sandbox
+    from daytona.common.process import SessionExecuteRequest
+except ImportError as e:  # pragma: no cover
+    raise ImportError(
+        "DaytonaWorkspace requires the optional Daytona dependency. "
+        "Install it with: uv pip install 'openhands-workspace[daytona]'"
+    ) from e
 from pydantic import Field, PrivateAttr
 
 from openhands.sdk.logger import get_logger
@@ -46,9 +54,9 @@ class DaytonaWorkspace(RemoteWorkspace):
         default=None,
         description="Optional Daytona target/region (e.g. us, eu)",
     )
-    daytona_server_url: str | None = Field(
+    daytona_api_url: str | None = Field(
         default=None,
-        description="Optional Daytona server URL override",
+        description="Optional Daytona API URL override (e.g. https://app.daytona.io/api)",
     )
 
     server_image: str = Field(
@@ -130,18 +138,18 @@ class DaytonaWorkspace(RemoteWorkspace):
             self._start_sandbox()
             super().model_post_init(context)
         except Exception:
-            self.__exit__(None, None, None)
+            self._cleanup_sandbox()
             raise
 
     def _start_sandbox(self) -> None:
         daytona_config = DaytonaConfig(
             api_key=self.daytona_api_key,
             target=self.daytona_target,
-            server_url=self.daytona_server_url,
+            api_url=self.daytona_api_url,
         )
         daytona = Daytona(config=daytona_config)
 
-        name = f"openhands-agent-server-{int(time.time())}"
+        name = f"oh-agent-server-{int(time.time())}"
         params = CreateSandboxFromImageParams(
             name=name,
             image=self.server_image,
@@ -200,6 +208,9 @@ class DaytonaWorkspace(RemoteWorkspace):
             raise RuntimeError(f"Not ready: {resp.status_code}")
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        self._cleanup_sandbox()
+
+    def _cleanup_sandbox(self) -> None:
         if self.keep_alive:
             return
         if self._sandbox is None:
@@ -209,7 +220,7 @@ class DaytonaWorkspace(RemoteWorkspace):
             daytona_config = DaytonaConfig(
                 api_key=self.daytona_api_key,
                 target=self.daytona_target,
-                server_url=self.daytona_server_url,
+                api_url=self.daytona_api_url,
             )
             daytona = Daytona(config=daytona_config)
             daytona.delete(self._sandbox)

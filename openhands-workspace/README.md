@@ -6,19 +6,13 @@ Workspace implementations for OpenHands.
 
 The `DaytonaWorkspace` requires the Daytona Python SDK, which is **not installed by default**.
 
-Install it with:
+Install the optional extra:
 
 ```bash
-uv pip install daytona
+uv pip install 'openhands-workspace[daytona]'
 ```
 
-Or with pip:
-
-```bash
-pip install daytona
-```
-
-Then you can use `DaytonaWorkspace` from:
+Then you can import it (lazy-imported from the top-level module):
 
 ```python
 from openhands.workspace import DaytonaWorkspace

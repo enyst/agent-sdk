@@ -32,7 +32,7 @@ assert daytona_api_key is not None, "DAYTONA_API_KEY environment variable is not
 with DaytonaWorkspace(
     daytona_api_key=daytona_api_key,
     daytona_target=os.getenv("DAYTONA_TARGET"),
-    daytona_server_url=os.getenv("DAYTONA_SERVER_URL"),
+    daytona_api_url=os.getenv("DAYTONA_API_URL"),
     server_image=os.getenv(
         "AGENT_SERVER_IMAGE", "ghcr.io/openhands/agent-server:latest-python"
     ),

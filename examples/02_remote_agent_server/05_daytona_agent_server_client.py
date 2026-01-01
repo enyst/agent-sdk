@@ -42,7 +42,7 @@ AGENT_SERVER_PORT = int(os.getenv("AGENT_SERVER_PORT", "3000"))
 
 DAYTONA_API_KEY = os.environ["DAYTONA_API_KEY"]
 DAYTONA_TARGET = os.getenv("DAYTONA_TARGET")
-DAYTONA_SERVER_URL = os.getenv("DAYTONA_SERVER_URL")
+DAYTONA_API_URL = os.getenv("DAYTONA_API_URL")
 
 SESSION_API_KEY = os.getenv("SESSION_API_KEY")
 
@@ -83,12 +83,12 @@ def main() -> None:
     daytona_config = DaytonaConfig(
         api_key=DAYTONA_API_KEY,
         target=DAYTONA_TARGET,
-        server_url=DAYTONA_SERVER_URL,
+        api_url=DAYTONA_API_URL,
     )
     daytona = Daytona(config=daytona_config)
 
     params = CreateSandboxFromImageParams(
-        name=f"openhands-agent-server-{int(time.time())}",
+        name=f"oh-agent-server-{int(time.time())}",
         image=AGENT_SERVER_IMAGE,
         public=False,
         auto_stop_interval=30,
