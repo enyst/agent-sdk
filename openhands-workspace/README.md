@@ -2,17 +2,25 @@
 
 Workspace implementations for OpenHands.
 
-## Optional Daytona dependency
+## Available workspaces
 
-The `DaytonaWorkspace` requires the Daytona Python SDK, which is **not installed by default**.
+- `DockerWorkspace`: run agent-server in a local Docker container.
+- `DockerDevWorkspace`: like DockerWorkspace, but builds the image locally.
+- `ApptainerWorkspace`: run agent-server with Apptainer.
+- `APIRemoteWorkspace`: connect to an agent-server managed by the OpenHands Runtime API.
+- `OpenHandsCloudWorkspace`: provision an OpenHands Cloud sandbox and connect to its agent-server.
 
-Install the optional extra:
+## Daytona (optional)
+
+`DaytonaWorkspace` provisions a Daytona Cloud sandbox and exposes the agent-server via Daytona preview links.
+
+Install the optional dependency:
 
 ```bash
 uv pip install 'openhands-workspace[daytona]'
 ```
 
-Then you can import it (lazy-imported from the top-level module):
+Then import it (lazy-imported):
 
 ```python
 from openhands.workspace import DaytonaWorkspace
