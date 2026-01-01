@@ -27,6 +27,8 @@ __all__ = [
 
 
 def __getattr__(name: str):
+    """Lazy import optional workspace implementations."""
+
     if name == "DockerDevWorkspace":
         from .docker import DockerDevWorkspace
 

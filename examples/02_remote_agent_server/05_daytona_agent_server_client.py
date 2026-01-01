@@ -40,7 +40,8 @@ AGENT_SERVER_IMAGE = os.getenv(
 # Agent-server itself defaults to 8000, but we can run it on 3000 for convenience.
 AGENT_SERVER_PORT = int(os.getenv("AGENT_SERVER_PORT", "3000"))
 
-DAYTONA_API_KEY = os.environ["DAYTONA_API_KEY"]
+DAYTONA_API_KEY = os.getenv("DAYTONA_API_KEY")
+assert DAYTONA_API_KEY is not None, "DAYTONA_API_KEY environment variable is not set."
 DAYTONA_TARGET = os.getenv("DAYTONA_TARGET")
 DAYTONA_API_URL = os.getenv("DAYTONA_API_URL")
 
