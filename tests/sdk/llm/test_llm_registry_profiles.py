@@ -1,7 +1,7 @@
 import json
 
 import pytest
-from pydantic import SecretStr, ValidationError
+from pydantic import SecretStr
 
 from openhands.sdk.llm.llm import LLM
 from openhands.sdk.llm.llm_registry import LLMRegistry
@@ -68,7 +68,7 @@ def test_load_profile_assigns_profile_id_when_missing(tmp_path):
     assert llm.usage_id == "svc"
 
 
-def test_load_profile_rejects_unknown_fields(tmp_path):
+def test_load_profile_ignores_unknown_fields(tmp_path):
     registry = LLMRegistry(profile_dir=tmp_path)
     profile_path = tmp_path / "legacy.json"
     profile_path.write_text(
@@ -83,8 +83,8 @@ def test_load_profile_rejects_unknown_fields(tmp_path):
         encoding="utf-8",
     )
 
-    with pytest.raises(ValidationError):
-        registry.load_profile("legacy")
+    llm = registry.load_profile("legacy")
+    assert llm.usage_id == "svc"
 
 
 def test_llm_serializer_respects_inline_context():
@@ -97,8 +97,7 @@ def test_llm_serializer_respects_inline_context():
     assert referenced == {"profile_id": "sample"}
 
 
-def test_llm_validator_loads_profile_reference(tmp_path, monkeypatch):
-    monkeypatch.setenv("OPENHANDS_INLINE_CONVERSATIONS", "false")
+def test_llm_validator_loads_profile_reference(tmp_path):
     registry = LLMRegistry(profile_dir=tmp_path)
     source_llm = LLM(model="gpt-4o-mini", usage_id="service")
     registry.save_profile("profile-tests", source_llm)

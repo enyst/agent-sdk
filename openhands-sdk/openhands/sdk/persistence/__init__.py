@@ -13,11 +13,9 @@ Anything exported via ``__all__`` should be treated as part of the supported SDK
 API.
 """
 
-from .settings import INLINE_CONTEXT_KEY, INLINE_ENV_VAR, should_inline_conversations
+from .settings import INLINE_CONTEXT_KEY
 
 
 __all__ = [
     "INLINE_CONTEXT_KEY",
-    "INLINE_ENV_VAR",
-    "should_inline_conversations",
 ]

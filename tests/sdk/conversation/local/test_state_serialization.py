@@ -149,7 +149,6 @@ def test_conversation_state_profile_reference_mode(tmp_path, monkeypatch):
 
     home_dir = tmp_path / "home"
     monkeypatch.setenv("HOME", str(home_dir))
-    monkeypatch.setenv("OPENHANDS_INLINE_CONVERSATIONS", "false")
 
     registry = LLMRegistry()
     llm = LLM(model="litellm_proxy/openai/gpt-5-mini", usage_id="agent")
@@ -182,14 +181,11 @@ def test_conversation_state_profile_reference_mode(tmp_path, monkeypatch):
     assert loaded_state.agent.llm.model == llm.model
 
 
-def test_conversation_state_inline_mode_errors_on_profile_reference(
+def test_conversation_state_persists_profile_reference_by_default(
     tmp_path, monkeypatch
 ):
-    """Inline mode raises when encountering a persisted profile reference."""
-
     home_dir = tmp_path / "home"
     monkeypatch.setenv("HOME", str(home_dir))
-    monkeypatch.setenv("OPENHANDS_INLINE_CONVERSATIONS", "false")
 
     registry = LLMRegistry()
     llm = LLM(model="litellm_proxy/openai/gpt-5-mini", usage_id="agent")
@@ -207,18 +203,14 @@ def test_conversation_state_inline_mode_errors_on_profile_reference(
         id=conv_id,
     )
 
-    # Switch env back to inline mode and expect a failure on reload
-    monkeypatch.setenv("OPENHANDS_INLINE_CONVERSATIONS", "true")
+    conversation = Conversation(
+        agent=agent,
+        persistence_dir=persistence_root,
+        workspace=LocalWorkspace(working_dir="/tmp"),
+        conversation_id=conv_id,
+    )
 
-    with pytest.raises(ValueError) as exc:
-        Conversation(
-            agent=agent,
-            persistence_dir=persistence_root,
-            workspace=LocalWorkspace(working_dir="/tmp"),
-            conversation_id=conv_id,
-        )
-
-    assert "OPENHANDS_INLINE_CONVERSATIONS" in str(exc.value)
+    assert conversation.state.agent.llm.profile_id == "profile-inline"
 
 
 def test_conversation_state_incremental_save():

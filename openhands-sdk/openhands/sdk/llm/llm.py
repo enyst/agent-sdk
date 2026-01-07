@@ -82,7 +82,7 @@ from openhands.sdk.llm.utils.model_features import get_default_temperature, get_
 from openhands.sdk.llm.utils.retry_mixin import RetryMixin
 from openhands.sdk.llm.utils.telemetry import Telemetry
 from openhands.sdk.logger import ENV_LOG_DIR, get_logger
-from openhands.sdk.persistence import INLINE_CONTEXT_KEY, should_inline_conversations
+from openhands.sdk.persistence import INLINE_CONTEXT_KEY
 
 
 logger = get_logger(__name__)
@@ -384,14 +384,13 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             if info.context is not None and INLINE_CONTEXT_KEY in info.context:
                 inline_pref = info.context[INLINE_CONTEXT_KEY]
             if inline_pref is None:
-                inline_pref = should_inline_conversations()
+                inline_pref = False
 
             if inline_pref:
                 raise ValueError(
-                    "Encountered profile reference for LLM while "
-                    "OPENHANDS_INLINE_CONVERSATIONS is enabled. "
-                    "Inline the profile or set "
-                    "OPENHANDS_INLINE_CONVERSATIONS=false."
+                    "Encountered profile reference for LLM while inline persistence "
+                    "is enabled.\n"
+                    "Inline the LLM payload or disable inline persistence."
                 )
 
             if info.context is None or "llm_registry" not in info.context:

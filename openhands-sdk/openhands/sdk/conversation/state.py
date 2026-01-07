@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from openhands.sdk.llm.llm_registry import LLMRegistry
 
 
-from openhands.sdk.persistence import INLINE_CONTEXT_KEY, should_inline_conversations
+from openhands.sdk.persistence import INLINE_CONTEXT_KEY
 from openhands.sdk.security.analyzer import SecurityAnalyzerBase
 from openhands.sdk.security.confirmation_policy import (
     ConfirmationPolicyBase,
@@ -168,12 +168,9 @@ class ConversationState(OpenHandsModel):
         """
         Persist base state snapshot (no events; events are file-backed).
         """
-        inline_mode = should_inline_conversations()
-        # Pass the inline preference down so LLM serialization knows whether to
-        # inline credentials or persist a profile reference.
         payload = self.model_dump_json(
             exclude_none=True,
-            context={INLINE_CONTEXT_KEY: inline_mode},
+            context={INLINE_CONTEXT_KEY: False},
         )
         fs.write(BASE_STATE, payload)
 
@@ -236,45 +233,52 @@ class ConversationState(OpenHandsModel):
         except FileNotFoundError:
             base_text = None
 
-        inline_mode = should_inline_conversations()
-        # Keep validation and serialization in sync when loading previously
-        # persisted state.
-        context: dict[str, object] = {INLINE_CONTEXT_KEY: inline_mode}
-        if not inline_mode:
-            registry = llm_registry
-            if registry is None:
-                from openhands.sdk.llm.llm_registry import LLMRegistry
+        context: dict[str, object] = {INLINE_CONTEXT_KEY: False}
+        registry = llm_registry
+        if registry is None:
+            from openhands.sdk.llm.llm_registry import LLMRegistry
 
-                registry = LLMRegistry()
-            context["llm_registry"] = registry
+            registry = LLMRegistry()
+        context["llm_registry"] = registry
 
         # ---- Resume path ----
         if base_text:
             base_payload = json.loads(base_text)
-            state = cls.model_validate(base_payload, context=context)
 
-            # Restore the conversation with the same id
-            if state.id != id:
+            persisted_id = ConversationID(base_payload.get("id"))
+            if persisted_id != id:
                 raise ValueError(
                     f"Conversation ID mismatch: provided {id}, "
-                    f"but persisted state has {state.id}"
+                    f"but persisted state has {persisted_id}"
                 )
 
+            persisted_agent_payload = base_payload.get("agent")
+            if persisted_agent_payload is None:
+                raise ValueError("Persisted conversation is missing agent state")
+
             # Attach event log early so we can read history for tool verification
+            event_log = EventLog(file_store, dir_path=EVENTS_DIR)
+
+            persisted_agent = AgentBase.model_validate(
+                persisted_agent_payload,
+                context={"llm_registry": registry, INLINE_CONTEXT_KEY: False},
+            )
+            agent.verify(persisted_agent, events=event_log)
+
+            # Use runtime-provided Agent directly (PR #1542 / issue #1451)
+            base_payload["agent"] = agent.model_dump(
+                mode="json",
+                exclude_none=True,
+                context={INLINE_CONTEXT_KEY: False, "expose_secrets": True},
+            )
+            base_payload["workspace"] = workspace.model_dump(mode="json")
+            base_payload["max_iterations"] = max_iterations
+
+            state = cls.model_validate(base_payload, context=context)
             state._fs = file_store
-            state._events = EventLog(file_store, dir_path=EVENTS_DIR)
+            state._events = event_log
 
-            # Verify compatibility (agent class + tools)
-            agent.verify(state.agent, events=state._events)
-
-            # Commit runtime-provided values (may autosave)
             state._autosave_enabled = True
-            state.agent = agent
-            state.workspace = workspace
-            state.max_iterations = max_iterations
-
-            # Note: stats are already deserialized from base_state.json above.
-            # Do NOT reset stats here - this would lose accumulated metrics.
 
             logger.info(
                 f"Resumed conversation {state.id} from persistent storage.\n"
