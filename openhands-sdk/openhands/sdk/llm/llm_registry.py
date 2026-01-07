@@ -207,10 +207,9 @@ class LLMRegistry:
         mirrors previous behavior while avoiding in-place mutation.
         """
 
-        llm = LLM.load_from_json(str(path))
-        if llm.profile_id != profile_id:
-            return llm.model_copy(update={"profile_id": profile_id})
-        return llm
+        data = json.loads(path.read_text(encoding="utf-8"))
+        data["profile_id"] = profile_id
+        return LLM.model_validate(data)
 
     def get(self, usage_id: str) -> LLM:
         """Get an LLM instance from the registry.

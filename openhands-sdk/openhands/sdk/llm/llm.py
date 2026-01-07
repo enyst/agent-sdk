@@ -335,7 +335,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     _telemetry: Telemetry | None = PrivateAttr(default=None)
 
     model_config: ClassVar[ConfigDict] = ConfigDict(
-        extra="ignore", arbitrary_types_allowed=True
+        extra="forbid", arbitrary_types_allowed=True
     )
 
     @model_serializer(mode="wrap", when_used="json")
