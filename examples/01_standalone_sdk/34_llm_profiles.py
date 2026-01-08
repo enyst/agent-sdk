@@ -2,7 +2,7 @@
 
 Run with::
 
-    uv run python examples/01_standalone_sdk/31_llm_profiles.py
+    uv run python examples/01_standalone_sdk/34_llm_profiles.py
 
 Profiles are stored under ``~/.openhands/llm-profiles/<name>.json`` by default.
 Set ``LLM_PROFILE_NAME`` to pick a profile.
