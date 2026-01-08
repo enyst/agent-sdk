@@ -63,7 +63,7 @@ def load_profile(registry: LLMRegistry, name: str) -> LLM:
     return llm
 
 
-def main() -> None:
+if __name__ == "__main__":  # pragma: no cover
     registry = LLMRegistry()
     ensure_profile_exists(registry, PROFILE_NAME)
 
@@ -122,7 +122,3 @@ def main() -> None:
             "Warning: profile_id in base_state.json does not match the profile "
             "used at runtime."
         )
-
-
-if __name__ == "__main__":  # pragma: no cover
-    main()
