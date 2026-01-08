@@ -12,10 +12,3 @@ and helpers) to provide a small, stable import surface:
 Anything exported via ``__all__`` should be treated as part of the supported SDK
 API.
 """
-
-from .settings import INLINE_CONTEXT_KEY
-
-
-__all__ = [
-    "INLINE_CONTEXT_KEY",
-]

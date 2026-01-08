@@ -24,7 +24,6 @@ if TYPE_CHECKING:
     from openhands.sdk.llm.llm_registry import LLMRegistry
 
 
-from openhands.sdk.persistence import INLINE_CONTEXT_KEY
 from openhands.sdk.security.analyzer import SecurityAnalyzerBase
 from openhands.sdk.security.confirmation_policy import (
     ConfirmationPolicyBase,
@@ -174,10 +173,7 @@ class ConversationState(OpenHandsModel):
         """
         Persist base state snapshot (no events; events are file-backed).
         """
-        payload = self.model_dump_json(
-            exclude_none=True,
-            context={INLINE_CONTEXT_KEY: False},
-        )
+        payload = self.model_dump_json(exclude_none=True)
         fs.write(BASE_STATE, payload)
 
     # ===== Factory: open-or-create (no load/save methods needed) =====
@@ -239,13 +235,20 @@ class ConversationState(OpenHandsModel):
         except FileNotFoundError:
             base_text = None
 
-        context: dict[str, object] = {INLINE_CONTEXT_KEY: False}
+        context: dict[str, object] = {}
         registry = llm_registry
         if registry is None:
             from openhands.sdk.llm.llm_registry import LLMRegistry
 
             registry = LLMRegistry()
         context["llm_registry"] = registry
+
+        # Ensure that any runtime-provided LLM without an explicit profile is
+        # persisted as a stable "default" profile, so conversation state can
+        # safely store only a profile reference.
+        agent = agent.model_copy(
+            update={"llm": registry.ensure_default_profile(agent.llm)}
+        )
 
         # ---- Resume path ----
         if base_text:
@@ -267,7 +270,7 @@ class ConversationState(OpenHandsModel):
 
             persisted_agent = AgentBase.model_validate(
                 persisted_agent_payload,
-                context={"llm_registry": registry, INLINE_CONTEXT_KEY: False},
+                context={"llm_registry": registry},
             )
             agent.verify(persisted_agent, events=event_log)
 
@@ -275,7 +278,7 @@ class ConversationState(OpenHandsModel):
             base_payload["agent"] = agent.model_dump(
                 mode="json",
                 exclude_none=True,
-                context={INLINE_CONTEXT_KEY: False, "expose_secrets": True},
+                context={"expose_secrets": True},
             )
             base_payload["workspace"] = workspace.model_dump(mode="json")
             base_payload["max_iterations"] = max_iterations

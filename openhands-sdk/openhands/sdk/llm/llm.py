@@ -82,13 +82,11 @@ from openhands.sdk.llm.utils.model_features import get_default_temperature, get_
 from openhands.sdk.llm.utils.retry_mixin import RetryMixin
 from openhands.sdk.llm.utils.telemetry import Telemetry
 from openhands.sdk.logger import ENV_LOG_DIR, get_logger
-from openhands.sdk.persistence import INLINE_CONTEXT_KEY
 
 
 logger = get_logger(__name__)
 
 __all__ = ["LLM"]
-
 
 # Exceptions we retry on
 LLM_RETRY_EXCEPTIONS: tuple[type[Exception], ...] = (
@@ -340,26 +338,21 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
     @model_serializer(mode="wrap", when_used="json")
     def _serialize_with_profiles(
-        self, handler: SerializerFunctionWrapHandler, info: SerializationInfo
+        self, handler: SerializerFunctionWrapHandler, _info: SerializationInfo
     ) -> Mapping[str, Any]:
-        """Scope LLM serialization to either inline payloads or profile refs.
+        """Serialize LLMs as profile references when possible.
 
-        We default to inlining the full LLM payload, but when the persistence
-        layer explicitly opts out (by passing ``inline_llm_persistence=False`` in
-        ``context``) we strip the payload down to just ``{"profile_id": ...}`` so
-        the conversation state can round-trip a profile reference without
-        exposing secrets.
+        In JSON mode we avoid persisting full LLM configuration (and any secrets)
+        into conversation state. Instead, when an LLM has ``profile_id`` we emit a
+        compact reference: ``{"profile_id": ...}``.
+
+        If no ``profile_id`` is set, we fall back to the full payload so existing
+        non-profile workflows keep working.
         """
-
-        inline_pref = None
-        if info.context is not None and INLINE_CONTEXT_KEY in info.context:
-            inline_pref = info.context[INLINE_CONTEXT_KEY]
-        if inline_pref is None:
-            inline_pref = True
 
         data = handler(self)
         profile_id = data.get("profile_id") if isinstance(data, dict) else None
-        if not inline_pref and profile_id:
+        if profile_id:
             return {"profile_id": profile_id}
         return data
 
@@ -380,19 +373,6 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
         profile_id = d.get("profile_id")
         if profile_id and "model" not in d:
-            inline_pref = None
-            if info.context is not None and INLINE_CONTEXT_KEY in info.context:
-                inline_pref = info.context[INLINE_CONTEXT_KEY]
-            if inline_pref is None:
-                inline_pref = False
-
-            if inline_pref:
-                raise ValueError(
-                    "Encountered profile reference for LLM while inline persistence "
-                    "is enabled.\n"
-                    "Inline the LLM payload or disable inline persistence."
-                )
-
             if info.context is None or "llm_registry" not in info.context:
                 raise ValueError(
                     "LLM registry required in context to load profile references."

@@ -5,7 +5,6 @@ from pydantic import SecretStr
 
 from openhands.sdk.llm.llm import LLM
 from openhands.sdk.llm.llm_registry import LLMRegistry
-from openhands.sdk.persistence import INLINE_CONTEXT_KEY
 
 
 def test_list_profiles_returns_sorted_names(tmp_path):
@@ -87,14 +86,11 @@ def test_load_profile_ignores_unknown_fields(tmp_path):
     assert llm.usage_id == "svc"
 
 
-def test_llm_serializer_respects_inline_context():
+def test_llm_serializer_emits_profile_reference_when_profile_id_present():
     llm = LLM(model="gpt-4o-mini", usage_id="service", profile_id="sample")
 
-    inline_payload = llm.model_dump(mode="json")
-    assert inline_payload["model"] == "gpt-4o-mini"
-
-    referenced = llm.model_dump(mode="json", context={INLINE_CONTEXT_KEY: False})
-    assert referenced == {"profile_id": "sample"}
+    payload = llm.model_dump(mode="json")
+    assert payload == {"profile_id": "sample"}
 
 
 def test_llm_validator_loads_profile_reference(tmp_path):
@@ -104,7 +100,7 @@ def test_llm_validator_loads_profile_reference(tmp_path):
 
     parsed = LLM.model_validate(
         {"profile_id": "profile-tests"},
-        context={INLINE_CONTEXT_KEY: False, "llm_registry": registry},
+        context={"llm_registry": registry},
     )
 
     assert parsed.model == source_llm.model
@@ -173,6 +169,24 @@ def test_profile_id_validation_rejects_invalid_characters(tmp_path):
             registry.save_profile(invalid_id, llm)
 
 
+def test_ensure_default_profile_creates_and_overwrites_default(tmp_path):
+    registry = LLMRegistry(profile_dir=tmp_path)
+
+    llm_a = LLM(model="gpt-4o-mini", usage_id="svc", api_key=SecretStr("k1"))
+    profiled_a = registry.ensure_default_profile(llm_a)
+    assert profiled_a.profile_id == "default"
+
+    path = registry.get_profile_path("default")
+    assert path.exists()
+
+    llm_b = LLM(model="gpt-4o", usage_id="svc", api_key=SecretStr("k2"))
+    profiled_b = registry.ensure_default_profile(llm_b)
+    assert profiled_b.profile_id == "default"
+
+    loaded = registry.load_profile("default")
+    assert loaded.model == "gpt-4o"
+
+
 def test_profile_id_validation_accepts_valid_characters(tmp_path):
     """Test that profile IDs with valid characters are accepted."""
     registry = LLMRegistry(profile_dir=tmp_path)
@@ -206,18 +220,15 @@ def test_llm_model_copy_updates_profile_id():
     assert updated.usage_id == original.usage_id
 
 
-def test_load_profile_without_registry_context_requires_inline_mode(tmp_path):
-    """Profile stubs need a registry when inline is disabled."""
+def test_load_profile_without_registry_context_requires_registry(tmp_path):
+    """Profile stubs always need a registry in validation context."""
 
     registry = LLMRegistry(profile_dir=tmp_path)
     llm = LLM(model="gpt-4o-mini", usage_id="svc")
     registry.save_profile("test-profile", llm)
 
-    # Without registry in context and with inline=False, should fail
     with pytest.raises(ValueError, match="LLM registry required"):
-        LLM.model_validate(
-            {"profile_id": "test-profile"}, context={INLINE_CONTEXT_KEY: False}
-        )
+        LLM.model_validate({"profile_id": "test-profile"})
 
 
 def test_save_profile_sets_restrictive_permissions_on_create(tmp_path):
@@ -254,17 +265,18 @@ def test_profile_directory_created_on_save_profile(tmp_path):
     assert profile_dir.is_dir()
 
 
-def test_profile_id_preserved_through_serialization_roundtrip():
+def test_profile_id_preserved_through_serialization_roundtrip(tmp_path):
     """Test that profile_id is preserved through save/load cycle."""
     llm = LLM(model="gpt-4o-mini", usage_id="svc", profile_id="test-profile")
 
-    # Serialize with inline mode
-    inline_data = llm.model_dump(mode="json", context={INLINE_CONTEXT_KEY: True})
-    assert inline_data["profile_id"] == "test-profile"
-    assert inline_data["model"] == "gpt-4o-mini"
+    # Serialize
+    inline_data = llm.model_dump(mode="json")
+    assert inline_data == {"profile_id": "test-profile"}
 
-    # Deserialize
-    restored = LLM.model_validate(inline_data)
+    # Deserialize requires a registry (to expand profile)
+    registry = LLMRegistry(profile_dir=tmp_path)
+    registry.save_profile("test-profile", llm)
+    restored = LLM.model_validate(inline_data, context={"llm_registry": registry})
     assert restored.profile_id == "test-profile"
     assert restored.model == "gpt-4o-mini"
 
@@ -336,7 +348,7 @@ def test_profile_serialization_mode_reference_only(tmp_path):
     """Test that non-inline mode returns only profile_id reference."""
     llm = LLM(model="gpt-4o-mini", usage_id="svc", profile_id="ref-test")
 
-    ref_data = llm.model_dump(mode="json", context={INLINE_CONTEXT_KEY: False})
+    ref_data = llm.model_dump(mode="json")
 
     # Should only contain profile_id
     assert ref_data == {"profile_id": "ref-test"}

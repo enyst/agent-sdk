@@ -32,6 +32,9 @@ class RegistryEvent(BaseModel):
     )
 
 
+DEFAULT_PROFILE_ID = "default"
+
+
 class LLMRegistry:
     """A minimal LLM registry for managing LLM instances by usage ID.
 
@@ -211,6 +214,23 @@ class LLMRegistry:
         if llm.profile_id != profile_id:
             return llm.model_copy(update={"profile_id": profile_id})
         return llm
+
+    def ensure_default_profile(self, llm: LLM) -> LLM:
+        """Persist ``llm`` as the default profile if it isn't already profiled.
+
+        When an LLM instance without ``profile_id`` is used in a persisted
+        conversation, we want the conversation to store a profile reference
+        instead of embedding the full configuration inline.
+
+        This helper creates or overwrites ``default.json`` in the profiles
+        directory and returns a copy of ``llm`` with ``profile_id`` set.
+        """
+
+        if llm.profile_id:
+            return llm
+
+        self.save_profile(DEFAULT_PROFILE_ID, llm)
+        return llm.model_copy(update={"profile_id": DEFAULT_PROFILE_ID})
 
     def get(self, usage_id: str) -> LLM:
         """Get an LLM instance from the registry.
