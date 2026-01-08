@@ -21,6 +21,7 @@ def find_documented_examples(docs_path: Path) -> set[str]:
 
     Searches for patterns like:
     - examples/01_standalone_sdk/02_custom_tools.py
+    - examples/02_remote_agent_server/06_custom_tool/custom_tools/log_data.py
     in MDX files.
 
     Returns:
@@ -89,6 +90,10 @@ def find_agent_sdk_examples(agent_sdk_path: Path) -> set[str]:
                 # model/provider availability and are intentionally excluded from
                 # docs example enforcement.
                 if relative_path_str.startswith("examples/04_llm_specific_tools/"):
+                    continue
+
+                # Skip __init__.py files as they typically don't need documentation
+                if file == "__init__.py":
                     continue
 
                 examples.add(relative_path_str)
