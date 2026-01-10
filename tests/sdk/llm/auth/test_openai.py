@@ -11,46 +11,37 @@ from openhands.sdk.llm.auth.openai import (
     ISSUER,
     OPENAI_CODEX_MODELS,
     OpenAISubscriptionAuth,
-    PKCECodes,
     _build_authorize_url,
-    _generate_state,
+    _generate_pkce,
 )
 
 
-def test_pkce_codes_generate():
-    """Test PKCE code generation."""
-    pkce = PKCECodes.generate()
-    assert pkce.verifier is not None
-    assert pkce.challenge is not None
-    assert len(pkce.verifier) > 0
-    assert len(pkce.challenge) > 0
+def test_generate_pkce():
+    """Test PKCE code generation using authlib."""
+    verifier, challenge = _generate_pkce()
+    assert verifier is not None
+    assert challenge is not None
+    assert len(verifier) > 0
+    assert len(challenge) > 0
     # Verifier and challenge should be different
-    assert pkce.verifier != pkce.challenge
+    assert verifier != challenge
 
 
 def test_pkce_codes_are_unique():
     """Test that PKCE codes are unique each time."""
-    pkce1 = PKCECodes.generate()
-    pkce2 = PKCECodes.generate()
-    assert pkce1.verifier != pkce2.verifier
-    assert pkce1.challenge != pkce2.challenge
-
-
-def test_generate_state():
-    """Test state generation."""
-    state1 = _generate_state()
-    state2 = _generate_state()
-    assert state1 != state2
-    assert len(state1) > 0
+    verifier1, challenge1 = _generate_pkce()
+    verifier2, challenge2 = _generate_pkce()
+    assert verifier1 != verifier2
+    assert challenge1 != challenge2
 
 
 def test_build_authorize_url():
     """Test building the OAuth authorization URL."""
-    pkce = PKCECodes(verifier="test_verifier", challenge="test_challenge")
+    code_challenge = "test_challenge"
     state = "test_state"
     redirect_uri = "http://localhost:1455/auth/callback"
 
-    url = _build_authorize_url(redirect_uri, pkce, state)
+    url = _build_authorize_url(redirect_uri, code_challenge, state)
 
     assert url.startswith(f"{ISSUER}/oauth/authorize?")
     assert f"client_id={CLIENT_ID}" in url
