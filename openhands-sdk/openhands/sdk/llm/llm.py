@@ -329,6 +329,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     _model_info: Any = PrivateAttr(default=None)
     _tokenizer: Any = PrivateAttr(default=None)
     _telemetry: Telemetry | None = PrivateAttr(default=None)
+    _is_subscription: bool = PrivateAttr(default=False)
 
     model_config: ClassVar[ConfigDict] = ConfigDict(
         extra="ignore", arbitrary_types_allowed=True
@@ -477,15 +478,14 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     def is_subscription(self) -> bool:
         """Check if this LLM uses subscription-based authentication.
 
-        Returns True when the LLM is configured to use the ChatGPT subscription
-        Codex backend (chatgpt.com/backend-api/codex) rather than the standard
-        OpenAI API.
+        Returns True when the LLM was created via `LLM.subscription_login()`,
+        which uses the ChatGPT subscription Codex backend rather than the
+        standard OpenAI API.
 
         Returns:
             bool: True if using subscription-based transport, False otherwise.
         """
-        base = (self.base_url or "").lower()
-        return "chatgpt.com" in base and "backend-api" in base and "codex" in base
+        return self._is_subscription
 
     def restore_metrics(self, metrics: Metrics) -> None:
         # Only used by ConversationStats to seed metrics

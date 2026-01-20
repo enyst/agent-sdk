@@ -401,7 +401,7 @@ class OpenAISubscriptionAuth:
         if "litellm_extra_body" in llm_kwargs:
             extra_body = {**extra_body, **llm_kwargs.pop("litellm_extra_body")}
 
-        return LLM(
+        llm = LLM(
             model=f"openai/{model}",
             base_url=CODEX_API_ENDPOINT.rsplit("/", 1)[0],
             api_key=creds.access_token,
@@ -414,6 +414,9 @@ class OpenAISubscriptionAuth:
             litellm_extra_body=extra_body,
             **llm_kwargs,
         )
+        # Mark this LLM as subscription-based
+        llm._is_subscription = True
+        return llm
 
 
 async def subscription_login_async(
