@@ -330,6 +330,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     _tokenizer: Any = PrivateAttr(default=None)
     _telemetry: Telemetry | None = PrivateAttr(default=None)
     _is_subscription: bool = PrivateAttr(default=False)
+    _subscription_notice_logged: bool = PrivateAttr(default=False)
 
     model_config: ClassVar[ConfigDict] = ConfigDict(
         extra="ignore", arbitrary_types_allowed=True
@@ -681,10 +682,6 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             Summary field is always added to tool schemas for transparency and
             explainability of agent actions.
         """
-        # Streaming not yet supported
-        if kwargs.get("stream", False) or self.stream or on_token is not None:
-            raise ValueError("Streaming is not supported for Responses API yet")
-
         # Build instructions + input list using dedicated Responses formatter
         instructions, input_items = self.format_messages_for_responses(messages)
 
@@ -705,6 +702,24 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         call_kwargs = select_responses_options(
             self, kwargs, include=include, store=store
         )
+
+        if on_token is not None:
+            raise ValueError(
+                "Streaming callbacks are not supported for Responses API yet"
+            )
+
+        streaming_requested = bool(call_kwargs.get("stream", False) or self.stream)
+        if streaming_requested and not self.is_subscription:
+            raise ValueError("Streaming is not supported for Responses API yet")
+
+        if self.is_subscription and not self._subscription_notice_logged:
+            logger.info(
+                "LLM running in subscription mode (ChatGPT OAuth): "
+                "stream=%s base_url=%s",
+                streaming_requested,
+                self.base_url,
+            )
+            self._subscription_notice_logged = True
 
         # Request context for telemetry (always include context_window for metrics)
         assert self._telemetry is not None
@@ -759,12 +774,46 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                         seed=self.seed,
                         **final_kwargs,
                     )
-                    assert isinstance(ret, ResponsesAPIResponse), (
+                    if isinstance(ret, ResponsesAPIResponse):
+                        # telemetry (latency, cost). Token usage mapping handled below.
+                        self._telemetry.on_response(ret)
+                        return ret
+
+                    if streaming_requested and self.is_subscription:
+                        from litellm.responses.streaming_iterator import (
+                            SyncResponsesAPIStreamingIterator,
+                        )
+
+                        if not isinstance(ret, SyncResponsesAPIStreamingIterator):
+                            raise AssertionError(
+                                f"Expected Responses stream iterator, got {type(ret)}"
+                            )
+
+                        # Drain stream until a completed response is captured.
+                        for _ in ret:
+                            pass
+
+                        completed_event = getattr(ret, "completed_response", None)
+                        if completed_event is None:
+                            raise LLMNoResponseError(
+                                "Responses stream finished without a completed response"
+                            )
+
+                        completed_resp = getattr(completed_event, "response", None)
+                        if completed_resp is None:
+                            raise LLMNoResponseError(
+                                f"Unexpected completed event: {type(completed_event)}"
+                            )
+
+                        assert isinstance(completed_resp, ResponsesAPIResponse), (
+                            f"Expected ResponsesAPIResponse, got {type(completed_resp)}"
+                        )
+                        self._telemetry.on_response(completed_resp)
+                        return completed_resp
+
+                    raise AssertionError(
                         f"Expected ResponsesAPIResponse, got {type(ret)}"
                     )
-                    # telemetry (latency, cost). Token usage mapping we handle after.
-                    self._telemetry.on_response(ret)
-                    return ret
 
         try:
             resp: ResponsesAPIResponse = _one_attempt()
