@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from pathlib import Path
 from typing import Literal
 
@@ -36,8 +37,6 @@ class OAuthCredentials(BaseModel):
 
     def is_expired(self) -> bool:
         """Check if the access token is expired."""
-        import time
-
         # Add 60 second buffer to avoid edge cases
         return self.expires_at < (int(time.time() * 1000) + 60_000)
 
@@ -131,8 +130,6 @@ class CredentialStore:
         Returns:
             Updated credentials, or None if no existing credentials found
         """
-        import time
-
         existing = self.get(vendor)
         if existing is None:
             return None

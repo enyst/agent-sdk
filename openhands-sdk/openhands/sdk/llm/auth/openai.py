@@ -10,10 +10,11 @@ Uses authlib for OAuth handling and aiohttp for the callback server.
 from __future__ import annotations
 
 import asyncio
-import os
+import platform
 import time
 import webbrowser
 from typing import TYPE_CHECKING, Any
+from urllib.parse import urlencode
 
 from aiohttp import web
 from authlib.common.security import generate_token
@@ -56,8 +57,6 @@ def _generate_pkce() -> tuple[str, str]:
 
 def _build_authorize_url(redirect_uri: str, code_challenge: str, state: str) -> str:
     """Build the OAuth authorization URL."""
-    from urllib.parse import urlencode
-
     params = {
         "response_type": "code",
         "client_id": CLIENT_ID,
@@ -388,8 +387,8 @@ class OpenAISubscriptionAuth:
                 "No credentials available. Call login() first or provide credentials."
             )
 
-        uname = os.uname()
-        user_agent = f"openhands-sdk ({uname.sysname}; {uname.machine})"
+        # Build cross-platform user agent string
+        user_agent = f"openhands-sdk ({platform.system()}; {platform.machine()})"
 
         # Codex-specific extra_body parameters
         extra_body: dict[str, Any] = {

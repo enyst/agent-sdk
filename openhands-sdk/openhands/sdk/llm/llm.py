@@ -1053,9 +1053,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                     system_chunks.append(s)
                 else:
                     instructions = (
-                        s
-                        if instructions is None
-                        else f"{instructions}\n\n---\n\n{s}"
+                        s if instructions is None else f"{instructions}\n\n---\n\n{s}"
                     )
             else:
                 if val:
@@ -1071,9 +1069,9 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                         content = item.get("content")
                         if not isinstance(content, list):
                             content = [content] if content else []
-                        item["content"] = (
-                            [{"type": "input_text", "text": prefix}] + content
-                        )
+                        item["content"] = [
+                            {"type": "input_text", "text": prefix}
+                        ] + content
                         injected = True
                         break
 
