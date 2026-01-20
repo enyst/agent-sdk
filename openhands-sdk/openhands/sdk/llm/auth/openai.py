@@ -408,7 +408,6 @@ class OpenAISubscriptionAuth:
         llm_kwargs_final = {
             "temperature": None,
             "max_output_tokens": None,
-            "stream": True,  # Codex requires streaming
             **llm_kwargs,  # User overrides come last
         }
 
