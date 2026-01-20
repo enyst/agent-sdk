@@ -473,6 +473,20 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         )
         return self._telemetry
 
+    @property
+    def is_subscription(self) -> bool:
+        """Check if this LLM uses subscription-based authentication.
+
+        Returns True when the LLM is configured to use the ChatGPT subscription
+        Codex backend (chatgpt.com/backend-api/codex) rather than the standard
+        OpenAI API.
+
+        Returns:
+            bool: True if using subscription-based transport, False otherwise.
+        """
+        base = (self.base_url or "").lower()
+        return "chatgpt.com" in base and "backend-api" in base and "codex" in base
+
     def restore_metrics(self, metrics: Metrics) -> None:
         # Only used by ConversationStats to seed metrics
         self._metrics = metrics
@@ -1031,13 +1045,6 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         input_items: list[dict[str, Any]] = []
         system_chunks: list[str] = []
 
-        # Subscription transport gate: only apply this workaround when calling
-        # ChatGPT subscription Codex backend (not the standard OpenAI API).
-        base = (self.base_url or "").lower()
-        is_subscription_codex_transport = (
-            "chatgpt.com" in base and "backend-api" in base and "codex" in base
-        )
-
         DEFAULT_CODEX_INSTRUCTIONS = (
             "You are OpenHands agent, a helpful AI assistant that can interact "
             "with a computer to solve tasks."
@@ -1049,7 +1056,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 s = val.strip()
                 if not s:
                     continue
-                if is_subscription_codex_transport:
+                if self.is_subscription:
                     system_chunks.append(s)
                 else:
                     instructions = (
@@ -1059,7 +1066,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 if val:
                     input_items.extend(val)
 
-        if is_subscription_codex_transport and system_chunks:
+        if self.is_subscription and system_chunks:
             merged_system = "\n\n---\n\n".join(system_chunks).strip()
             if merged_system:
                 prefix = f"Context (system prompt):\n{merged_system}\n\n"
@@ -1088,7 +1095,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         # the shape used by OpenCode's Codex client:
         #   {"role": "user", "content": [{"type": "input_text", ...}]}
         # instead of our generic {"type": "message", ...} wrapper.
-        if is_subscription_codex_transport and input_items:
+        if self.is_subscription and input_items:
             normalized: list[dict[str, Any]] = []
             for item in input_items:
                 if item.get("type") == "message":
@@ -1104,7 +1111,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
         # For subscription Codex transport, use a small, stable instructions string
         # (required by the endpoint) and move the full system prompt into user content.
-        if is_subscription_codex_transport:
+        if self.is_subscription:
             return DEFAULT_CODEX_INSTRUCTIONS, input_items
 
         return instructions, input_items
