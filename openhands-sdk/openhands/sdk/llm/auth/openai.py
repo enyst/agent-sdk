@@ -401,6 +401,17 @@ class OpenAISubscriptionAuth:
         if "litellm_extra_body" in llm_kwargs:
             extra_body = {**extra_body, **llm_kwargs.pop("litellm_extra_body")}
 
+        # Codex subscription API has specific requirements:
+        # 1. Stream must be enabled
+        # 2. No temperature parameter supported
+        # 3. No max_output_tokens parameter supported
+        llm_kwargs_final = {
+            "temperature": None,
+            "max_output_tokens": None,
+            "stream": True,  # Codex requires streaming
+            **llm_kwargs,  # User overrides come last
+        }
+
         llm = LLM(
             model=f"openai/{model}",
             base_url=CODEX_API_ENDPOINT.rsplit("/", 1)[0],
@@ -409,13 +420,17 @@ class OpenAISubscriptionAuth:
                 "originator": "openhands",
                 "User-Agent": user_agent,
             },
-            temperature=None,
-            max_output_tokens=None,  # Codex doesn't support this
             litellm_extra_body=extra_body,
-            **llm_kwargs,
+            **llm_kwargs_final,
         )
         # Mark this LLM as subscription-based
         llm._is_subscription = True
+
+        # Force these to None after initialization to prevent them being sent
+        # (in case _init_model_info_and_caps set them from model info)
+        llm.max_output_tokens = None
+        llm.temperature = None
+
         return llm
 
 
