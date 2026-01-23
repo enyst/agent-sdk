@@ -38,7 +38,6 @@ def test_llm_config_defaults():
     assert config.native_tool_calling is True
     assert config.reasoning_effort == "high"
     assert config.seed is None
-    assert config.safety_settings is None
 
 
 def test_llm_config_custom_values():
@@ -73,12 +72,6 @@ def test_llm_config_custom_values():
         native_tool_calling=True,
         reasoning_effort="high",
         seed=42,
-        safety_settings=[
-            {
-                "category": "HARM_CATEGORY_HARASSMENT",
-                "threshold": "BLOCK_MEDIUM_AND_ABOVE",
-            }
-        ],
     )
 
     assert config.model == "gpt-4"
@@ -111,9 +104,6 @@ def test_llm_config_custom_values():
     assert config.native_tool_calling is True
     assert config.reasoning_effort == "high"
     assert config.seed == 42
-    assert config.safety_settings == [
-        {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"}
-    ]
 
 
 def test_llm_config_secret_str():
@@ -336,7 +326,6 @@ def test_llm_config_optional_fields():
         custom_tokenizer=None,
         reasoning_effort=None,
         seed=None,
-        safety_settings=None,
         usage_id="test-llm",
     )
 
@@ -362,4 +351,3 @@ def test_llm_config_optional_fields():
     assert config.custom_tokenizer is None
     assert config.reasoning_effort is None  # Explicitly set to None overrides default
     assert config.seed is None
-    assert config.safety_settings is None

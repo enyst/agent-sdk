@@ -71,12 +71,6 @@ def select_chat_options(
         out.pop("temperature", None)
         out.pop("top_p", None)
 
-    # Mistral / Gemini safety
-    if llm.safety_settings:
-        ml = llm.model.lower()
-        if "mistral" in ml or "gemini" in ml:
-            out["safety_settings"] = llm.safety_settings
-
     # Tools: if not using native, strip tool_choice so we don't confuse providers
     if not has_tools:
         out.pop("tools", None)

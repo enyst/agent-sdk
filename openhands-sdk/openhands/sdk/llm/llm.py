@@ -283,12 +283,6 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     seed: int | None = Field(
         default=None, description="The seed to use for random number generation."
     )
-    safety_settings: list[dict[str, str]] | None = Field(
-        default=None,
-        description=(
-            "Safety settings for models that support them (like Mistral AI and Gemini)"
-        ),
-    )
     usage_id: str = Field(
         default="default",
         serialization_alias="usage_id",
