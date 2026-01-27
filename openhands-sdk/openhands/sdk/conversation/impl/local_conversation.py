@@ -264,7 +264,6 @@ class LocalConversation(BaseConversation):
 
         Args:
             message: Either a string (which will be converted to a user message)
-
                     or a Message object
             sender: Optional identifier of the sender. Can be used to track
                    message origin in multi-agent scenarios. For example, when

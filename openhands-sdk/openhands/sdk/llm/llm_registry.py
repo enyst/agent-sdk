@@ -137,7 +137,9 @@ class LLMRegistry:
         path = self.get_profile_path(profile_id)
         if not path.exists():
             raise FileNotFoundError(f"Profile not found: {profile_id} -> {path}")
-        return self._load_profile_with_synced_id(path, profile_id)
+        llm = self._load_profile_with_synced_id(path, profile_id)
+        logger.debug(f"Loaded profile {profile_id} from {path}")
+        return llm
 
     def save_profile(
         self, profile_id: str, llm: LLM, include_secrets: bool = True
