@@ -33,6 +33,9 @@ def test_model_matches(name, pattern, expected):
         # Anthropic Opus 4.5 (dash variant only)
         ("claude-opus-4-5", True),
         ("nova-2-lite", True),
+        # Gemini 3 family
+        ("gemini-3-pro-preview", True),
+        ("gemini-3-flash-preview", True),
         ("gpt-4o", False),
         ("claude-3-5-sonnet", False),
         ("gemini-1.5-pro", False),
@@ -285,6 +288,11 @@ def test_prompt_cache_retention_support(model, expected_retention):
         ("kimi-k2-thinking-0905", True),
         ("Kimi-K2-Thinking", True),  # Case insensitive
         ("moonshot/kimi-k2-thinking", True),  # With provider prefix
+        # DeepSeek reasoner model
+        ("deepseek/deepseek-reasoner", True),
+        ("DeepSeek/deepseek-reasoner", True),
+        # Models that should NOT match
+        ("deepseek/deepseek-chat", False),  # Different DeepSeek model
         ("kimi-k2-instruct", False),  # Different variant
         ("gpt-4o", False),
         ("claude-3-5-sonnet", False),

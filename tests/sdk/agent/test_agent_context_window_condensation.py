@@ -1,3 +1,5 @@
+from typing import TYPE_CHECKING
+
 import pytest
 from pydantic import PrivateAttr
 
@@ -8,6 +10,10 @@ from openhands.sdk.conversation import Conversation
 from openhands.sdk.event.condenser import CondensationRequest
 from openhands.sdk.llm import LLM
 from openhands.sdk.llm.exceptions import LLMContextWindowExceedError
+
+
+if TYPE_CHECKING:
+    from openhands.sdk.event.condenser import Condensation
 
 
 class RaisingLLM(LLM):
@@ -28,7 +34,9 @@ class RaisingLLM(LLM):
 
 
 class HandlesRequestsCondenser(CondenserBase):
-    def condense(self, view: View):  # pragma: no cover - trivial passthrough
+    def condense(
+        self, view: View, agent_llm: "LLM | None" = None
+    ) -> "View | Condensation":  # pragma: no cover - trivial passthrough
         return view
 
     def handles_condensation_requests(self) -> bool:
@@ -42,6 +50,9 @@ def test_agent_triggers_condensation_request_when_ctx_exceeded_with_condenser(
     llm = RaisingLLM(force_responses=force_responses)
     agent = Agent(llm=llm, tools=[], condenser=HandlesRequestsCondenser())
     convo = Conversation(agent=agent)
+
+    # Trigger lazy agent initialization before calling step()
+    convo._ensure_agent_ready()
 
     seen = []
 
@@ -60,6 +71,9 @@ def test_agent_raises_ctx_exceeded_when_no_condenser(force_responses: bool):
     agent = Agent(llm=llm, tools=[], condenser=None)
     convo = Conversation(agent=agent)
 
+    # Trigger lazy agent initialization before calling step()
+    convo._ensure_agent_ready()
+
     with pytest.raises(LLMContextWindowExceedError):
         agent.step(convo, on_event=lambda e: None)
 
@@ -72,6 +86,9 @@ def test_agent_logs_warning_when_no_condenser_on_ctx_exceeded(
     llm = RaisingLLM(force_responses=force_responses)
     agent = Agent(llm=llm, tools=[], condenser=None)
     convo = Conversation(agent=agent)
+
+    # Trigger lazy agent initialization before calling step()
+    convo._ensure_agent_ready()
 
     with pytest.raises(LLMContextWindowExceedError):
         agent.step(convo, on_event=lambda e: None)
@@ -90,7 +107,9 @@ def test_agent_logs_warning_when_no_condenser_on_ctx_exceeded(
 class NoHandlesRequestsCondenser(CondenserBase):
     """A condenser that doesn't handle condensation requests."""
 
-    def condense(self, view: View):  # pragma: no cover - trivial passthrough
+    def condense(
+        self, view: View, agent_llm: "LLM | None" = None
+    ) -> "View | Condensation":  # pragma: no cover - trivial passthrough
         return view
 
     def handles_condensation_requests(self) -> bool:
@@ -106,6 +125,9 @@ def test_agent_logs_warning_with_non_handling_condenser_on_ctx_exceeded(
     condenser = NoHandlesRequestsCondenser()
     agent = Agent(llm=llm, tools=[], condenser=condenser)
     convo = Conversation(agent=agent)
+
+    # Trigger lazy agent initialization before calling step()
+    convo._ensure_agent_ready()
 
     with pytest.raises(LLMContextWindowExceedError):
         agent.step(convo, on_event=lambda e: None)

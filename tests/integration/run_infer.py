@@ -18,7 +18,7 @@ from pydantic import BaseModel, ConfigDict
 
 from openhands.sdk.logger import get_logger
 from tests.integration.base import BaseIntegrationTest, SkipTest, TestResult
-from tests.integration.schemas import ModelTestResults
+from tests.integration.schemas import ModelTestResults, TokenUsageData
 from tests.integration.utils.format_costs import format_cost
 
 
@@ -32,12 +32,12 @@ class TestInstance(BaseModel):
 
     instance_id: str
     file_path: str
-    test_type: Literal["integration", "behavior"]
+    test_type: Literal["integration", "behavior", "condenser"]
     test_class: BaseIntegrationTest | None = None
 
     @property
     def required(self) -> bool:
-        """Whether the test is required (integration) or optional (behavior)."""
+        """Whether the test is required (integration) or optional (everything else)."""
         return self.test_type == "integration"
 
 
@@ -47,25 +47,28 @@ class EvalOutput(BaseModel):
     instance_id: str
     test_result: TestResult
     llm_model: str
-    test_type: Literal["integration", "behavior"]
+    test_type: Literal["integration", "behavior", "condenser"]
     cost: float = 0.0
+    token_usage: TokenUsageData | None = None
     error_message: str | None = None
     log_file_path: str | None = None
 
     @property
     def required(self) -> bool:
-        """Whether the test is required (integration) or optional (behavior)."""
+        """Whether the test is required (integration) or optional (everything else)."""
         return self.test_type == "integration"
 
 
 def load_integration_tests() -> list[TestInstance]:
     """Load tests from python files under ./tests/integration"""
     test_dir = Path(__file__).parent / "tests"
-    # Load both task completion tests (t*.py) and behavior tests (b*.py)
+    # Load task completion tests (t*.py), behavior tests (b*.py), and condenser tests
+    # (c*.py)
     test_files = [
         f
-        for f in test_dir.glob("[tb]*.py")
-        if (f.name.startswith("t") or f.name.startswith("b")) and f.name.endswith(".py")
+        for f in test_dir.glob("[tbc]*.py")
+        if (f.name.startswith("t") or f.name.startswith("b") or f.name.startswith("c"))
+        and f.name.endswith(".py")
     ]
 
     instances = []
@@ -75,6 +78,8 @@ def load_integration_tests() -> list[TestInstance]:
         # Determine test type based on filename prefix
         if test_file.name.startswith("b"):
             test_type = "behavior"
+        elif test_file.name.startswith("c"):
+            test_type = "condenser"
         else:
             test_type = "integration"
 
@@ -147,18 +152,46 @@ def process_instance(instance: TestInstance, llm_config: dict[str, Any]) -> Eval
 
         # Run the test
         start_time = time.time()
-        test_result = test_instance.run_instruction()
+        test_result = test_instance.run_integration_test()
         end_time = time.time()
 
         # Access accumulated_cost from the metrics object where it's properly validated
         llm_cost = test_instance.llm.metrics.accumulated_cost
+        token_usage = test_instance.llm.metrics.accumulated_token_usage
+
+        # Create TokenUsageData from the metrics token usage
+        eval_token_usage = None
+        if token_usage:
+            eval_token_usage = TokenUsageData(
+                prompt_tokens=token_usage.prompt_tokens,
+                completion_tokens=token_usage.completion_tokens,
+                cache_read_tokens=token_usage.cache_read_tokens,
+                cache_write_tokens=token_usage.cache_write_tokens,
+                reasoning_tokens=token_usage.reasoning_tokens,
+                context_window=token_usage.context_window,
+            )
+
+        token_usage_str = ""
+        if token_usage:
+            token_usage_str = (
+                f" (Tokens: prompt={token_usage.prompt_tokens}, "
+                f"completion={token_usage.completion_tokens}"
+            )
+            if token_usage.cache_read_tokens > 0:
+                token_usage_str += f", cache_read={token_usage.cache_read_tokens}"
+            if token_usage.cache_write_tokens > 0:
+                token_usage_str += f", cache_write={token_usage.cache_write_tokens}"
+            if token_usage.reasoning_tokens > 0:
+                token_usage_str += f", reasoning={token_usage.reasoning_tokens}"
+            token_usage_str += ")"
 
         logger.info(
-            "Test %s completed in %.2fs: %s (Cost: %s)",
+            "Test %s completed in %.2fs: %s (Cost: %s)%s",
             instance.instance_id,
             end_time - start_time,
             "PASS" if test_result.success else "FAIL",
             format_cost(llm_cost),
+            token_usage_str,
         )
 
         # Copy log file to a location that will be preserved
@@ -194,6 +227,7 @@ def process_instance(instance: TestInstance, llm_config: dict[str, Any]) -> Eval
             llm_model=llm_config.get("model", "unknown"),
             test_type=instance.test_type,
             cost=llm_cost,
+            token_usage=eval_token_usage,
             log_file_path=log_file_path,
         )
 
@@ -385,9 +419,12 @@ def main():
     )
     parser.add_argument(
         "--test-type",
-        choices=["all", "integration", "behavior"],
+        choices=["all", "integration", "behavior", "condenser"],
         default="all",
-        help="Restrict execution to integration tests, behavior tests, or all",
+        help=(
+            "Restrict execution to integration tests, behavior tests, condenser tests, "
+            "or all"
+        ),
     )
     parser.add_argument(
         "--output-dir",

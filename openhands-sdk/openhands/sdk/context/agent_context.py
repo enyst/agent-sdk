@@ -11,8 +11,10 @@ from openhands.sdk.context.skills import (
     SkillKnowledge,
     load_public_skills,
     load_user_skills,
+    to_prompt,
 )
 from openhands.sdk.llm import Message, TextContent
+from openhands.sdk.llm.utils.model_prompt_spec import get_model_prompt_spec
 from openhands.sdk.logger import get_logger
 from openhands.sdk.secret import SecretSource, SecretValue
 
@@ -154,7 +156,11 @@ class AgentContext(BaseModel):
             secret_infos.append({"name": name, "description": description})
         return secret_infos
 
-    def get_system_message_suffix(self) -> str | None:
+    def get_system_message_suffix(
+        self,
+        llm_model: str | None = None,
+        llm_model_canonical: str | None = None,
+    ) -> str | None:
         """Get the system message with repo skill content and custom suffix.
 
         Custom suffix can typically includes:
@@ -162,19 +168,78 @@ class AgentContext(BaseModel):
         - Runtime information (e.g., available hosts, current date)
         - Conversation instructions (e.g., user preferences, task details)
         - Repository-specific instructions (collected from repo skills)
+        - Available skills list (for AgentSkills-format and triggered skills)
+
+        Skill categorization:
+        - AgentSkills-format (SKILL.md): Always in <available_skills> (progressive
+          disclosure). If has triggers, content is ALSO auto-injected on trigger
+          in user prompts.
+        - Legacy with trigger=None: Full content in <REPO_CONTEXT> (always active)
+        - Legacy with triggers: Listed in <available_skills>, injected on trigger
         """
-        repo_skills = [s for s in self.skills if s.trigger is None]
-        logger.debug(f"Triggered {len(repo_skills)} repository skills: {repo_skills}")
+        # Categorize skills based on format and trigger:
+        # - AgentSkills-format: always in available_skills (progressive disclosure)
+        # - Legacy: trigger=None -> REPO_CONTEXT, else -> available_skills
+        repo_skills: list[Skill] = []
+        available_skills: list[Skill] = []
+
+        for s in self.skills:
+            if s.is_agentskills_format:
+                # AgentSkills: always list (triggers also auto-inject via
+                # get_user_message_suffix)
+                available_skills.append(s)
+            elif s.trigger is None:
+                # Legacy OpenHands: no trigger = full content in REPO_CONTEXT
+                repo_skills.append(s)
+            else:
+                # Legacy OpenHands: has trigger = list in available_skills
+                available_skills.append(s)
+
+        # Gate vendor-specific repo skills based on model family.
+        if llm_model or llm_model_canonical:
+            spec = get_model_prompt_spec(llm_model or "", llm_model_canonical)
+            family = (spec.family or "").lower()
+            if family:
+                filtered: list[Skill] = []
+                for s in repo_skills:
+                    n = (s.name or "").lower()
+                    if n == "claude" and not (
+                        "anthropic" in family or "claude" in family
+                    ):
+                        continue
+                    if n == "gemini" and not (
+                        "gemini" in family or "google_gemini" in family
+                    ):
+                        continue
+                    filtered.append(s)
+                repo_skills = filtered
+
+        logger.debug(f"Loaded {len(repo_skills)} repository skills: {repo_skills}")
+
+        # Generate available skills prompt
+        available_skills_prompt = ""
+        if available_skills:
+            available_skills_prompt = to_prompt(available_skills)
+            logger.debug(
+                f"Generated available skills prompt for {len(available_skills)} skills"
+            )
+
         # Build the workspace context information
         secret_infos = self.get_secret_infos()
-        if repo_skills or self.system_message_suffix or secret_infos:
-            # TODO(test): add a test for this rendering to make sure they work
+        has_content = (
+            repo_skills
+            or self.system_message_suffix
+            or secret_infos
+            or available_skills_prompt
+        )
+        if has_content:
             formatted_text = render_template(
                 prompt_dir=str(PROMPT_DIR),
                 template_name="system_message_suffix.j2",
                 repo_skills=repo_skills,
                 system_message_suffix=self.system_message_suffix or "",
                 secret_infos=secret_infos,
+                available_skills_prompt=available_skills_prompt,
             ).strip()
             return formatted_text
         elif self.system_message_suffix and self.system_message_suffix.strip():
@@ -221,6 +286,7 @@ class AgentContext(BaseModel):
                         name=skill.name,
                         trigger=trigger,
                         content=skill.content,
+                        location=skill.source,
                     )
                 )
         if recalled_knowledge:
