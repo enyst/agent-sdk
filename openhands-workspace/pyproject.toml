@@ -1,6 +1,6 @@
 [project]
 name = "openhands-workspace"
-version = "1.7.3"
+version = "1.11.4"
 description = "OpenHands Workspace - Docker and container-based workspace implementations"
 
 requires-python = ">=3.12"
@@ -14,6 +14,12 @@ dependencies = [
 # Optional dependency for DaytonaWorkspace
 # Install with: `pip install openhands-workspace[daytona]`
 daytona = ["daytona>=0.128.1"]
+
+[project.urls]
+Source = "https://github.com/OpenHands/software-agent-sdk"
+Homepage = "https://github.com/OpenHands/software-agent-sdk"
+Documentation = "https://docs.openhands.dev/sdk"
+"Bug Tracker" = "https://github.com/OpenHands/software-agent-sdk/issues"
 
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]
