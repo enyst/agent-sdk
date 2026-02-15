@@ -33,8 +33,17 @@ inputs:
         description: LLM API key (required)
         required: true
     github-token:
-        description: GitHub token for API access (required)
-        required: true
+        description: GitHub token for API access (optional if using GitHub App credentials)
+        required: false
+        default: ''
+    github-app-id:
+        description: GitHub App ID (optional, used to mint an installation token)
+        required: false
+        default: ''
+    github-app-private-key:
+        description: GitHub App private key (PEM) (optional, used to mint an installation token)
+        required: false
+        default: ''
     lmnr-api-key:
         description: Laminar API key for observability (optional)
         required: false
@@ -80,18 +89,28 @@ runs:
           run: |
               uv pip install --system ./software-agent-sdk/openhands-sdk ./software-agent-sdk/openhands-tools lmnr
 
+        - name: Generate GitHub App installation token
+          id: github-app-token
+          if: ${{ inputs.github-app-id != '' && inputs.github-app-private-key != '' }}
+          uses: actions/create-github-app-token@v1
+          with:
+              app-id: ${{ inputs.github-app-id }}
+              private-key: ${{ inputs.github-app-private-key }}
+              owner: ${{ github.event.pull_request.base.repo.owner.login }}
+              repositories: ${{ github.event.pull_request.base.repo.name }}
+
         - name: Check required configuration
           shell: bash
           env:
               LLM_API_KEY: ${{ inputs.llm-api-key }}
-              GITHUB_TOKEN: ${{ inputs.github-token }}
+              GITHUB_TOKEN: ${{ steps.github-app-token.outputs.token || inputs.github-token }}
           run: |
               if [ -z "$LLM_API_KEY" ]; then
                 echo "Error: llm-api-key is required."
                 exit 1
               fi
               if [ -z "$GITHUB_TOKEN" ]; then
-                echo "Error: github-token is required."
+                echo "Error: github-token is required (or provide github-app-id + github-app-private-key)."
                 exit 1
               fi
 
@@ -111,7 +130,7 @@ runs:
               LLM_BASE_URL: ${{ inputs.llm-base-url }}
               REVIEW_STYLE: ${{ inputs.review-style }}
               LLM_API_KEY: ${{ inputs.llm-api-key }}
-              GITHUB_TOKEN: ${{ inputs.github-token }}
+              GITHUB_TOKEN: ${{ steps.github-app-token.outputs.token || inputs.github-token }}
               LMNR_PROJECT_API_KEY: ${{ inputs.lmnr-api-key }}
               PR_NUMBER: ${{ github.event.pull_request.number }}
               PR_TITLE: ${{ github.event.pull_request.title }}
