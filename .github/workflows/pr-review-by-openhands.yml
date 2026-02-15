@@ -44,10 +44,15 @@ jobs:
             - name: Run PR Review
               uses: enyst/agent-sdk/.github/actions/pr-review@main
               with:
-                  llm-model: litellm_proxy/claude-sonnet-4-5-20250929
-                  llm-base-url: https://llm-proxy.app.all-hands.dev
+                  # LLM configuration
+                  # - Set LLM_MODEL / LLM_BASE_URL as repo variables to override.
+                  # - If you are using a direct provider (Anthropic/OpenAI/etc.), you typically do NOT need LLM_BASE_URL.
+                  llm-model: ${{ vars.LLM_MODEL || 'anthropic/claude-sonnet-4-5-20250929' }}
+                  llm-base-url: ${{ vars.LLM_BASE_URL || '' }}
                   # Review style: roasted (other option: standard)
                   review-style: roasted
+                  # Ensure we run against this repository (e.g. enyst/agent-sdk when testing in the fork)
+                  sdk-repo: ${{ github.repository }}
                   # Use the PR's head commit SHA to test SDK changes on the SDK repo itself
                   sdk-version: ${{ github.event.pull_request.head.sha }}
                   llm-api-key: ${{ secrets.LLM_API_KEY }}
