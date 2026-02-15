@@ -11,11 +11,13 @@ from .remote_api import APIRemoteWorkspace
 
 
 if TYPE_CHECKING:
+    from .daytona import DaytonaWorkspace
     from .docker import DockerDevWorkspace
 
 __all__ = [
     "APIRemoteWorkspace",
     "ApptainerWorkspace",
+    "DaytonaWorkspace",
     "DockerDevWorkspace",
     "DockerWorkspace",
     "OpenHandsCloudWorkspace",
@@ -25,9 +27,16 @@ __all__ = [
 
 
 def __getattr__(name: str):
-    """Lazy import DockerDevWorkspace to avoid build module imports."""
+    """Lazy import optional workspace implementations."""
+
     if name == "DockerDevWorkspace":
         from .docker import DockerDevWorkspace
 
         return DockerDevWorkspace
+
+    if name == "DaytonaWorkspace":
+        from .daytona import DaytonaWorkspace
+
+        return DaytonaWorkspace
+
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
