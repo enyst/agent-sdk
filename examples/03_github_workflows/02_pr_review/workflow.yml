@@ -5,7 +5,7 @@
 #  1. Copy this file to .github/workflows/pr-review.yml in your repository
 #  2. Add LLM_API_KEY to repository secrets
 #  3. Add GitHub authentication (either):
-#     - OPENHANDS_REVIEWER_APP_ID + OPENHANDS_REVIEWER_APP_PRIVATE_KEY (GitHub App), OR
+#     - OH_REVIEWER_APP_ID + OH_REVIEWER_APP_PRIVATE_KEY (GitHub App), OR
 #     - OPENHANDS_REVIEWER_GITHUB_TOKEN (a PAT)
 #  4. Customize the inputs below as needed
 #  5. Commit this file to your repository
@@ -58,6 +58,6 @@ jobs:
                   # Authentication options:
                   # - Preferred: GitHub App installation token (created inside the composite action)
                   # - Fallback: a PAT with pull request write access
-                  github-app-id: ${{ secrets.OPENHANDS_REVIEWER_APP_ID }}
-                  github-app-private-key: ${{ secrets.OPENHANDS_REVIEWER_APP_PRIVATE_KEY }}
+                  github-app-id: ${{ secrets.OH_REVIEWER_APP_ID }}
+                  github-app-private-key: ${{ secrets.OH_REVIEWER_APP_PRIVATE_KEY }}
                   github-token: ${{ secrets.OPENHANDS_REVIEWER_GITHUB_TOKEN }}
