@@ -100,9 +100,7 @@ def _decrypt_mcp_secret_values(
 
 # -- SOUL.md loader -------------------------------------------------------
 # SOUL.md is the agent's identity file (~/.openhands/SOUL.md).  When present
-# it replaces the default identity in the system prompt.  This is a local
-# user-controlled file — no sanitisation is applied.
-# See: https://hermes-agent.nousresearch.com/docs/guides/use-soul-with-hermes
+# it replaces the default identity in the system prompt.
 
 _SOUL_PATH = os.path.join(os.path.expanduser("~"), ".openhands", "SOUL.md")
 _DEFAULT_SOUL = (
