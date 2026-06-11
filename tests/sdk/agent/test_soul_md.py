@@ -1,14 +1,8 @@
-"""Tests for SOUL.md loading and system prompt snapshot integration.
+"""Unit tests for _load_soul_md loader edge cases.
 
-Snapshot tests pin the full rendered system prompt with default and custom
-soul content. Snapshots live in ``tests/sdk/context/prompts/snapshots/``
+Snapshot tests for the full rendered system prompt with default and custom
+soul content live in ``tests/sdk/context/prompts/test_prompt_snapshot.py``
 alongside the other prompt golden files.
-
-Regenerate after an intentional prompt change::
-
-    REGEN_PROMPT_SNAPSHOTS=1 uv run pytest tests/sdk/agent/test_soul_md.py
-
-Loader unit tests verify _load_soul_md edge cases without snapshots.
 """
 
 from __future__ import annotations
@@ -17,69 +11,7 @@ import textwrap
 from pathlib import Path
 from unittest.mock import patch
 
-from openhands.sdk.agent import Agent
 from openhands.sdk.agent.base import _load_soul_md
-from openhands.sdk.llm import LLM
-
-
-SNAPSHOTS_DIR = Path(__file__).parent / ".." / "context" / "prompts" / "snapshots"
-
-
-def _make_agent(
-    system_prompt_kwargs: dict[str, object] | None = None,
-) -> Agent:
-    llm = LLM(model="gpt-4o", usage_id="test")
-    kwargs: dict[str, object] = {"llm": llm, "tools": []}
-    if system_prompt_kwargs is not None:
-        kwargs["system_prompt_kwargs"] = system_prompt_kwargs
-    return Agent(**kwargs)  # type: ignore[arg-type]
-
-
-def _read_snapshot(name: str) -> str:
-    return (SNAPSHOTS_DIR / name).read_text(encoding="utf-8")
-
-
-# ---------------------------------------------------------------------------
-# Snapshot tests: full system prompt comparison
-# ---------------------------------------------------------------------------
-
-
-def test_system_prompt_default_soul_snapshot(tmp_path: Path) -> None:
-    """Full prompt with the built-in default soul matches the snapshot."""
-    # Point SOUL.md to a missing file so we always get the default
-    with patch("openhands.sdk.agent.base._SOUL_PATH", str(tmp_path / "missing")):
-        agent = _make_agent()
-        actual = agent.static_system_message
-    expected = _read_snapshot("default-soul.txt")
-    assert actual == expected, (
-        "System prompt with default soul has drifted from snapshot. "
-        "If intentional, regenerate with:\n"
-        "  REGEN_PROMPT_SNAPSHOTS=1 uv run pytest "
-        "tests/sdk/agent/test_soul_md.py"
-    )
-
-
-def test_system_prompt_custom_soul_snapshot(tmp_path: Path) -> None:
-    """Full prompt with a custom soul_content matches the snapshot."""
-    with patch("openhands.sdk.agent.base._SOUL_PATH", str(tmp_path / "missing")):
-        agent = _make_agent(
-            system_prompt_kwargs={
-                "soul_content": "You are a tiny cat agent with toe beans."
-            },
-        )
-        actual = agent.static_system_message
-    expected = _read_snapshot("custom-soul.txt")
-    assert actual == expected, (
-        "System prompt with custom soul has drifted from snapshot. "
-        "If intentional, regenerate with:\n"
-        "  REGEN_PROMPT_SNAPSHOTS=1 uv run pytest "
-        "tests/sdk/agent/test_soul_md.py"
-    )
-
-
-# ---------------------------------------------------------------------------
-# _load_soul_md loader unit tests
-# ---------------------------------------------------------------------------
 
 
 def test_load_soul_md_returns_default_when_missing(tmp_path: Path) -> None:

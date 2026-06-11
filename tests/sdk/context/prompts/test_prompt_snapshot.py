@@ -196,6 +196,30 @@ def test_dynamic_context_with_secret_registry(tmp_path: Path) -> None:
     )
 
 
+def test_soul_default_snapshot(tmp_path: Path) -> None:
+    """Full prompt with the built-in default soul matches the snapshot."""
+    llm = LLM(model=FAMILY_MODELS["anthropic"], usage_id="snapshot-llm")
+    agent = Agent(
+        llm=llm,
+        tools=[],
+        system_prompt_kwargs={"soul_content": _DEFAULT_SOUL},
+    )
+    _check_snapshot("soul__default", agent.static_system_message)
+
+
+def test_soul_custom_snapshot(tmp_path: Path) -> None:
+    """Full prompt with a custom soul_content matches the snapshot."""
+    llm = LLM(model=FAMILY_MODELS["anthropic"], usage_id="snapshot-llm")
+    agent = Agent(
+        llm=llm,
+        tools=[],
+        system_prompt_kwargs={
+            "soul_content": "You are a tiny cat agent with toe beans."
+        },
+    )
+    _check_snapshot("soul__custom", agent.static_system_message)
+
+
 @pytest.mark.parametrize("cell", MATRIX, ids=[c.id for c in MATRIX])
 def test_static_block_has_no_dynamic_content(cell: Cell) -> None:
     """Static block is the cache-shared prefix (#2827): per-run/per-env content
