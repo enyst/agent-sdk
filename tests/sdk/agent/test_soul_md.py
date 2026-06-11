@@ -1,8 +1,12 @@
 """Tests for SOUL.md loading and system prompt snapshot integration.
 
-These tests use golden-file snapshots of the full rendered system prompt.
-When the prompt template or SOUL integration changes, the snapshots will
-fail and show exactly what changed — run with --snapshot-update to accept.
+Snapshot tests pin the full rendered system prompt with default and custom
+soul content. Snapshots live in ``tests/sdk/context/prompts/snapshots/``
+alongside the other prompt golden files.
+
+Regenerate after an intentional prompt change::
+
+    REGEN_PROMPT_SNAPSHOTS=1 uv run pytest tests/sdk/agent/test_soul_md.py
 
 Loader unit tests verify _load_soul_md edge cases without snapshots.
 """
@@ -18,7 +22,7 @@ from openhands.sdk.agent.base import _load_soul_md
 from openhands.sdk.llm import LLM
 
 
-SNAPSHOTS_DIR = Path(__file__).parent / "snapshots"
+SNAPSHOTS_DIR = Path(__file__).parent / ".." / "context" / "prompts" / "snapshots"
 
 
 def _make_agent(
@@ -46,15 +50,12 @@ def test_system_prompt_default_soul_snapshot(tmp_path: Path) -> None:
     with patch("openhands.sdk.agent.base._SOUL_PATH", str(tmp_path / "missing")):
         agent = _make_agent()
         actual = agent.static_system_message
-    expected = _read_snapshot("system_prompt_default_soul.txt")
+    expected = _read_snapshot("default-soul.txt")
     assert actual == expected, (
         "System prompt with default soul has drifted from snapshot. "
-        "If this is intentional, regenerate snapshots:\n"
-        '  uv run python -c "from openhands.sdk.agent import Agent; '
-        "from openhands.sdk.llm import LLM; "
-        "a = Agent(llm=LLM(model='gpt-4o', usage_id='test'), tools=[]); "
-        "open('tests/sdk/agent/snapshots/system_prompt_default_soul.txt','w')"
-        '.write(a.static_system_message)"'
+        "If intentional, regenerate with:\n"
+        "  REGEN_PROMPT_SNAPSHOTS=1 uv run pytest "
+        "tests/sdk/agent/test_soul_md.py"
     )
 
 
@@ -67,17 +68,12 @@ def test_system_prompt_custom_soul_snapshot(tmp_path: Path) -> None:
             },
         )
         actual = agent.static_system_message
-    expected = _read_snapshot("system_prompt_custom_soul.txt")
+    expected = _read_snapshot("custom-soul.txt")
     assert actual == expected, (
         "System prompt with custom soul has drifted from snapshot. "
-        "If this is intentional, regenerate snapshots:\n"
-        '  uv run python -c "from openhands.sdk.agent import Agent; '
-        "from openhands.sdk.llm import LLM; "
-        "a = Agent(llm=LLM(model='gpt-4o', usage_id='test'), tools=[], "
-        "system_prompt_kwargs={'soul_content': "
-        "'You are a tiny cat agent with toe beans.'}); "
-        "open('tests/sdk/agent/snapshots/system_prompt_custom_soul.txt','w')"
-        '.write(a.static_system_message)"'
+        "If intentional, regenerate with:\n"
+        "  REGEN_PROMPT_SNAPSHOTS=1 uv run pytest "
+        "tests/sdk/agent/test_soul_md.py"
     )
 
 
