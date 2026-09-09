@@ -18,6 +18,7 @@ from pydantic import SecretStr
 from openhands.sdk.llm import LLM, FallbackStrategy, Message, TextContent
 from openhands.sdk.llm.exceptions import (
     LLMContextWindowExceedError,
+    LLMRateLimitError,
     LLMServiceUnavailableError,
 )
 from openhands.sdk.llm.llm import LLMCallContext
@@ -118,6 +119,83 @@ def test_all_fallbacks_fail_raises_primary_error(mock_comp):
     # LLMServiceUnavailableError by map_provider_exception
     with pytest.raises(LLMServiceUnavailableError):
         _ = primary.completion(_MSGS)
+
+
+@patch("openhands.sdk.llm.llm.litellm_completion")
+def test_quota_exhaustion_fails_over_without_retries(mock_comp):
+    """A hard quota error must fail over immediately, not retry the primary.
+
+    ``usage_limit_reached`` is deterministic (won't recover until the limit
+    resets/raises), so the retry loop should skip retries and hand control to
+    the FallbackStrategy on the first attempt.
+    """
+    primary_error = RateLimitError(
+        message=(
+            'RateLimitError: OpenAIException - {"error":{"type":"usage_limit_reached",'
+            '"message":"The usage limit has been reached","plan_type":"team"}}'
+        ),
+        llm_provider="openai",
+        model="gpt-5.6-sol",
+    )
+
+    def side_effect(**kwargs):
+        if kwargs.get("model") == "gpt-5.6-sol":
+            raise primary_error
+        return _get_mock_response("fallback ok", model="fallback-model")
+
+    mock_comp.side_effect = side_effect
+
+    fb = _get_llm("fallback-model")
+    strategy = FallbackStrategy(fallback_llms=["fallback-profile"])
+    # num_retries > 0 proves the quota error is not retried before fallback.
+    primary = LLM(
+        model="gpt-5.6-sol",
+        api_key=SecretStr("k"),
+        usage_id="test-gpt-5.6-sol",
+        fallback_strategy=strategy,
+        num_retries=3,
+        retry_min_wait=0,
+        retry_max_wait=0,
+    )
+    _patch_resolve(primary, [fb])
+
+    resp = primary.completion(_MSGS)
+    content = resp.message.content[0]
+    assert isinstance(content, TextContent)
+    assert content.text == "fallback ok"
+    # Primary was attempted exactly once (no retries), then the fallback.
+    assert mock_comp.call_count == 2
+
+
+@patch("openhands.sdk.llm.llm.litellm_completion")
+def test_transient_rate_limit_still_retries(mock_comp):
+    """A plain transient 429 is still retried before any fallback."""
+    transient = RateLimitError(
+        message="RateLimitError: Rate limit exceeded",
+        llm_provider="openai",
+        model="gpt-5.6-sol",
+    )
+    mock_comp.side_effect = transient
+
+    fb = _get_llm("fallback-model")
+    strategy = FallbackStrategy(fallback_llms=["fallback-profile"])
+    primary = LLM(
+        model="gpt-5.6-sol",
+        api_key=SecretStr("k"),
+        usage_id="test-gpt-5.6-sol",
+        fallback_strategy=strategy,
+        num_retries=2,
+        retry_min_wait=0,
+        retry_max_wait=0,
+        retry_multiplier=0,
+    )
+    _patch_resolve(primary, [fb])
+
+    with pytest.raises(LLMRateLimitError):
+        _ = primary.completion(_MSGS)
+    # num_retries=2 → 2 primary attempts, then 1 fallback attempt (which also
+    # fails). This proves the transient 429 was retried before fallback.
+    assert mock_comp.call_count == 3
 
 
 @patch("openhands.sdk.llm.llm.litellm_completion")
