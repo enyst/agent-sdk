@@ -121,8 +121,14 @@ def test_all_fallbacks_fail_raises_primary_error(mock_comp):
         _ = primary.completion(_MSGS)
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("use_async", [False, True], ids=["sync", "async"])
+@pytest.mark.parametrize("quota_code", ["usage_limit_reached", "insufficient_quota"])
+@patch("openhands.sdk.llm.llm.litellm_acompletion", new_callable=AsyncMock)
 @patch("openhands.sdk.llm.llm.litellm_completion")
-def test_quota_exhaustion_fails_over_without_retries(mock_comp):
+async def test_quota_exhaustion_fails_over_without_retries(
+    mock_comp, mock_acomp, use_async, quota_code
+):
     """A hard quota error must fail over immediately, not retry the primary.
 
     ``usage_limit_reached`` is deterministic (won't recover until the limit
@@ -131,7 +137,7 @@ def test_quota_exhaustion_fails_over_without_retries(mock_comp):
     """
     primary_error = RateLimitError(
         message=(
-            'RateLimitError: OpenAIException - {"error":{"type":"usage_limit_reached",'
+            f'RateLimitError: OpenAIException - {{"error":{{"type":"{quota_code}",'
             '"message":"The usage limit has been reached","plan_type":"team"}}'
         ),
         llm_provider="openai",
@@ -144,6 +150,7 @@ def test_quota_exhaustion_fails_over_without_retries(mock_comp):
         return _get_mock_response("fallback ok", model="fallback-model")
 
     mock_comp.side_effect = side_effect
+    mock_acomp.side_effect = side_effect
 
     fb = _get_llm("fallback-model")
     strategy = FallbackStrategy(fallback_llms=["fallback-profile"])
@@ -159,16 +166,24 @@ def test_quota_exhaustion_fails_over_without_retries(mock_comp):
     )
     _patch_resolve(primary, [fb])
 
-    resp = primary.completion(_MSGS)
+    resp = await primary.acompletion(_MSGS) if use_async else primary.completion(_MSGS)
     content = resp.message.content[0]
     assert isinstance(content, TextContent)
     assert content.text == "fallback ok"
     # Primary was attempted exactly once (no retries), then the fallback.
-    assert mock_comp.call_count == 2
+    assert mock_comp.call_count + mock_acomp.await_count == 2
+    assert mock_comp.call_args.kwargs["model"] == "fallback-model"
+    if use_async:
+        assert mock_acomp.await_count == 1
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("use_async", [False, True], ids=["sync", "async"])
+@patch("openhands.sdk.llm.llm.litellm_acompletion", new_callable=AsyncMock)
 @patch("openhands.sdk.llm.llm.litellm_completion")
-def test_transient_quota_rate_limit_still_retries(mock_comp):
+async def test_transient_quota_rate_limit_still_retries(
+    mock_comp, mock_acomp, use_async
+):
     """A transient provider quota is still retried before any fallback."""
     transient = RateLimitError(
         message=(
@@ -178,6 +193,7 @@ def test_transient_quota_rate_limit_still_retries(mock_comp):
         model="gemini-test",
     )
     mock_comp.side_effect = transient
+    mock_acomp.side_effect = transient
 
     fb = _get_llm("fallback-model")
     strategy = FallbackStrategy(fallback_llms=["fallback-profile"])
@@ -194,10 +210,16 @@ def test_transient_quota_rate_limit_still_retries(mock_comp):
     _patch_resolve(primary, [fb])
 
     with pytest.raises(LLMRateLimitError):
-        _ = primary.completion(_MSGS)
+        if use_async:
+            await primary.acompletion(_MSGS)
+        else:
+            primary.completion(_MSGS)
     # num_retries=2 → 2 primary attempts, then 1 fallback attempt (which also
     # fails). This proves the transient 429 was retried before fallback.
-    assert mock_comp.call_count == 3
+    assert mock_comp.call_count + mock_acomp.await_count == 3
+    assert mock_comp.call_args.kwargs["model"] == "fallback-model"
+    if use_async:
+        assert mock_acomp.await_count == 2
 
 
 @patch("openhands.sdk.llm.llm.litellm_completion")
