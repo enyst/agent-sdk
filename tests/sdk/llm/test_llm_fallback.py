@@ -168,21 +168,23 @@ def test_quota_exhaustion_fails_over_without_retries(mock_comp):
 
 
 @patch("openhands.sdk.llm.llm.litellm_completion")
-def test_transient_rate_limit_still_retries(mock_comp):
-    """A plain transient 429 is still retried before any fallback."""
+def test_transient_quota_rate_limit_still_retries(mock_comp):
+    """A transient provider quota is still retried before any fallback."""
     transient = RateLimitError(
-        message="RateLimitError: Rate limit exceeded",
-        llm_provider="openai",
-        model="gpt-5.6-sol",
+        message=(
+            "Quota exceeded for quota metric Generate Content API requests per minute"
+        ),
+        llm_provider="vertex_ai",
+        model="gemini-test",
     )
     mock_comp.side_effect = transient
 
     fb = _get_llm("fallback-model")
     strategy = FallbackStrategy(fallback_llms=["fallback-profile"])
     primary = LLM(
-        model="gpt-5.6-sol",
+        model="gemini-test",
         api_key=SecretStr("k"),
-        usage_id="test-gpt-5.6-sol",
+        usage_id="test-gemini",
         fallback_strategy=strategy,
         num_retries=2,
         retry_min_wait=0,

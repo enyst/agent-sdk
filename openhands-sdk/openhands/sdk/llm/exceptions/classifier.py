@@ -74,7 +74,6 @@ PROMPT_CACHE_TOO_SMALL_PATTERNS: Final[list[str]] = [
 QUOTA_EXHAUSTION_PATTERNS: Final[list[str]] = [
     "usage_limit_reached",
     "insufficient_quota",
-    "quota exceeded",
 ]
 
 AUTH_PATTERNS: Final[list[str]] = [

@@ -4,6 +4,7 @@ from typing import Any, cast
 from tenacity import (
     RetryCallState,
     retry,
+    retry_base,
     retry_if_exception_type,
     stop_after_attempt,
     wait_exponential,
@@ -76,7 +77,7 @@ class RetryMixin:
     def retry_decorator(
         self,
         num_retries: int = 5,
-        retry_exceptions: tuple[type[BaseException], ...] | Callable[..., Any] = (
+        retry_exceptions: tuple[type[BaseException], ...] | retry_base = (
             LLMNoResponseError,
         ),
         retry_min_wait: int = 8,

@@ -217,3 +217,14 @@ def test_is_quota_exhaustion_error_transient_rate_limit():
         model="gpt-5.6-sol",
     )
     assert is_quota_exhaustion_error(error) is False
+
+
+def test_is_quota_exhaustion_error_transient_quota_metric():
+    error = RateLimitError(
+        message=(
+            "Quota exceeded for quota metric Generate Content API requests per minute"
+        ),
+        llm_provider="vertex_ai",
+        model="gemini-test",
+    )
+    assert is_quota_exhaustion_error(error) is False
