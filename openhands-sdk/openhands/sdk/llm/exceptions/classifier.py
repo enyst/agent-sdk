@@ -137,7 +137,7 @@ def is_prompt_cache_too_small(exception: Exception) -> bool:
     return any(p in s for p in PROMPT_CACHE_TOO_SMALL_PATTERNS)
 
 
-def is_quota_exhaustion_error(exception: Exception) -> bool:
+def is_quota_exhaustion_error(exception: BaseException) -> bool:
     """Return True if the error indicates a hard quota/usage-limit exhaustion.
 
     Covers deterministic allowance outcomes (OpenAI ``usage_limit_reached``,

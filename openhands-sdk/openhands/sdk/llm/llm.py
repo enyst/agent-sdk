@@ -55,8 +55,6 @@ with warnings.catch_warnings():
 
 from typing import Final, cast
 
-from tenacity import retry_if_exception, retry_if_exception_type
-
 from litellm import (
     ChatCompletionToolParam,
     ResponseInputParam,
@@ -92,6 +90,7 @@ from litellm.utils import (
     create_pretrained_tokenizer,
     token_counter,
 )
+from tenacity import retry_if_exception, retry_if_exception_type
 
 from openhands.sdk.llm.exceptions import (
     LLMContextWindowTooSmallError,
