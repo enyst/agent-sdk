@@ -36,10 +36,10 @@ jobs:
             - name: Checkout code
               uses: actions/checkout@v7
 
-            - name: Use Node.js 22.x
+            - name: Use Node.js
               uses: actions/setup-node@v6
               with:
-                  node-version: 22.x
+                  node-version-file: clients/typescript/.nvmrc
                   cache: npm
                   cache-dependency-path: clients/typescript/package-lock.json
 
@@ -200,10 +200,10 @@ jobs:
             - name: Checkout code
               uses: actions/checkout@v7
 
-            - name: Use Node.js 22.x
+            - name: Use Node.js
               uses: actions/setup-node@v6
               with:
-                  node-version: 22.x
+                  node-version-file: clients/typescript/.nvmrc
                   cache: npm
                   cache-dependency-path: clients/typescript/package-lock.json
 

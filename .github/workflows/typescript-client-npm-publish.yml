@@ -34,11 +34,15 @@ jobs:
             - name: Set up Node.js for npm trusted publishing
               uses: actions/setup-node@v6
               with:
-                  node-version: '22'
+                  node-version-file: clients/typescript/.nvmrc
                   cache: npm
                   cache-dependency-path: clients/typescript/package-lock.json
                   registry-url: https://registry.npmjs.org
 
+            # The bundled npm is not reliably new enough: Node 24.0.0 shipped npm
+            # 11.3.0, below the 11.5.1 that trusted publishing (OIDC) needs, and
+            # .nvmrc floats across the 24.x line. setup-node does not upgrade the
+            # bundled npm, so do it explicitly.
             - name: Upgrade npm for trusted publishing
               run: npm install -g npm@latest
 

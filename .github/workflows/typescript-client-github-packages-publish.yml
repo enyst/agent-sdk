@@ -34,7 +34,7 @@ jobs:
             - name: Set up Node.js for GitHub Packages
               uses: actions/setup-node@v6
               with:
-                  node-version: 22.x
+                  node-version-file: clients/typescript/.nvmrc
                   cache: npm
                   cache-dependency-path: clients/typescript/package-lock.json
                   registry-url: https://npm.pkg.github.com
