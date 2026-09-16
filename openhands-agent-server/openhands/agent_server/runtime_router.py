@@ -1,6 +1,6 @@
 """Conversation-addressed APIs with workspace and terminal-history context.
 
-Local processes and desktop/VSCode services still share the host; these path
+Local processes and VSCode services still share the host; these path
 checks are routing safeguards, not a sandbox for arbitrary shell commands.
 """
 
