@@ -36,66 +36,66 @@ _________ test_canvas_extension_nav_label_survives_install_and_enable __________
 tests/cross/test_remote_conversation_live_server.py:223: in test_canvas_extension_nav_label_survives_install_and_enable
     assert extension["manifest"]["contributes"]["pages"] == pages
 E   AssertionError: assert [{'id': 'hell...Legacy page'}] == [{'id': 'hell...Legacy page'}]
-E     
+E
 E     At index 0 diff: {'id': 'hello', 'title': 'Hello from an extension', 'path': '/hello'} != {'id': 'hello', 'title': 'Hello from an extension', 'path': '/hello', 'nav_label': 'Extension demo'}
 E     Use -v to get more diff
 ---------------------------- Captured stderr setup -----------------------------
 [10/05/26 10:36:18] INFO     Registered file-based agent          default.py:167
-                             'bash-runner' from                                 
-                             /Users/rishabh/Documents/Codex/2026-               
-                             10-05/task/software-agent-sdk/openha               
-                             nds-tools/openhands/tools/preset/sub               
-                             agents/bash_runner.md                              
+                             'bash-runner' from
+                             /Users/rishabh/Documents/Codex/2026-
+                             10-05/task/software-agent-sdk/openha
+                             nds-tools/openhands/tools/preset/sub
+                             agents/bash_runner.md
 [10/05/26 10:36:18] INFO     Registered file-based agent          default.py:167
-                             'code-explorer' from                               
-                             /Users/rishabh/Documents/Codex/2026-               
-                             10-05/task/software-agent-sdk/openha               
-                             nds-tools/openhands/tools/preset/sub               
-                             agents/code_explorer.md                            
+                             'code-explorer' from
+                             /Users/rishabh/Documents/Codex/2026-
+                             10-05/task/software-agent-sdk/openha
+                             nds-tools/openhands/tools/preset/sub
+                             agents/code_explorer.md
 [10/05/26 10:36:18] INFO     Registered file-based agent          default.py:167
-                             'general-purpose' from                             
-                             /Users/rishabh/Documents/Codex/2026-               
-                             10-05/task/software-agent-sdk/openha               
-                             nds-tools/openhands/tools/preset/sub               
-                             agents/default.md                                  
+                             'general-purpose' from
+                             /Users/rishabh/Documents/Codex/2026-
+                             10-05/task/software-agent-sdk/openha
+                             nds-tools/openhands/tools/preset/sub
+                             agents/default.md
 [10/05/26 10:36:18] INFO     Registered file-based agent          default.py:167
-                             'web-researcher' from                              
-                             /Users/rishabh/Documents/Codex/2026-               
-                             10-05/task/software-agent-sdk/openha               
-                             nds-tools/openhands/tools/preset/sub               
-                             agents/web_researcher.md                           
+                             'web-researcher' from
+                             /Users/rishabh/Documents/Codex/2026-
+                             10-05/task/software-agent-sdk/openha
+                             nds-tools/openhands/tools/preset/sub
+                             agents/web_researcher.md
 [10/05/26 10:36:18] WARNING  ⚠️ OH_SECRET_KEY was not defined.     config.py:464
-                             Secrets will not be persisted between              
-                             restarts.                                          
+                             Secrets will not be persisted between
+                             restarts.
 [10/05/26 10:36:18] WARNING  ⚠️ OH_SECRET_KEY was not defined.     config.py:464
-                             Secrets will not be persisted between              
-                             restarts.                                          
+                             Secrets will not be persisted between
+                             restarts.
 [10/05/26 10:36:18] WARNING  Saving MCP OAuth state       mcp_oauth_store.py:468
-                             without encryption (no                             
-                             OH_SECRET_KEY configured).                         
-                             Configure OH_SECRET_KEY for                        
-                             production deployments.                            
+                             without encryption (no
+                             OH_SECRET_KEY configured).
+                             Configure OH_SECRET_KEY for
+                             production deployments.
 [10/05/26 10:36:18] WARNING  ⚠️ OH_SECRET_KEY was not defined.     config.py:464
-                             Secrets will not be persisted between              
-                             restarts.                                          
+                             Secrets will not be persisted between
+                             restarts.
 [10/05/26 10:36:18] WARNING  ⚠️ OH_SECRET_KEY was not defined.     config.py:464
-                             Secrets will not be persisted between              
-                             restarts.                                          
+                             Secrets will not be persisted between
+                             restarts.
 [10/05/26 10:36:18] INFO     TMUX_TMPDIR not set; defaulting to       api.py:128
-                             per-server tmux directory                          
-                             /var/folders/ch/25hs30cn2t5106cfrcl8mkyw           
-                             0000gn/T/openhands-agent-server-62215              
+                             per-server tmux directory
+                             /var/folders/ch/25hs30cn2t5106cfrcl8mkyw
+                             0000gn/T/openhands-agent-server-62215
 [10/05/26 10:36:19] WARNING  VSCode server binary not       vscode_service.py:49
-                             found, VSCode will be disabled                     
+                             found, VSCode will be disabled
 [10/05/26 10:36:19] WARNING  VSCode service failed to start,          api.py:196
-                             continuing without VSCode                          
+                             continuing without VSCode
 [10/05/26 10:36:19] INFO     Chromium is available for browser       impl.py:291
-                             operations at /Applications/Google                 
-                             Chrome.app/Contents/MacOS/Google Chrome            
+                             operations at /Applications/Google
+                             Chrome.app/Contents/MacOS/Google Chrome
 [10/05/26 10:36:19] INFO     Tool preload service started             api.py:206
-                             successfully                                       
+                             successfully
 [10/05/26 10:36:19] INFO     Server initialization complete - ready   api.py:268
-                             to serve requests                                  
+                             to serve requests
 ------------------------------ Captured log setup ------------------------------
 INFO     openhands.tools.preset.default:default.py:167 Registered file-based agent 'bash-runner' from <TASK>/software-agent-sdk/openhands-tools/openhands/tools/preset/subagents/bash_runner.md
 INFO     openhands.tools.preset.default:default.py:167 Registered file-based agent 'code-explorer' from <TASK>/software-agent-sdk/openhands-tools/openhands/tools/preset/subagents/code_explorer.md
@@ -114,22 +114,22 @@ INFO     openhands.agent_server.api:api.py:206 Tool preload service started succ
 INFO     openhands.agent_server.api:api.py:268 Server initialization complete - ready to serve requests
 ----------------------------- Captured stderr call -----------------------------
 [10/05/26 10:36:19] INFO     Fetching extension from               manager.py:88
-                             /private/var/folders/ch/25hs30cn2t510              
-                             6cfrcl8mkyw0000gn/T/pytest-of-rishabh              
-                             /pytest-101/test_canvas_extension_nav              
-                             _labe0/demo-page                                   
+                             /private/var/folders/ch/25hs30cn2t510
+                             6cfrcl8mkyw0000gn/T/pytest-of-rishabh
+                             /pytest-101/test_canvas_extension_nav
+                             _labe0/demo-page
 [10/05/26 10:36:19] INFO     Installing extension 'demo-page' to  manager.py:111
-                             /private/var/folders/ch/25hs30cn2t51               
-                             06cfrcl8mkyw0000gn/T/pytest-of-risha               
-                             bh/pytest-101/test_canvas_extension_               
-                             nav_labe0/.openhands/canvas-extensio               
-                             ns/installed/demo-page                             
+                             /private/var/folders/ch/25hs30cn2t51
+                             06cfrcl8mkyw0000gn/T/pytest-of-risha
+                             bh/pytest-101/test_canvas_extension_
+                             nav_labe0/.openhands/canvas-extensio
+                             ns/installed/demo-page
 [10/05/26 10:36:19] INFO     Successfully installed extension     manager.py:130
-                             'demo-page' v1.0.0                                 
+                             'demo-page' v1.0.0
 [10/05/26 10:36:19] INFO     Successfully disabled extension      manager.py:214
-                             'demo-page'                                        
+                             'demo-page'
 [10/05/26 10:36:19] INFO     Successfully enabled extension       manager.py:214
-                             'demo-page'                                        
+                             'demo-page'
 ------------------------------ Captured log call -------------------------------
 INFO     openhands.sdk.extensions.installation.manager:manager.py:88 Fetching extension from /private/var/folders/ch/25hs30cn2t5106cfrcl8mkyw0000gn/T/pytest-of-rishabh/pytest-101/test_canvas_extension_nav_labe0/demo-page
 INFO     openhands.sdk.extensions.installation.manager:manager.py:111 Installing extension 'demo-page' to /private/var/folders/ch/25hs30cn2t5106cfrcl8mkyw0000gn/T/pytest-of-rishabh/pytest-101/test_canvas_extension_nav_labe0/.openhands/canvas-extensions/installed/demo-page

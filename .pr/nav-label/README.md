@@ -36,7 +36,7 @@ API evidence: [before list](before-installed.json), [before detail](before-detai
 [after install](after-install.json), [after enable](after-enable.json),
 [after list](after-installed.json), [after detail](after-detail.json).
 JSON was pretty-printed and the local task root replaced with `<TASK>` in JSON
-and text logs. Screenshots are unmodified.
+and text logs; trailing whitespace was stripped from logs. Screenshots are unmodified.
 
 ## Reproduce
 
