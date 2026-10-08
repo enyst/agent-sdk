@@ -219,8 +219,14 @@ def test_canvas_extension_nav_label_survives_install_and_enable(server_env, tmp_
         [extension] = listed.json()["canvas_extensions"]
         assert extension == detail.json()
         assert extension["enabled"] is True
-        assert extension["manifest"]["schema_version"] == 1
-        assert extension["manifest"]["contributes"]["pages"] == pages
+        manifest = extension["manifest"]
+        assert manifest["schema_version"] == 1
+        assert manifest["contributes"]["pages"] == [
+            pages[0],
+            {**pages[1], "nav_label": None},
+        ]
+        assert manifest["backend"] is None
+        assert manifest["icon"] is None
 
 
 def test_prepare_for_sandbox_pause_drains_conversations(server_env):

@@ -67,8 +67,18 @@ def test_get_includes_manifest_page_contributions(client: TestClient, tmp_path: 
     manifest = resp.json()["manifest"]
     assert manifest["display_name"] == "Demo Extension"
     assert manifest["contributes"]["pages"] == [
-        {"id": "dashboard", "title": "Dashboard", "path": "/dashboard"},
-        {"id": "reports", "title": "Reports", "path": "/reports"},
+        {
+            "id": "dashboard",
+            "title": "Dashboard",
+            "path": "/dashboard",
+            "nav_label": None,
+        },
+        {
+            "id": "reports",
+            "title": "Reports",
+            "path": "/reports",
+            "nav_label": None,
+        },
     ]
 
 
@@ -582,7 +592,7 @@ def test_icon_endpoint_returns_404_without_declared_icon(
     got = client.get("/canvas-extensions/installed/demo-extension")
     resp = client.get("/canvas-extensions/installed/demo-extension/icon")
 
-    assert "icon" not in got.json()["manifest"]
+    assert got.json()["manifest"]["icon"] is None
     assert resp.status_code == 404
 
 

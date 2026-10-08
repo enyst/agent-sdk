@@ -44,6 +44,7 @@ def test_manifest_with_page_contribution():
     assert manifest.contributes.pages[0].id == "dashboard"
     assert manifest.contributes.pages[0].title == "Dashboard"
     assert manifest.contributes.pages[0].path == "/dashboard"
+    assert manifest.contributes.pages[0].nav_label is None
 
 
 def test_manifest_with_multiple_distinct_pages():
@@ -148,11 +149,14 @@ def test_duplicate_page_contribution_ids_rejected_through_full_manifest():
 @pytest.mark.parametrize("nav_label", [None, "Overview", ""])
 def test_manifest_round_trips_through_json_dict(nav_label: str | None):
     """``model_validate`` over a full, schema-shaped dict — the actual
-    ``canvas-extension.json`` ingestion path — round-trips unchanged.
+    ``canvas-extension.json`` ingestion path — preserves optional values.
     """
-    page = {"id": "dashboard", "title": "Dashboard", "path": "/dashboard"}
-    if nav_label is not None:
-        page["nav_label"] = nav_label
+    page = {
+        "id": "dashboard",
+        "title": "Dashboard",
+        "path": "/dashboard",
+        "nav_label": nav_label,
+    }
     payload = {
         "schema_version": 1,
         "name": "my-extension",
@@ -161,6 +165,8 @@ def test_manifest_round_trips_through_json_dict(nav_label: str | None):
         "description": "Does things",
         "entrypoint": "dist/index.js",
         "contributes": {"pages": [page]},
+        "backend": None,
+        "icon": None,
     }
     manifest = CanvasExtensionManifest.model_validate(payload)
     assert manifest.contributes.pages[0].nav_label == nav_label

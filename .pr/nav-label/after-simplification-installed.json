@@ -1,0 +1,41 @@
+{
+  "canvas_extensions": [
+    {
+      "name": "demo-page",
+      "version": "1.0.0",
+      "description": "",
+      "enabled": true,
+      "source": "<TASK>/demo-page",
+      "resolved_ref": null,
+      "repo_path": null,
+      "installed_at": "2026-10-08T22:20:30.333374+00:00",
+      "install_path": "<TASK>/server/.openhands/canvas-extensions/installed/demo-page",
+      "manifest": {
+        "schema_version": 1,
+        "name": "demo-page",
+        "display_name": "My Extension",
+        "version": "1.0.0",
+        "description": "",
+        "entrypoint": "dist/index.js",
+        "contributes": {
+          "pages": [
+            {
+              "id": "hello",
+              "title": "Hello from an extension",
+              "path": "/hello",
+              "nav_label": "Extension demo"
+            },
+            {
+              "id": "legacy",
+              "title": "Legacy page",
+              "path": "/legacy",
+              "nav_label": null
+            }
+          ]
+        },
+        "backend": null,
+        "icon": null
+      }
+    }
+  ]
+}

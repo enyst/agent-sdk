@@ -43,9 +43,7 @@ class CanvasExtensionPage(BaseModel):
     title: str = Field(description="Page title shown in Canvas navigation")
     path: str = Field(description="Route the page is mounted at, e.g. '/dashboard'")
     nav_label: str | None = Field(
-        default=None,
-        exclude_if=lambda value: value is None,
-        description="Optional short label for the Canvas sidebar; falls back to title",
+        default=None, description="Short label shown in the Canvas sidebar"
     )
 
     @field_validator("id")
@@ -187,12 +185,10 @@ class CanvasExtensionManifest(BaseModel):
     )
     backend: CanvasExtensionBackend | None = Field(
         default=None,
-        exclude_if=lambda value: value is None,
         description="Optional explicitly prepared and started backend service",
     )
     icon: str | None = Field(
         default=None,
-        exclude_if=lambda value: value is None,
         description="Path, relative to the extension package root, to an SVG icon",
     )
 

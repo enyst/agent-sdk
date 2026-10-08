@@ -1,7 +1,35 @@
+I'm an AI agent helping Engel Nyst (@enyst) with project maintenance.
+
 # Canvas page navigation label: live verification
 
 AI-assisted implementation and verification by OpenAI Codex for Rishabh Chouhan.
 This is agent-produced evidence, not the contributor's human review.
+
+## Maintainer simplification (2026-10-08)
+
+Removed the per-field null-omission rules for `nav_label`, `backend`, and `icon`.
+Missing optional values now serialize as `null`. The manifest round-trip test
+also supplies null directly instead of conditionally leaving out the label.
+The live HTTP regression still installs and enables labeled and legacy pages,
+then checks both installed-extension endpoints.
+
+Verified on Linux with Python 3.13.5 and Pydantic 2.13.5, using the existing
+workspace environment with imports resolved from this PR's checkout:
+
+- [Focused tests](simplified-tests.log): **169 passed**, 24 unrelated tests
+  deselected; the same backend test file is excluded by the command below.
+- All changed Python files passed pre-commit, including Pyright and Ruff.
+- [OpenAPI validation](simplified-schema.log): `make test-server-schema` passed.
+- A fresh real HTTP install/enable/detail/list run preserved `Extension demo`
+  and returned null for the legacy page label, backend, and icon. Captures:
+  [detail](after-simplification-detail.json) and
+  [list](after-simplification-installed.json).
+
+The before/after screenshots and original API captures below are preserved from
+the original implementation at `33d301d33b9e8c64d4611583dd9d953ddaa84eb5`.
+The fresh captures use the live regression's labeled and legacy pages; no new
+Canvas screenshot run is claimed. Local task paths in the fresh captures and
+logs are normalized to `<TASK>`, and trailing whitespace is stripped from logs.
 
 ## Environment
 
