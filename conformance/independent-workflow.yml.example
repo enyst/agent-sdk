@@ -1,0 +1,65 @@
+---
+# Deploy in a separately governed controller repository. This file is inactive.
+name: Independent launch conformance evidence
+
+on:
+    workflow_dispatch:
+        inputs:
+            candidate_revision:
+                description: Exact candidate or merge commit (40 lowercase hex characters)
+                required: true
+                type: string
+
+permissions:
+    contents: read
+
+env:
+    # Activation authority sets these literals in the protected controller.
+    APPROVED_BUNDLE_REVISION: REPLACE_WITH_APPROVED_40_CHARACTER_COMMIT
+    APPROVED_BUNDLE_SHA256: REPLACE_WITH_APPROVED_64_CHARACTER_DIGEST
+
+jobs:
+    evaluate:
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
+        steps:
+            - uses: actions/checkout@v7.0.1
+              with:
+                  repository: OpenHands/software-agent-sdk
+                  ref: ${{ env.APPROVED_BUNDLE_REVISION }}
+                  path: bundle
+                  persist-credentials: false
+            - uses: actions/setup-python@v6
+              with:
+                  python-version: '3.13'
+            - name: Fetch inert source and evaluate with the approved bundle
+              shell: bash
+              env:
+                  CANDIDATE_REVISION: ${{ inputs.candidate_revision }}
+              run: |
+                  set -euo pipefail
+                  [[ "$APPROVED_BUNDLE_REVISION" =~ ^[0-9a-f]{40}$ ]]
+                  [[ "$APPROVED_BUNDLE_SHA256" =~ ^[0-9a-f]{64}$ ]]
+                  [[ "$CANDIDATE_REVISION" =~ ^[0-9a-f]{40}$ ]]
+                  git init --bare "$RUNNER_TEMP/candidate.git"
+                  git -c core.hooksPath=/dev/null -C "$RUNNER_TEMP/candidate.git" \
+                    fetch --no-tags --depth=1 https://github.com/OpenHands/software-agent-sdk.git "$CANDIDATE_REVISION"
+                  actual=$(git -C "$RUNNER_TEMP/candidate.git" rev-parse FETCH_HEAD)
+                  [[ "$actual" = "$CANDIDATE_REVISION" ]]
+                  # Highest-priority attributes prevent candidate export-ignore/subst.
+                  printf '* -export-ignore -export-subst\n' > "$RUNNER_TEMP/candidate.git/info/attributes"
+                  git -c core.hooksPath=/dev/null -C "$RUNNER_TEMP/candidate.git" \
+                    archive --format=tar "$actual" > "$RUNNER_TEMP/candidate.tar"
+                  artifact=$(sha256sum "$RUNNER_TEMP/candidate.tar" | cut -d ' ' -f 1)
+                  python -I -S bundle/conformance/verify.py \
+                    --archive "$RUNNER_TEMP/candidate.tar" \
+                    --revision "$actual" --artifact-sha256 "$artifact" \
+                    --approved-bundle-sha256 "$APPROVED_BUNDLE_SHA256" \
+                    --output "$RUNNER_TEMP/conformance-evidence.json"
+            - uses: actions/upload-artifact@v7
+              if: always()
+              with:
+                  name: independent-launch-conformance-evidence
+                  path: ${{ runner.temp }}/conformance-evidence.json
+                  if-no-files-found: error
+                  retention-days: 14

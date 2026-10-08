@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "id": "agent-server-launch-v1",
+  "required_scenarios": ["LAUNCH-ARCH-001"],
+  "consumer_versions": {},
+  "requirement": "Only the canonical launch pipeline builds or changes a launch agent in the Agent Server.",
+  "policy_source": "tests/agent_server/test_launch_architecture.py at 9f47d471ee6f91ba1d140d10d34f3b26d5ac2427",
+  "scope": "Static syntax patterns from the existing launch architecture gate; not dynamic construction or REST/WS behavior."
+}

@@ -1,0 +1,48 @@
+---
+name: Conformance bundle proposal
+
+on:
+    pull_request:
+    push:
+        branches: [main]
+    workflow_dispatch:
+
+permissions:
+    contents: read
+
+jobs:
+    qualify:
+        name: Qualify proposed launch bundle (advisory)
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
+        steps:
+            - uses: actions/checkout@v7.0.1
+              with:
+                  persist-credentials: false
+            - uses: actions/setup-python@v6
+              with:
+                  python-version: '3.13'
+            - name: Run positive and negative qualification controls
+              run: python -I -S tests/agent_server/test_conformance_bundle.py
+            - name: Evaluate actual candidate source
+              shell: bash
+              run: |
+                  set -euo pipefail
+                  mkdir -p .git/info
+                  printf '* -export-ignore -export-subst\n' > .git/info/attributes
+                  git -c core.hooksPath=/dev/null archive --format=tar HEAD > "$RUNNER_TEMP/candidate.tar"
+                  revision=$(git rev-parse HEAD)
+                  artifact=$(sha256sum "$RUNNER_TEMP/candidate.tar" | cut -d ' ' -f 1)
+                  bundle=$(python -I -S conformance/verify.py --print-bundle-digest)
+                  python -I -S conformance/verify.py \
+                    --archive "$RUNNER_TEMP/candidate.tar" \
+                    --revision "$revision" --artifact-sha256 "$artifact" \
+                    --approved-bundle-sha256 "$bundle" \
+                    --output "$RUNNER_TEMP/conformance-evidence.json"
+            - uses: actions/upload-artifact@v7
+              if: always()
+              with:
+                  name: proposed-launch-conformance-evidence
+                  path: ${{ runner.temp }}/conformance-evidence.json
+                  if-no-files-found: error
+                  retention-days: 14

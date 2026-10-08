@@ -1,0 +1,24 @@
+{
+  "subject": {
+    "revision": "5439ea60f61a81b0aa04f2f6b41bdb140d028c4e",
+    "artifact_sha256": "f02dc69a3efc1c5abc03d90b31da165202e8d53e1353630c31a463e8d590a50b",
+    "artifact_kind": "git-source-tar"
+  },
+  "before": {
+    "bundle_sha256": "9e9da73d3cf5726bf06babafe01a7e78bf9141d4fed92d4f02ddb851aa85fcce",
+    "verdict": "pass"
+  },
+  "after": {
+    "bundle_sha256": "cb10314e6e7cb9e14b0b89cf5d203291a818814ac9553e7a4d1ba95ed05675f9",
+    "verdict": "blocked",
+    "scenarios": [
+      {
+        "id": "LAUNCH-ARCH-001",
+        "status": "blocked",
+        "details": {
+          "error": "package source contains a link or special file"
+        }
+      }
+    ]
+  }
+}
