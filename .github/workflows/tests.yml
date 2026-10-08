@@ -492,7 +492,9 @@ jobs:
               with:
                   files: |
                       tests/**
-                      openhands/**
+                      openhands-*/**
+                      scripts/**
+                      .github/scripts/**
                       pyproject.toml
                       uv.lock
                       .github/workflows/tests.yml

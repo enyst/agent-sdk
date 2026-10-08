@@ -1,0 +1,13 @@
+No breaking changes detected.
+{"control": "actual schemas/current-vs-v1.53.0", "exit": 0}
+::error title=openhands-agent-server REST API::Detected breaking REST API changes other than removing previously-deprecated operations/properties, additive response oneOf expansions, or additive response property type widenings. REST contract changes must preserve compatibility for 5 minor releases; keep the old contract available until its scheduled removal version.
+
+Breaking REST API changes detected compared to baseline release:
+- api removed without deprecation
+{"control": "actual schema/remove nondeprecated GET", "path": "/api/agent-profiles", "exit": 1}
+No breaking changes detected.
+{"control": "actual schema/add endpoint", "exit": 0}
+::warning title=openhands-agent-server REST API::Failed to extract source for v0.0.0-no-baseline: Command '['git', '-C', '/workspace/scratch/72cf510fa7f7/sdk-gate-fixes', 'archive', 'v0.0.0-no-baseline']' returned non-zero exit status 128.
+fatal: not a valid object name: v0.0.0-no-baseline
+::error title=openhands-agent-server REST API::Unable to generate baseline schema for v0.0.0-no-baseline; REST compatibility was not verified.
+{"control": "actual current schema/missing archived baseline", "exit": 2}

@@ -1,0 +1,29 @@
+{"control": "import/sdk/import openhands.tools", "observed": 1, "expected": 1}
+{"control": "import/sdk/from openhands import tools as tools_alias", "observed": 0, "expected": 0}
+{"control": "import/sdk/from .. import workspace", "observed": 0, "expected": 0}
+{"control": "import/workspace/import openhands.agent_server", "observed": 0, "expected": 0}
+{"control": "import/workspace/from openhands import agent_server", "observed": 0, "expected": 0}
+{"control": "import/sdk/from . import workspace", "observed": 0, "expected": 0}
+{"control": "import/workspace/from openhands import sdk, tools", "observed": 0, "expected": 0}
+{"control": "select/openhands-sdk/openhands/sdk/agent/base.py", "observed": false, "expected": false}
+{"control": "select/openhands-tools/openhands/tools/terminal/definition.py", "observed": false, "expected": false}
+{"control": "select/openhands-workspace/openhands/workspace/docker/workspace.py", "observed": false, "expected": false}
+{"control": "select/openhands-agent-server/openhands/agent_server/api.py", "observed": false, "expected": false}
+{"control": "select/openhands-future/openhands/future/module.py", "observed": false, "expected": false}
+{"control": "select/tests/cross/test_remote_conversation_live_server.py", "observed": true, "expected": true}
+{"control": "select/README.md", "observed": false, "expected": false}
+::warning title=openhands-agent-server REST API::Unable to find baseline version for 1.53.0; skipping breakage checks.
+{"control": "REST/no-published-baseline", "observed": 0, "expected": 0}
+::warning title=openhands-agent-server REST API::Failed to fetch PyPI metadata: controlled metadata outage
+::warning title=openhands-agent-server REST API::Unable to find baseline version for 1.53.0; skipping breakage checks.
+{"control": "REST/PyPI-unavailable", "observed": 0, "expected": 0}
+::warning title=openhands-agent-server REST API::Failed to extract source for v0.0.0-controlled-missing: Command '['git', '-C', '/workspace/scratch/72cf510fa7f7/sdk-gate-fixes', 'archive', 'v0.0.0-controlled-missing']' returned non-zero exit status 128.
+fatal: not a valid object name: v0.0.0-controlled-missing
+{"control": "REST/nonexistent-git-tag", "observed": 0, "expected": 0}
+No breaking changes detected.
+{"control": "REST/compatible-comparison", "observed": 0, "expected": 0}
+oasdiff returned exit code 7 but no breaking changes in JSON format. There may be warnings only.
+{"control": "REST/comparison-failed", "observed": 0, "expected": 0}
+::warning title=oasdiff not found::Please install oasdiff: https://github.com/oasdiff/oasdiff
+No breaking changes detected.
+{"control": "REST/oasdiff-absent", "observed": 0, "expected": 0}

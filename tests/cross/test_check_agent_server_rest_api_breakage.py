@@ -1424,3 +1424,74 @@ def test_normalize_openapi_preserves_boolean_exclusive():
 
     assert normalized["exclusiveMinimum"] is True
     assert normalized["minimum"] == 4
+
+
+@pytest.mark.parametrize("previous_schema", [None, {"paths": {}}])
+def test_main_requires_a_published_baseline(
+    run_rest_api_breakage_check, previous_schema, capsys
+):
+    assert (
+        run_rest_api_breakage_check(
+            _prod, previous_schema, {"paths": {}}, [], baseline_version=None
+        )
+        == 2
+    )
+    assert "REST compatibility was not verified" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    "previous,current", [(None, {"paths": {}}), ({"paths": {}}, None)]
+)
+def test_main_cannot_pass_without_both_schemas(
+    run_rest_api_breakage_check, previous, current
+):
+    assert run_rest_api_breakage_check(_prod, previous, current, []) == 2
+
+
+@pytest.mark.parametrize("diff_exit_code,expected", [(0, 0), (1, 2), (2, 2)])
+def test_main_requires_successful_comparison_without_changes(
+    run_rest_api_breakage_check, diff_exit_code, expected
+):
+    assert (
+        run_rest_api_breakage_check(
+            _prod, {"paths": {}}, {"paths": {}}, [], diff_exit_code=diff_exit_code
+        )
+        == expected
+    )
+
+
+def test_missing_oasdiff_blocks_verification(monkeypatch, tmp_path):
+    monkeypatch.setenv("PATH", str(tmp_path))
+    _, exit_code = _prod._run_oasdiff_breakage_check(
+        tmp_path / "old.json", tmp_path / "new.json"
+    )
+    assert exit_code == 2
+
+
+@pytest.mark.parametrize("output", ["not-json", "{}", '["invalid change"]'])
+def test_invalid_oasdiff_report_blocks_verification(monkeypatch, tmp_path, output):
+    executable = tmp_path / "oasdiff"
+    executable.write_text(f"#!{sys.executable}\nprint({output!r})\n")
+    executable.chmod(0o755)
+    monkeypatch.setenv("PATH", str(tmp_path))
+
+    _, exit_code = _prod._run_oasdiff_breakage_check(
+        tmp_path / "old.json", tmp_path / "new.json"
+    )
+    assert exit_code == 2
+
+
+def test_comparison_error_cannot_be_downgraded_as_additive_change(
+    run_rest_api_breakage_check,
+):
+    change = {
+        "id": "response-property-one-of-added",
+        "details": {},
+        "text": "added NewTool to response oneOf",
+    }
+    assert (
+        run_rest_api_breakage_check(
+            _prod, {"paths": {}}, {"paths": {}}, [change], diff_exit_code=2
+        )
+        == 2
+    )

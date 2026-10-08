@@ -40,12 +40,22 @@ def nonfncall_raw_logs(llm_fixtures_dir):
 def run_rest_api_breakage_check(monkeypatch):
     """Run the check's exit policy with supplied schemas and oasdiff output."""
 
-    def run(module, previous_schema, current_schema, changes):
+    def run(
+        module,
+        previous_schema,
+        current_schema,
+        changes,
+        *,
+        baseline_version="1.47.0",
+        diff_exit_code=0,
+    ):
         monkeypatch.setattr(
             module, "_read_version_from_pyproject", lambda _path: "1.47.0"
         )
         monkeypatch.setattr(
-            module, "_get_baseline_version", lambda _distribution, _current: "1.47.0"
+            module,
+            "_get_baseline_version",
+            lambda _distribution, _current: baseline_version,
         )
         monkeypatch.setattr(
             module, "_find_sdk_deprecated_fastapi_routes", lambda _root: []
@@ -55,7 +65,9 @@ def run_rest_api_breakage_check(monkeypatch):
             module, "_generate_openapi_for_git_ref", lambda _ref: previous_schema
         )
         monkeypatch.setattr(
-            module, "_run_oasdiff_breakage_check", lambda _prev, _cur: (changes, 0)
+            module,
+            "_run_oasdiff_breakage_check",
+            lambda _prev, _cur: (changes, diff_exit_code),
         )
         return module.main()
 

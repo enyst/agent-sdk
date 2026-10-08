@@ -59,8 +59,8 @@ Policies enforced:
      incompatible replacements must ship additively or behind a versioned contract
      until the scheduled removal version.
 
-If the baseline release schema can't be generated (e.g., missing tag / repo issues),
-the script emits a warning and exits successfully to avoid flaky CI.
+Unavailable baselines or comparison tooling fail verification with exit code 2.
+Exit code 0 means compatibility was checked; exit code 1 means a policy violation.
 """
 
 from __future__ import annotations
@@ -927,17 +927,28 @@ def _run_oasdiff_breakage_check(
         )
     except FileNotFoundError:
         print(
-            "::warning title=oasdiff not found::"
+            "::error title=oasdiff not found::"
             "Please install oasdiff: https://github.com/oasdiff/oasdiff"
         )
-        return [], 0
+        return [], 2
 
     breaking_changes = []
     if result.stdout:
         try:
             breaking_changes = json.loads(result.stdout)
         except json.JSONDecodeError:
-            pass
+            print(
+                "::error title=REST API verification unavailable::Invalid oasdiff JSON"
+            )
+            return [], 2
+        if not isinstance(breaking_changes, list) or not all(
+            isinstance(change, dict) for change in breaking_changes
+        ):
+            print(
+                "::error title=REST API verification unavailable::"
+                "Invalid oasdiff report"
+            )
+            return [], 2
 
     return breaking_changes, result.returncode
 
@@ -997,10 +1008,10 @@ def main() -> int:
 
     if baseline_version is None:
         print(
-            f"::warning title={PYPI_DISTRIBUTION} REST API::Unable to find baseline "
-            f"version for {current_version}; skipping breakage checks."
+            f"::error title={PYPI_DISTRIBUTION} REST API::Unable to find baseline "
+            f"version for {current_version}; REST compatibility was not verified."
         )
-        return 0
+        return 2
 
     baseline_git_ref = f"v{baseline_version}"
 
@@ -1010,7 +1021,7 @@ def main() -> int:
 
     current_schema = _generate_current_openapi()
     if current_schema is None:
-        return 1
+        return 2
     current_schema = _filter_public_rest_openapi(current_schema)
 
     deprecation_policy_errors = _find_deprecation_policy_errors(current_schema)
@@ -1019,7 +1030,11 @@ def main() -> int:
 
     prev_schema = _generate_openapi_for_git_ref(baseline_git_ref)
     if prev_schema is None:
-        return 0 if not (static_policy_errors or deprecation_policy_errors) else 1
+        print(
+            f"::error title={PYPI_DISTRIBUTION} REST API::Unable to generate baseline "
+            f"schema for {baseline_git_ref}; REST compatibility was not verified."
+        )
+        return 2
     prev_schema = _filter_public_rest_openapi(prev_schema)
 
     prev_schema = _normalize_openapi_for_oasdiff(prev_schema)
@@ -1035,6 +1050,14 @@ def main() -> int:
         breaking_changes, exit_code = _run_oasdiff_breakage_check(
             prev_spec_file, cur_spec_file
         )
+
+    if exit_code not in (0, 1):
+        print(
+            "::error title=REST API verification unavailable::"
+            f"oasdiff returned unexpected exit code {exit_code}; "
+            "REST compatibility was not verified."
+        )
+        return 2
 
     response_type_widenings: list[ResponsePropertyTypeWidening] = []
     response_type_widenings_since_base: list[ResponsePropertyTypeWidening] | None = None
@@ -1052,9 +1075,11 @@ def main() -> int:
             print("No breaking changes detected.")
         else:
             print(
-                f"oasdiff returned exit code {exit_code} but no breaking changes "
-                "in JSON format. There may be warnings only."
+                "::error title=REST API verification unavailable::"
+                f"oasdiff returned exit code {exit_code} without a comparison report; "
+                "REST compatibility was not verified."
             )
+            return 2
         _write_response_type_widening_report(
             response_type_widenings,
             changes_since_base=response_type_widenings_since_base,
