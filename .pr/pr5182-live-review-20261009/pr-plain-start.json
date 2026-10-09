@@ -1,0 +1,18 @@
+{
+  "ok": true,
+  "id": "ea6492a1-7911-44f4-ae38-e227a64b0e99",
+  "url": "http://127.0.0.1:18800/conversations/ea6492a1-7911-44f4-ae38-e227a64b0e99",
+  "workspace": "/workspace/pr5182-review/runs/event-upgrade/workspace/release-analyzer",
+  "title": "✅ Create factorial.py and test factorial(6)",
+  "status": "finished",
+  "model": "deepseek/deepseek-flash",
+  "updatedAt": "2026-10-09T14:58:14.112565Z",
+  "waitedFor": [
+    "idle",
+    "finished",
+    "error",
+    "stuck",
+    "paused",
+    "waiting_for_confirmation"
+  ]
+}

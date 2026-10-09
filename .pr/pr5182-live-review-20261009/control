@@ -1,0 +1,15 @@
+#!/bin/bash
+set -euo pipefail
+export PATH=/workspace/.tools/node-v24.21.0-linux-x64/bin:/workspace/.tools/tmux/usr/bin:$PATH
+export UV_CACHE_DIR=/workspace/.cache/uv
+export UV_PYTHON_INSTALL_DIR=/workspace/.cache/uv-python
+export PRE_COMMIT_HOME=/workspace/.cache/pre-commit
+export XDG_CACHE_HOME=/workspace/.cache
+export XDG_CONFIG_HOME=/workspace/.cache/xdg-config
+export LITELLM_LOCAL_MODEL_COST_MAP=True
+export npm_config_cache=/workspace/.cache/npm
+export NODE_USE_ENV_PROXY=1
+export CONTROL_OPENHANDS_BROWSER=/usr/bin/chromium
+export OH_VERIFY_HOME=/workspace/pr5182-review/runs
+cd /workspace/playground
+exec .agents/skills/verify-openhands/scripts/control-openhands "$@"

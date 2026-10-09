@@ -1,0 +1,27 @@
+[10/09/26 14:55:02] INFO     Created new conversation               state.py:592
+                             280a8f0b-82ca-4e31-ad5e-a129bc2f120f               
+[10/09/26 14:55:02] INFO     Added 1 secrets to       local_conversation.py:2796
+                             conversation                                       
+[10/09/26 14:55:02] INFO     Added 1 secrets to       local_conversation.py:2796
+                             conversation                                       
+[10/09/26 14:55:02] INFO     Loaded 0 tools from spec                base.py:596
+[10/09/26 14:55:02] WARNING  Saving conversation state without      state.py:440
+                             cipher - 1 secret(s) will be redacted              
+                             and lost on restore. Consider                      
+                             providing a cipher to preserve                     
+                             secrets.                                           
+[10/09/26 14:55:02] WARNING  Saving conversation state without      state.py:440
+                             cipher - 1 secret(s) will be redacted              
+                             and lost on restore. Consider                      
+                             providing a cipher to preserve                     
+                             secrets.                                           
+[10/09/26 14:55:02] WARNING  Saving conversation state without      state.py:440
+                             cipher - 1 secret(s) will be redacted              
+                             and lost on restore. Consider                      
+                             providing a cipher to preserve                     
+                             secrets.                                           
+[10/09/26 14:55:02] WARNING  Saving conversation state without      state.py:440
+                             cipher - 1 secret(s) will be redacted              
+                             and lost on restore. Consider                      
+                             providing a cipher to preserve                     
+                             secrets.                                           

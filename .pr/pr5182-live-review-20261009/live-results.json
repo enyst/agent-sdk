@@ -1,0 +1,144 @@
+{
+  "pr_head": "d6a512553bf92c896dd9f2fd877f7aaa2b041fbc",
+  "released_server": "1.53.0",
+  "model": "deepseek/deepseek-flash",
+  "all_passed": true,
+  "cases": [
+    {
+      "case": "release-plain",
+      "conversation_id": "4f0a9b02-da2a-40e1-9666-a3c880ddb15f",
+      "analyzer": false,
+      "initial_tools_completed": true,
+      "released_events_preserved_across_upgrade": true,
+      "restored_events_equal": true,
+      "context_marker": "cedar-5182-blue",
+      "previous_result": "38",
+      "new_terminal_result": "17",
+      "recalled_before_tools": true,
+      "audit_events_before_restart": 0,
+      "audit_events_after_continuation": 0,
+      "audit_ids_link_to_actions": true,
+      "audit_events_persisted": true,
+      "event_counts": {
+        "SystemPromptEvent": 1,
+        "MessageEvent": 3,
+        "ConversationStateUpdateEvent": 19,
+        "ActionEvent": 9,
+        "ObservationEvent": 9
+      }
+    },
+    {
+      "case": "release-analyzer",
+      "conversation_id": "e5e42175-88c9-4151-9447-115bd9f619a3",
+      "analyzer": true,
+      "initial_tools_completed": true,
+      "released_events_preserved_across_upgrade": true,
+      "restored_events_equal": true,
+      "context_marker": "amber-5182-otter",
+      "previous_result": "8.0",
+      "new_terminal_result": "20.0",
+      "recalled_before_tools": true,
+      "audit_events_before_restart": 1,
+      "audit_events_after_continuation": 2,
+      "audit_ids_link_to_actions": true,
+      "audit_events_persisted": true,
+      "event_counts": {
+        "SystemPromptEvent": 1,
+        "MessageEvent": 3,
+        "ConversationStateUpdateEvent": 19,
+        "ActionEvent": 10,
+        "ObservationEvent": 10,
+        "SecurityAnalysisEvent": 2
+      }
+    },
+    {
+      "case": "pr-plain",
+      "conversation_id": "ea6492a1-7911-44f4-ae38-e227a64b0e99",
+      "analyzer": false,
+      "initial_tools_completed": true,
+      "released_events_preserved_across_upgrade": false,
+      "restored_events_equal": true,
+      "context_marker": "violet-5182-lark",
+      "previous_result": "720",
+      "new_terminal_result": "120",
+      "recalled_before_tools": true,
+      "audit_events_before_restart": 0,
+      "audit_events_after_continuation": 0,
+      "audit_ids_link_to_actions": true,
+      "audit_events_persisted": true,
+      "event_counts": {
+        "SystemPromptEvent": 1,
+        "MessageEvent": 4,
+        "ConversationStateUpdateEvent": 16,
+        "ActionEvent": 8,
+        "ObservationEvent": 8
+      }
+    },
+    {
+      "case": "pr-analyzer",
+      "conversation_id": "127bc200-3e89-4f1d-8e77-f5312ce575dc",
+      "analyzer": true,
+      "initial_tools_completed": true,
+      "released_events_preserved_across_upgrade": false,
+      "restored_events_equal": true,
+      "context_marker": "silver-5182-badger",
+      "previous_result": "21",
+      "new_terminal_result": "13",
+      "recalled_before_tools": true,
+      "audit_events_before_restart": 4,
+      "audit_events_after_continuation": 5,
+      "audit_ids_link_to_actions": true,
+      "audit_events_persisted": true,
+      "event_counts": {
+        "SystemPromptEvent": 1,
+        "MessageEvent": 2,
+        "ConversationStateUpdateEvent": 14,
+        "ActionEvent": 7,
+        "SecurityAnalysisEvent": 5,
+        "ObservationEvent": 7
+      }
+    }
+  ],
+  "client": {
+    "app": "OpenHands Agent Canvas",
+    "version": "1.25.0",
+    "commit": "6e8157147936768bf358903a6341bc01e0ce1ac9",
+    "typescript_client_version": "1.53.0",
+    "automation_version": "1.19.0",
+    "mode": "actual isolated local stack, browser UI, live provider; no mocked LLM"
+  },
+  "lifecycle": "Two conversations created on released 1.53.0, restored on exact PR packages and continued; two conversations created on PR; browser closed and full stack restarted; all four restored and continued again.",
+  "limitations": [
+    "LLMSecurityAnalyzer with NeverConfirm; detailed custom analyzer tested with controlled LLM/real loopback HTTP.",
+    "Native local stack was exercised; Docker, cloud sandbox hosting, other providers and an older Python SDK client were not exercised live.",
+    "One new no-analyzer conversation used the already selected release-analyzer workspace; its separate conversation configuration had analyzer=none.",
+    "Transient browser connection failures occurred only during intentional stack shutdown; no browser page/app errors after cold restore."
+  ],
+  "notes": [
+    {
+      "type": "new extension-hook documentation mismatch",
+      "location": "openhands-sdk/openhands/sdk/security/analyzer.py:99-106",
+      "result": "Subclass defining only analyze_action fails because security_risk remains abstract",
+      "evidence": "abstract-hook-repro.json",
+      "recommendation": "Correct documentation to require both hooks, or support analyze_action-only implementations."
+    },
+    {
+      "type": "inherited secret cache flaw exposed by new audit sink",
+      "result": "Replacing a resolved secret under the same key can persist replacement value unmasked in audit details; reproduces on base in ordinary MessageEvent too.",
+      "evidence": [
+        "secret-rotation-repro.json",
+        "base-mask-rotation.json"
+      ],
+      "classification": "existing masking issue; no unequivocal PR-specific regression"
+    }
+  ],
+  "checks": {
+    "automated_exact_head_tests_passed": 653,
+    "automated_existing_skips": 1,
+    "client_compatibility_probes_passed": 2,
+    "qa_harness_tests_passed": 39,
+    "current_head_ci_successful": 32,
+    "current_head_ci_skipped": 6,
+    "current_head_ci_failed": 0
+  }
+}

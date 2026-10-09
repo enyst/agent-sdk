@@ -1,0 +1,112 @@
+{
+  "head_sha": "d6a512553bf92c896dd9f2fd877f7aaa2b041fbc",
+  "checks": {
+    "success": 32,
+    "skipped": 6
+  },
+  "failures_or_pending": [],
+  "actual_test_steps": [
+    {
+      "workflow": "Run tests",
+      "job": "workspace-tests",
+      "step": "Run workspace tests with coverage",
+      "conclusion": "skipped"
+    },
+    {
+      "workflow": "Run tests",
+      "job": "acp-live-tests",
+      "step": "Run live ACP conformance + pin-installability tests",
+      "conclusion": "skipped"
+    },
+    {
+      "workflow": "Run tests",
+      "job": "cross-tests",
+      "step": "Run cross tests with coverage",
+      "conclusion": "success"
+    },
+    {
+      "workflow": "Run tests",
+      "job": "tools-tests",
+      "step": "Run tools tests with coverage",
+      "conclusion": "skipped"
+    },
+    {
+      "workflow": "Run tests",
+      "job": "sdk-tests",
+      "step": "Run sdk tests with coverage",
+      "conclusion": "success"
+    },
+    {
+      "workflow": "Run tests",
+      "job": "agent-server-tests",
+      "step": "Run Agent Server tests with coverage",
+      "conclusion": "skipped"
+    },
+    {
+      "workflow": "Run tests",
+      "job": "agent-server-stress-tests",
+      "step": "Run Agent Server stress tests",
+      "conclusion": "skipped"
+    },
+    {
+      "workflow": "Agent Server",
+      "job": "build-binary-and-test (macos-latest)",
+      "step": "Test binary",
+      "conclusion": "success"
+    },
+    {
+      "workflow": "Agent Server",
+      "job": "build-binary-and-test (windows-latest)",
+      "step": "Test binary",
+      "conclusion": "success"
+    },
+    {
+      "workflow": "Agent Server",
+      "job": "build-binary-and-test (ubuntu-latest)",
+      "step": "Test binary",
+      "conclusion": "success"
+    },
+    {
+      "workflow": "TypeScript client integration tests",
+      "job": "integration-test",
+      "step": "Run deterministic integration tests",
+      "conclusion": "success"
+    },
+    {
+      "workflow": "TypeScript client integration tests",
+      "job": "integration-test",
+      "step": "Run LLM-backed integration tests",
+      "conclusion": "success"
+    },
+    {
+      "workflow": "REST API breakage checks",
+      "job": "REST API (OpenAPI)",
+      "step": "Run agent server REST API breakage check",
+      "conclusion": "success"
+    }
+  ],
+  "missing_current_head_optional_evidence": [
+    "Run Examples Scripts",
+    "Run Integration Tests (five-model Python suite; PR evidence and prior approval are for 717eed414)"
+  ],
+  "acceptance_scope": {
+    "issue": "https://github.com/OpenHands/software-agent-sdk/issues/4259",
+    "pr_relation": "Refs #4259, not closes/fixes",
+    "accepted_pr_scope": [
+      "optional analyzer-verdict event keyed by action id",
+      "persistence regardless of confirmation policy",
+      "optional analyzer-specific details",
+      "default no-analyzer behavior unchanged",
+      "event excluded from model context"
+    ],
+    "explicit_followups": [
+      "GUI rendering",
+      "analyzers populating rationale/probabilities"
+    ],
+    "broader_issue_proposals_not_adopted": [
+      "ALLOW/BLOCK/ESCALATE enforcement",
+      "policy/evidence hashes and reproducibility",
+      "post-action verification events and receipt projection"
+    ]
+  }
+}

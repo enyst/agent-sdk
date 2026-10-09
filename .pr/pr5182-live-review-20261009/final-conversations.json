@@ -1,0 +1,38 @@
+{
+  "ok": true,
+  "count": 4,
+  "conversations": [
+    {
+      "id": "127bc200-3e89-4f1d-8e77-f5312ce575dc",
+      "title": "✨ Create fibonacci.py and run test",
+      "status": "finished",
+      "model": "deepseek/deepseek-flash",
+      "workspace": "/workspace/pr5182-review/runs/event-upgrade/private/home/workspace/project/127bc2003e894f1d8e77f5312ce575dc",
+      "updatedAt": "2026-10-09T15:02:55.937463Z"
+    },
+    {
+      "id": "ea6492a1-7911-44f4-ae38-e227a64b0e99",
+      "title": "✅ Create factorial.py and test factorial(6)",
+      "status": "finished",
+      "model": "deepseek/deepseek-flash",
+      "workspace": "/workspace/pr5182-review/runs/event-upgrade/workspace/release-analyzer",
+      "updatedAt": "2026-10-09T15:02:24.084692Z"
+    },
+    {
+      "id": "e5e42175-88c9-4151-9447-115bd9f619a3",
+      "title": "✅ Create average.py mean function & test",
+      "status": "finished",
+      "model": "deepseek/deepseek-flash",
+      "workspace": "/workspace/pr5182-review/runs/event-upgrade/workspace/release-analyzer",
+      "updatedAt": "2026-10-09T15:03:55.388957Z"
+    },
+    {
+      "id": "4f0a9b02-da2a-40e1-9666-a3c880ddb15f",
+      "title": "✨ Sum squares function & test",
+      "status": "finished",
+      "model": "deepseek/deepseek-flash",
+      "workspace": "/workspace/pr5182-review/runs/event-upgrade/workspace/release-plain",
+      "updatedAt": "2026-10-09T15:03:24.217774Z"
+    }
+  ]
+}

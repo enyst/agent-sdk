@@ -1,0 +1,84 @@
+{
+  "ok": true,
+  "status": 200,
+  "pick": "components.schemas.SecurityAnalysisEvent",
+  "value": {
+    "properties": {
+      "id": {
+        "type": "string",
+        "title": "Id",
+        "description": "Unique event id (ULID/UUID)"
+      },
+      "timestamp": {
+        "type": "string",
+        "title": "Timestamp",
+        "description": "Event timestamp"
+      },
+      "source": {
+        "type": "string",
+        "enum": [
+          "agent",
+          "user",
+          "environment",
+          "hook"
+        ],
+        "title": "Source",
+        "default": "environment"
+      },
+      "parent_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Parent Id",
+        "description": "Parent event id in the conversation tree. None for the root, or for legacy events predating the tree (see EventLog's effective-parent rule). Events sharing a parent_id are sibling branches."
+      },
+      "analyzer": {
+        "type": "string",
+        "title": "Analyzer",
+        "description": "Kind of the security analyzer that produced these risks."
+      },
+      "policy": {
+        "type": "string",
+        "title": "Policy",
+        "description": "Kind of the confirmation policy in force when the actions were analyzed."
+      },
+      "risks": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/SecurityRisk"
+        },
+        "type": "object",
+        "title": "Risks",
+        "description": "Risk level per analyzed action, keyed by ActionEvent id."
+      },
+      "details": {
+        "additionalProperties": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "type": "object",
+        "title": "Details",
+        "description": "Optional analyzer-specific detail per action, keyed by ActionEvent id (for example probabilities, confidence, or a rationale)."
+      },
+      "kind": {
+        "type": "string",
+        "const": "SecurityAnalysisEvent",
+        "title": "Kind"
+      }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "required": [
+      "analyzer",
+      "policy",
+      "risks",
+      "kind"
+    ],
+    "title": "SecurityAnalysisEvent",
+    "description": "Risk levels the configured security analyzer assigned to pending actions.\n\nEmitted once per batch of actions the agent is about to execute, whenever a\nsecurity analyzer is configured on the conversation, regardless of whether\nthe confirmation policy then asks for confirmation. This makes the\nanalyzer's verdict visible in the event log and UI even when the policy\n(for example ``NeverConfirm``) never consults it.\n\nThis event is not shown to the LLM."
+  }
+}

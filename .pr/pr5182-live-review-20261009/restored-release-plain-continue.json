@@ -1,0 +1,18 @@
+{
+  "ok": true,
+  "id": "4f0a9b02-da2a-40e1-9666-a3c880ddb15f",
+  "sent": 317,
+  "title": "✨ Sum squares function & test",
+  "status": "finished",
+  "model": "deepseek/deepseek-flash",
+  "workspace": "/workspace/pr5182-review/runs/event-upgrade/workspace/release-plain",
+  "updatedAt": "2026-10-09T15:03:24.217774Z",
+  "waitedFor": [
+    "idle",
+    "finished",
+    "error",
+    "stuck",
+    "paused",
+    "waiting_for_confirmation"
+  ]
+}

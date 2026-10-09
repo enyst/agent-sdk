@@ -1,0 +1,18 @@
+{
+  "run": "/workspace/pr5182-review/runs/event-upgrade",
+  "browser": {
+    "stopped": true,
+    "pid": 10769
+  },
+  "forced": true,
+  "launcherStopped": false,
+  "ports": {
+    "ingress": "closed",
+    "agentServer": "closed",
+    "automation": "closed",
+    "frontend": "closed",
+    "vscode": "closed"
+  },
+  "evidenceFiles": 9,
+  "ok": false
+}

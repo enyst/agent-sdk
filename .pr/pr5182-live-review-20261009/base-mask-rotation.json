@@ -1,0 +1,5 @@
+{
+  "new_secret_in_event": true,
+  "new_secret_persisted": true,
+  "persistence_dir": "/tmp/pr5182-base-rotation-n6lx_opn"
+}

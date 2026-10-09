@@ -1,0 +1,21 @@
+{
+  "launcher_pgid": 10625,
+  "processes": [
+    {
+      "pid": "10625",
+      "ppid": "1",
+      "pgid": "10625",
+      "stat": "Zs",
+      "comm": "MainThread"
+    }
+  ],
+  "only_zombies": true,
+  "active_launcher_processes": 0,
+  "ports": {
+    "ingress": "closed",
+    "agentServer": "closed",
+    "automation": "closed",
+    "frontend": "closed",
+    "vscode": "closed"
+  }
+}

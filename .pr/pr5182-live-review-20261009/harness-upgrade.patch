@@ -1,0 +1,244 @@
+diff --git a/.agents/skills/verify-openhands/scripts/control-openhands.mjs b/.agents/skills/verify-openhands/scripts/control-openhands.mjs
+index 6fda00aa1..315b9c1f4 100755
+--- a/.agents/skills/verify-openhands/scripts/control-openhands.mjs
++++ b/.agents/skills/verify-openhands/scripts/control-openhands.mjs
+@@ -26,6 +26,7 @@ import { basename, dirname, join, relative, resolve } from "node:path";
+ import { fileURLToPath } from "node:url";
+ import { deflateSync, gunzipSync } from "node:zlib";
+ import { buildIdentity } from "./lib/build-id.mjs";
++import { withBackendSelection } from "./lib/backend-selection.mjs";
+ import {
+   editorOffset,
+   launcherEnvFor,
+@@ -113,6 +114,14 @@ function intFlag(value, fallback) {
+   return n;
+ }
+ 
++function backendEnvFor(saved, flags) {
++  try {
++    return withBackendSelection(saved, flags);
++  } catch (error) {
++    usage(error.message);
++  }
++}
++
+ const delay = (ms) => new Promise((r) => setTimeout(r, ms));
+ 
+ // ---------------------------------------------------------------------------
+@@ -516,6 +525,7 @@ function checkNewRunId(runId) {
+ }
+ 
+ async function cmdLaunch({ flags }) {
++  const backendEnv = backendEnvFor({}, flags);
+   // A named run must be new: reusing its directory would overwrite the keys
+   // and run.json of a run that may still be live. `restart` reuses a run.
+   const requestedRunId = flags["run-id"];
+@@ -679,16 +689,7 @@ async function cmdLaunch({ flags }) {
+     VITE_DO_NOT_TRACK: "1",
+     OPENHANDS_SUPPRESS_BANNER: "1",
+   });
+-  if (flags["sdk-path"])
+-    env.OH_AGENT_SERVER_LOCAL_PATH = resolve(flags["sdk-path"]);
+-  if (flags["sdk-ref"]) env.OH_AGENT_SERVER_GIT_REF = flags["sdk-ref"];
+-  if (flags["automation-path"])
+-    env.OH_AUTOMATION_LOCAL_PATH = resolve(flags["automation-path"]);
+-  if (flags["automation-ref"])
+-    env.OH_AUTOMATION_GIT_REF = flags["automation-ref"];
+-  if (flags["sdk-version"]) env.OH_AGENT_SERVER_VERSION = flags["sdk-version"];
+-  if (flags["automation-version"])
+-    env.OH_AUTOMATION_VERSION = flags["automation-version"];
++  Object.assign(env, backendEnv);
+   if (flags.vscode) env.OH_CANVAS_ENABLE_VSCODE = "true";
+   // Only PASS_ENV and the flags above reach the launcher, so a version pin
+   // exported in the caller's shell would be dropped without a word.
+@@ -949,6 +950,7 @@ async function stopLauncher(run) {
+ }
+ 
+ async function cmdRestart({ flags }) {
++  backendEnvFor({}, flags); // Refuse invalid choices before touching a run.
+   const run = loadRun(flags);
+   if (
+     !run.launcherArgs ||
+@@ -963,8 +965,11 @@ async function cmdRestart({ flags }) {
+   // before stopping: an editor port the run did not use before cannot move
+   // with the block, so a busy one refuses the restart while the run is still
+   // up, as launch --port would.
+-  const saved = JSON.parse(
+-    readFileSync(join(run.dir, "private", "launcher-env.json"), "utf8"),
++  const saved = backendEnvFor(
++    JSON.parse(
++      readFileSync(join(run.dir, "private", "launcher-env.json"), "utf8"),
++    ),
++    flags,
+   );
+   const next = portsAfterRestart(
+     run.ports,
+@@ -980,6 +985,18 @@ async function cmdRestart({ flags }) {
+     );
+   const stopped = await stopLauncher(run);
+   run.ports = next.ports;
++  writeFileSync(
++    join(run.dir, "private", "launcher-env.json"),
++    JSON.stringify(saved),
++    {
++      mode: 0o600,
++    },
++  );
++  run.overrides = Object.fromEntries(
++    Object.entries(saved).filter(([k]) =>
++      /^OH_(AGENT_SERVER_|AUTOMATION_|CANVAS_ENABLE_VSCODE$)/.test(k),
++    ),
++  );
+   if (flags["rotate-key"]) {
+     writeFileSync(
+       join(run.dir, "private", "session-key"),
+@@ -991,12 +1008,19 @@ async function cmdRestart({ flags }) {
+   run.restartedAt = new Date().toISOString();
+   saveRun(run);
+   await waitForStack(run, intFlag(flags.timeout, 600));
++  const info = await http(run, "GET", "/server_info");
++  run.versions = {
++    agentServer: info.json?.version,
++    sdk: info.json?.sdk_version ?? undefined,
++  };
++  saveRun(run);
+   out({
+     ok: true,
+     run: run.dir,
+     baseUrl: run.baseUrl,
+     stopped,
+     ports: run.ports,
++    versions: run.versions,
+     rotatedKey: Boolean(flags["rotate-key"]),
+     ...(next.warning ? { warning: next.warning } : {}),
+     note: flags["rotate-key"]
+@@ -3760,6 +3784,8 @@ shows (the onboarding "Add a backend" step, or api-key-entry-screen, filling
+ Host Name when empty). Never prints the key. Local-mode runs need no login.
+ `,
+   restart: `control-openhands restart [--rotate-key] [--timeout SEC]
++                         [--sdk-path DIR | --sdk-ref REF | --sdk-version V]
++                         [--automation-path DIR | --automation-ref REF | --automation-version V]
+ 
+ Stops this run's launcher process group and starts it again with the same
+ state directory, port block and keys, then waits for readiness. It asks the
+@@ -3768,6 +3794,10 @@ editor port to match, with a warning; when a newly needed editor port is busy
+ it refuses before stopping anything. --rotate-key writes a new session key
+ first, so the browser's stored key becomes stale (public mode then shows the
+ API-key prompt again). Reload the browser afterwards.
++Backend selection flags replace that backend's saved selector, allowing an
++upgrade while preserving conversations. With no selection flags, saved choices
++are kept; backend version variables in your shell are not forwarded. Use only
++one selector per backend. The selected overrides and running versions are saved.
+ `,
+   service: `control-openhands service status
+ control-openhands service stop automation|agent-server|frontend
+diff --git a/.agents/skills/verify-openhands/scripts/control-openhands.test.mjs b/.agents/skills/verify-openhands/scripts/control-openhands.test.mjs
+index d6c2bee6c..b82b36d05 100755
+--- a/.agents/skills/verify-openhands/scripts/control-openhands.test.mjs
++++ b/.agents/skills/verify-openhands/scripts/control-openhands.test.mjs
+@@ -18,6 +18,7 @@ import { fileURLToPath } from "node:url";
+ import { test } from "vitest";
+ import { buildIdentity } from "./lib/build-id.mjs";
+ import { BUILD_INPUTS } from "./lib/build-inputs.mjs";
++import { withBackendSelection } from "./lib/backend-selection.mjs";
+ import {
+   editorOffset,
+   launcherEnvFor,
+@@ -300,6 +301,62 @@ test("restart takes machine settings from the current shell, run settings from t
+   assert.equal(env.HOME, "/run/private/home");
+ });
+ 
++test("restart backend selection preserves state and replaces only the chosen backend", () => {
++  const saved = {
++    HOME: "/run/private/home",
++    OH_CANVAS_SAFE_STATE_DIR: "/run/private/state",
++    OH_CANVAS_SAFE_BACKEND_PORT: "18831",
++    OH_AGENT_SERVER_VERSION: "1.0.0",
++    OH_AUTOMATION_GIT_REF: "main",
++  };
++  assert.deepEqual(withBackendSelection(saved, {}), saved);
++  const upgraded = withBackendSelection(saved, { "sdk-path": "./sdk-pr" });
++  assert.deepEqual(upgraded, {
++    HOME: saved.HOME,
++    OH_CANVAS_SAFE_STATE_DIR: saved.OH_CANVAS_SAFE_STATE_DIR,
++    OH_CANVAS_SAFE_BACKEND_PORT: saved.OH_CANVAS_SAFE_BACKEND_PORT,
++    OH_AGENT_SERVER_LOCAL_PATH: resolve("./sdk-pr"),
++    OH_AUTOMATION_GIT_REF: "main",
++  });
++  assert.equal(saved.OH_AGENT_SERVER_VERSION, "1.0.0");
++  const repinned = withBackendSelection(upgraded, {
++    "sdk-version": "2.0.0",
++    "automation-version": "3.0.0",
++  });
++  assert.equal(repinned.OH_AGENT_SERVER_VERSION, "2.0.0");
++  assert.equal(repinned.OH_AGENT_SERVER_LOCAL_PATH, undefined);
++  assert.equal(repinned.OH_AUTOMATION_VERSION, "3.0.0");
++  assert.equal(repinned.OH_AUTOMATION_GIT_REF, undefined);
++  const fromRef = withBackendSelection(repinned, {
++    "sdk-ref": "feature/events",
++  });
++  assert.equal(fromRef.OH_AGENT_SERVER_GIT_REF, "feature/events");
++  assert.equal(fromRef.OH_AGENT_SERVER_VERSION, undefined);
++});
++
++test("launch and restart refuse conflicting or valueless backend selectors before side effects", () => {
++  for (const verb of ["launch", "restart"]) {
++    for (const prefix of ["sdk", "automation"]) {
++      const conflict = run([
++        verb,
++        `--${prefix}-version`,
++        "1.0.0",
++        `--${prefix}-path`,
++        "/sdk-pr",
++      ]);
++      assert.equal(conflict.status, 2, conflict.stdout + conflict.stderr);
++      assert.match(conflict.json.error, /Choose only one/);
++      const missing = run([verb, `--${prefix}-ref`]);
++      assert.equal(missing.status, 2, missing.stdout + missing.stderr);
++      assert.match(missing.json.error, /requires a value/);
++    }
++  }
++  const help = run(["help", "restart"]);
++  assert.match(help.stdout, /--sdk-version V/);
++  assert.match(help.stdout, /--automation-version V/);
++  assert.match(help.stdout, /preserving conversations/);
++});
++
+ test("route patterns find parameterized paths the way the map writes them", () => {
+   const conversation = routePattern("/conversations/:conversationId");
+   assert.ok(conversation.test("open `/conversations/<id>` first"));
+diff --git a/.agents/skills/verify-openhands/scripts/lib/backend-selection.mjs b/.agents/skills/verify-openhands/scripts/lib/backend-selection.mjs
+new file mode 100644
+index 000000000..255d8beda
+--- /dev/null
++++ b/.agents/skills/verify-openhands/scripts/lib/backend-selection.mjs
+@@ -0,0 +1,29 @@
++import { resolve } from "node:path";
++
++// A backend choice replaces its previous selector while preserving the run's
++// state, ports and other backend. Shell selectors never participate here.
++export function withBackendSelection(saved, flags) {
++  const env = { ...saved };
++  for (const [prefix, backend] of [
++    ["sdk", "AGENT_SERVER"],
++    ["automation", "AUTOMATION"],
++  ]) {
++    const choices = [
++      [`${prefix}-path`, `OH_${backend}_LOCAL_PATH`],
++      [`${prefix}-ref`, `OH_${backend}_GIT_REF`],
++      [`${prefix}-version`, `OH_${backend}_VERSION`],
++    ];
++    const selected = choices.filter(([flag]) => flags[flag] !== undefined);
++    if (selected.length > 1)
++      throw new Error(
++        `Choose only one of ${choices.map(([flag]) => `--${flag}`).join(", ")}.`,
++      );
++    if (!selected.length) continue;
++    const [flag, name] = selected[0];
++    if (typeof flags[flag] !== "string" || !flags[flag].trim())
++      throw new Error(`--${flag} requires a value.`);
++    for (const [, selector] of choices) delete env[selector];
++    env[name] = flag.endsWith("-path") ? resolve(flags[flag]) : flags[flag];
++  }
++  return env;
++}

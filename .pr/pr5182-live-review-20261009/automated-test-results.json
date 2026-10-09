@@ -1,0 +1,42 @@
+{
+  "head": "d6a512553bf92c896dd9f2fd877f7aaa2b041fbc",
+  "checkout": "/workspace/pr5182",
+  "python": "/workspace/pr5182-review/test-venv/bin/python",
+  "setup": "uv sync --frozen using UV_PROJECT_ENVIRONMENT=/workspace/pr5182-review/test-venv",
+  "environment": {
+    "OH_PERSISTENCE_DIR": "artifact-specific writable path",
+    "PATH_prefix": "/workspace/.tools/tmux/usr/bin",
+    "UV_CACHE_DIR": "/workspace/.cache/uv",
+    "LITELLM_LOCAL_MODEL_COST_MAP": "True"
+  },
+  "notes": [
+    "No tracked source changed. Initial sandbox setup failures from read-only default persistence directory were rerun with OH_PERSISTENCE_DIR and tmux.",
+    "These automated tests mock LLM responses; authentic DeepSeek/OpenHands lifecycle evidence is collected separately."
+  ],
+  "suites": [
+    {
+      "name": "focused-events-security",
+      "junit": "/workspace/pr5182-review/focused-events-security.xml",
+      "log": "/workspace/pr5182-review/focused-events-security.log",
+      "errors": "0",
+      "failures": "0",
+      "skipped": "0",
+      "tests": "301",
+      "time": "1.687",
+      "timestamp": "2026-10-09T14:51:18.653688+00:00",
+      "hostname": "2434e328b095"
+    },
+    {
+      "name": "restore-transport-server",
+      "junit": "/workspace/pr5182-review/restore-transport-server.xml",
+      "log": "/workspace/pr5182-review/restore-transport-server.log",
+      "errors": "0",
+      "failures": "0",
+      "skipped": "1",
+      "tests": "353",
+      "time": "130.868",
+      "timestamp": "2026-10-09T14:51:39.976393+00:00",
+      "hostname": "2434e328b095"
+    }
+  ]
+}

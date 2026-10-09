@@ -1,0 +1,25 @@
+{
+  "ok": true,
+  "run": "/workspace/pr5182-review/runs/event-upgrade",
+  "baseUrl": "http://127.0.0.1:18800",
+  "failed": [],
+  "warnings": [],
+  "passed": [
+    "launcher process group alive: /workspace/.tools/node-v24.21.0-linux-x64/bin/node /workspace/playground/bin/agent-canvas.mjs --port 18800",
+    "launcher is this run's agent-canvas: /workspace/.tools/node-v24.21.0-linux-x64/bin/node /workspace/playground/bin/agent-canvas.mjs --port 18800",
+    "port ingress:18800 listening: open",
+    "port agentServer:18801 listening: open",
+    "port automation:18802 listening: open",
+    "port frontend:18803 listening: open",
+    "served build matches this checkout's build inputs: served=c23856c777db54d4 run=c23856c777db54d4 revision=6e8157147936",
+    "checkout build inputs unchanged since launch: launch=c23856c777db54d4 now=c23856c777db54d4",
+    "unauthenticated API rejected: status=401",
+    "authenticated settings readable: status=200",
+    "LLM configured: model=deepseek/deepseek-flash",
+    "agent-server reachable: version=1.53.0",
+    "agent-server matches pin: server=1.53.0, chosen by OH_AGENT_SERVER_LOCAL_PATH (default pin 1.53.0)",
+    "agent-server meets the UI minimum: server=1.53.0 minimum=1.51.0",
+    "automation healthy: status=200",
+    "UI loads without page errors: markers=home-chat-launcher pageErrors=0 testidsInDom=103 (hidden included)"
+  ]
+}

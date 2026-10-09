@@ -1,0 +1,5 @@
+{
+  "head": "d6a51255",
+  "result": "TypeError",
+  "error": "Can't instantiate abstract class DetailedOnly without an implementation for abstract method 'security_risk'"
+}

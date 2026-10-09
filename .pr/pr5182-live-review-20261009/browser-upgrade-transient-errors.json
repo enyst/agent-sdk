@@ -1,0 +1,353 @@
+{
+  "ok": true,
+  "since": "last clear",
+  "summary": {
+    "app:requestfailed": 22,
+    "app:console.error": 22
+  },
+  "pageErrors": 0,
+  "appErrors": 44,
+  "warnings": 0,
+  "events": [
+    {
+      "ts": "2026-10-09T14:55:34.369Z",
+      "kind": "requestfailed",
+      "page": "http://127.0.0.1:18800/",
+      "appOrigin": true,
+      "url": "http://127.0.0.1:18800/api/settings",
+      "method": "GET",
+      "message": "net::ERR_CONNECTION_REFUSED"
+    },
+    {
+      "ts": "2026-10-09T14:55:34.369Z",
+      "kind": "console.error",
+      "page": "http://127.0.0.1:18800/",
+      "appOrigin": true,
+      "message": "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "url": "http://127.0.0.1:18800/api/settings"
+    },
+    {
+      "ts": "2026-10-09T14:55:34.670Z",
+      "kind": "requestfailed",
+      "page": "http://127.0.0.1:18800/",
+      "appOrigin": true,
+      "url": "http://127.0.0.1:18800/api/settings",
+      "method": "GET",
+      "message": "net::ERR_CONNECTION_REFUSED"
+    },
+    {
+      "ts": "2026-10-09T14:55:34.670Z",
+      "kind": "console.error",
+      "page": "http://127.0.0.1:18800/",
+      "appOrigin": true,
+      "message": "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "url": "http://127.0.0.1:18800/api/settings"
+    },
+    {
+      "ts": "2026-10-09T14:55:34.922Z",
+      "kind": "requestfailed",
+      "page": "http://127.0.0.1:18800/",
+      "appOrigin": true,
+      "url": "http://127.0.0.1:18800/api/conversations/search?limit=1&sort_order=UPDATED_AT_DESC",
+      "method": "GET",
+      "message": "net::ERR_CONNECTION_REFUSED"
+    },
+    {
+      "ts": "2026-10-09T14:55:34.922Z",
+      "kind": "console.error",
+      "page": "http://127.0.0.1:18800/",
+      "appOrigin": true,
+      "message": "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "url": "http://127.0.0.1:18800/api/conversations/search?limit=1&sort_order=UPDATED_AT_DESC"
+    },
+    {
+      "ts": "2026-10-09T14:55:34.972Z",
+      "kind": "requestfailed",
+      "page": "http://127.0.0.1:18800/",
+      "appOrigin": true,
+      "url": "http://127.0.0.1:18800/api/settings",
+      "method": "GET",
+      "message": "net::ERR_CONNECTION_REFUSED"
+    },
+    {
+      "ts": "2026-10-09T14:55:34.972Z",
+      "kind": "console.error",
+      "page": "http://127.0.0.1:18800/",
+      "appOrigin": true,
+      "message": "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "url": "http://127.0.0.1:18800/api/settings"
+    },
+    {
+      "ts": "2026-10-09T14:55:35.253Z",
+      "kind": "requestfailed",
+      "page": "http://127.0.0.1:18800/",
+      "appOrigin": true,
+      "url": "http://127.0.0.1:18800/api/conversations/search?limit=20&sort_order=UPDATED_AT_DESC",
+      "method": "GET",
+      "message": "net::ERR_CONNECTION_REFUSED"
+    },
+    {
+      "ts": "2026-10-09T14:55:35.254Z",
+      "kind": "console.error",
+      "page": "http://127.0.0.1:18800/",
+      "appOrigin": true,
+      "message": "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "url": "http://127.0.0.1:18800/api/conversations/search?limit=20&sort_order=UPDATED_AT_DESC"
+    },
+    {
+      "ts": "2026-10-09T14:55:36.875Z",
+      "kind": "requestfailed",
+      "page": "http://127.0.0.1:18800/",
+      "appOrigin": true,
+      "url": "http://127.0.0.1:18800/api/conversations/search?limit=1&sort_order=UPDATED_AT_DESC",
+      "method": "GET",
+      "message": "net::ERR_CONNECTION_REFUSED"
+    },
+    {
+      "ts": "2026-10-09T14:55:36.875Z",
+      "kind": "console.error",
+      "page": "http://127.0.0.1:18800/",
+      "appOrigin": true,
+      "message": "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "url": "http://127.0.0.1:18800/api/conversations/search?limit=1&sort_order=UPDATED_AT_DESC"
+    },
+    {
+      "ts": "2026-10-09T14:55:37.122Z",
+      "kind": "requestfailed",
+      "page": "http://127.0.0.1:18800/",
+      "appOrigin": true,
+      "url": "http://127.0.0.1:18800/api/conversations/search?limit=20&sort_order=UPDATED_AT_DESC",
+      "method": "GET",
+      "message": "net::ERR_CONNECTION_REFUSED"
+    },
+    {
+      "ts": "2026-10-09T14:55:37.123Z",
+      "kind": "console.error",
+      "page": "http://127.0.0.1:18800/",
+      "appOrigin": true,
+      "message": "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "url": "http://127.0.0.1:18800/api/conversations/search?limit=20&sort_order=UPDATED_AT_DESC"
+    },
+    {
+      "ts": "2026-10-09T14:55:39.398Z",
+      "kind": "requestfailed",
+      "page": "http://127.0.0.1:18800/",
+      "appOrigin": true,
+      "url": "http://127.0.0.1:18800/api/conversations/search?limit=20&sort_order=UPDATED_AT_DESC",
+      "method": "GET",
+      "message": "net::ERR_CONNECTION_REFUSED"
+    },
+    {
+      "ts": "2026-10-09T14:55:39.398Z",
+      "kind": "console.error",
+      "page": "http://127.0.0.1:18800/",
+      "appOrigin": true,
+      "message": "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "url": "http://127.0.0.1:18800/api/conversations/search?limit=20&sort_order=UPDATED_AT_DESC"
+    },
+    {
+      "ts": "2026-10-09T14:55:40.731Z",
+      "kind": "requestfailed",
+      "page": "http://127.0.0.1:18800/",
+      "appOrigin": true,
+      "url": "http://127.0.0.1:18800/api/conversations/search?limit=1&sort_order=UPDATED_AT_DESC",
+      "method": "GET",
+      "message": "net::ERR_CONNECTION_REFUSED"
+    },
+    {
+      "ts": "2026-10-09T14:55:40.731Z",
+      "kind": "console.error",
+      "page": "http://127.0.0.1:18800/",
+      "appOrigin": true,
+      "message": "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "url": "http://127.0.0.1:18800/api/conversations/search?limit=1&sort_order=UPDATED_AT_DESC"
+    },
+    {
+      "ts": "2026-10-09T14:56:04.985Z",
+      "kind": "requestfailed",
+      "page": "http://127.0.0.1:18800/",
+      "appOrigin": true,
+      "url": "http://127.0.0.1:18800/api/settings",
+      "method": "GET",
+      "message": "net::ERR_CONNECTION_REFUSED"
+    },
+    {
+      "ts": "2026-10-09T14:56:04.985Z",
+      "kind": "console.error",
+      "page": "http://127.0.0.1:18800/",
+      "appOrigin": true,
+      "message": "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "url": "http://127.0.0.1:18800/api/settings"
+    },
+    {
+      "ts": "2026-10-09T14:56:05.287Z",
+      "kind": "requestfailed",
+      "page": "http://127.0.0.1:18800/",
+      "appOrigin": true,
+      "url": "http://127.0.0.1:18800/api/settings",
+      "method": "GET",
+      "message": "net::ERR_CONNECTION_REFUSED"
+    },
+    {
+      "ts": "2026-10-09T14:56:05.287Z",
+      "kind": "console.error",
+      "page": "http://127.0.0.1:18800/",
+      "appOrigin": true,
+      "message": "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "url": "http://127.0.0.1:18800/api/settings"
+    },
+    {
+      "ts": "2026-10-09T14:56:05.598Z",
+      "kind": "requestfailed",
+      "page": "http://127.0.0.1:18800/",
+      "appOrigin": true,
+      "url": "http://127.0.0.1:18800/api/settings",
+      "method": "GET",
+      "message": "net::ERR_CONNECTION_REFUSED"
+    },
+    {
+      "ts": "2026-10-09T14:56:05.598Z",
+      "kind": "console.error",
+      "page": "http://127.0.0.1:18800/",
+      "appOrigin": true,
+      "message": "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "url": "http://127.0.0.1:18800/api/settings"
+    },
+    {
+      "ts": "2026-10-09T14:56:09.403Z",
+      "kind": "requestfailed",
+      "page": "http://127.0.0.1:18800/",
+      "appOrigin": true,
+      "url": "http://127.0.0.1:18800/api/conversations/search?limit=20&sort_order=UPDATED_AT_DESC",
+      "method": "GET",
+      "message": "net::ERR_CONNECTION_REFUSED"
+    },
+    {
+      "ts": "2026-10-09T14:56:09.403Z",
+      "kind": "console.error",
+      "page": "http://127.0.0.1:18800/",
+      "appOrigin": true,
+      "message": "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "url": "http://127.0.0.1:18800/api/conversations/search?limit=20&sort_order=UPDATED_AT_DESC"
+    },
+    {
+      "ts": "2026-10-09T14:56:09.995Z",
+      "kind": "requestfailed",
+      "page": "http://127.0.0.1:18800/",
+      "appOrigin": true,
+      "url": "http://127.0.0.1:18800/api/conversations/search?limit=20&sort_order=UPDATED_AT_DESC",
+      "method": "GET",
+      "message": "net::ERR_CONNECTION_REFUSED"
+    },
+    {
+      "ts": "2026-10-09T14:56:09.995Z",
+      "kind": "console.error",
+      "page": "http://127.0.0.1:18800/",
+      "appOrigin": true,
+      "message": "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "url": "http://127.0.0.1:18800/api/conversations/search?limit=20&sort_order=UPDATED_AT_DESC"
+    },
+    {
+      "ts": "2026-10-09T14:56:10.734Z",
+      "kind": "requestfailed",
+      "page": "http://127.0.0.1:18800/",
+      "appOrigin": true,
+      "url": "http://127.0.0.1:18800/api/conversations/search?limit=1&sort_order=UPDATED_AT_DESC",
+      "method": "GET",
+      "message": "net::ERR_CONNECTION_REFUSED"
+    },
+    {
+      "ts": "2026-10-09T14:56:10.734Z",
+      "kind": "console.error",
+      "page": "http://127.0.0.1:18800/",
+      "appOrigin": true,
+      "message": "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "url": "http://127.0.0.1:18800/api/conversations/search?limit=1&sort_order=UPDATED_AT_DESC"
+    },
+    {
+      "ts": "2026-10-09T14:56:11.295Z",
+      "kind": "requestfailed",
+      "page": "http://127.0.0.1:18800/",
+      "appOrigin": true,
+      "url": "http://127.0.0.1:18800/api/conversations/search?limit=20&sort_order=UPDATED_AT_DESC",
+      "method": "GET",
+      "message": "net::ERR_CONNECTION_REFUSED"
+    },
+    {
+      "ts": "2026-10-09T14:56:11.295Z",
+      "kind": "console.error",
+      "page": "http://127.0.0.1:18800/",
+      "appOrigin": true,
+      "message": "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "url": "http://127.0.0.1:18800/api/conversations/search?limit=20&sort_order=UPDATED_AT_DESC"
+    },
+    {
+      "ts": "2026-10-09T14:56:11.622Z",
+      "kind": "requestfailed",
+      "page": "http://127.0.0.1:18800/",
+      "appOrigin": true,
+      "url": "http://127.0.0.1:18800/api/conversations/search?limit=1&sort_order=UPDATED_AT_DESC",
+      "method": "GET",
+      "message": "net::ERR_CONNECTION_REFUSED"
+    },
+    {
+      "ts": "2026-10-09T14:56:11.622Z",
+      "kind": "console.error",
+      "page": "http://127.0.0.1:18800/",
+      "appOrigin": true,
+      "message": "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "url": "http://127.0.0.1:18800/api/conversations/search?limit=1&sort_order=UPDATED_AT_DESC"
+    },
+    {
+      "ts": "2026-10-09T14:56:12.796Z",
+      "kind": "requestfailed",
+      "page": "http://127.0.0.1:18800/",
+      "appOrigin": true,
+      "url": "http://127.0.0.1:18800/api/conversations/search?limit=1&sort_order=UPDATED_AT_DESC",
+      "method": "GET",
+      "message": "net::ERR_CONNECTION_REFUSED"
+    },
+    {
+      "ts": "2026-10-09T14:56:12.796Z",
+      "kind": "console.error",
+      "page": "http://127.0.0.1:18800/",
+      "appOrigin": true,
+      "message": "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "url": "http://127.0.0.1:18800/api/conversations/search?limit=1&sort_order=UPDATED_AT_DESC"
+    },
+    {
+      "ts": "2026-10-09T14:56:13.546Z",
+      "kind": "requestfailed",
+      "page": "http://127.0.0.1:18800/",
+      "appOrigin": true,
+      "url": "http://127.0.0.1:18800/api/conversations/search?limit=20&sort_order=UPDATED_AT_DESC",
+      "method": "GET",
+      "message": "net::ERR_CONNECTION_REFUSED"
+    },
+    {
+      "ts": "2026-10-09T14:56:13.547Z",
+      "kind": "console.error",
+      "page": "http://127.0.0.1:18800/",
+      "appOrigin": true,
+      "message": "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "url": "http://127.0.0.1:18800/api/conversations/search?limit=20&sort_order=UPDATED_AT_DESC"
+    },
+    {
+      "ts": "2026-10-09T14:56:15.957Z",
+      "kind": "requestfailed",
+      "page": "http://127.0.0.1:18800/",
+      "appOrigin": true,
+      "url": "http://127.0.0.1:18800/api/conversations/search?limit=1&sort_order=UPDATED_AT_DESC",
+      "method": "GET",
+      "message": "net::ERR_CONNECTION_REFUSED"
+    },
+    {
+      "ts": "2026-10-09T14:56:15.958Z",
+      "kind": "console.error",
+      "page": "http://127.0.0.1:18800/",
+      "appOrigin": true,
+      "message": "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "url": "http://127.0.0.1:18800/api/conversations/search?limit=1&sort_order=UPDATED_AT_DESC"
+    }
+  ]
+}

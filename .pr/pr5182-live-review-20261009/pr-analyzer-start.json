@@ -1,0 +1,18 @@
+{
+  "ok": true,
+  "id": "127bc200-3e89-4f1d-8e77-f5312ce575dc",
+  "url": "http://127.0.0.1:18800/conversations/127bc200-3e89-4f1d-8e77-f5312ce575dc",
+  "workspace": "/workspace/pr5182-review/runs/event-upgrade/private/home/workspace/project/127bc2003e894f1d8e77f5312ce575dc",
+  "title": "✨ Create fibonacci.py and run test",
+  "status": "finished",
+  "model": "deepseek/deepseek-flash",
+  "updatedAt": "2026-10-09T14:59:14.025502Z",
+  "waitedFor": [
+    "idle",
+    "finished",
+    "error",
+    "stuck",
+    "paused",
+    "waiting_for_confirmation"
+  ]
+}
