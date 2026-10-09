@@ -16,7 +16,7 @@ and all four conversations were restored and continued with tools again.
 Run `python verify-live-evidence.py` from this directory to independently verify
 the captured live transcript invariants and saved audit JSON. This checks prior
 durable events stayed identical, recall before tools, continued terminal output,
-and each audit event's persisted bytes and action linkage. The copied verifier
+and each audit event's persisted JSON payload and action linkage. The copied verifier
 uses bundled persisted-audit-events instead of the original private state path.
 
 The 653 automated Python tests and 2 client probes used controlled LLM responses;
