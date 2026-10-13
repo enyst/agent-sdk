@@ -30,12 +30,13 @@ and permitted side effects. Fetch `main` and freeze its full SHA as TARGET.
 Check `git rev-parse --is-shallow-repository`; deepen with a bounded
 `git fetch --depth=...` until BASE is present (an empty log from a shallow
 clone is not "no changes"). BASE is the previous completed pass's recorded
-TARGET, kept on the `Maintenance baseline` line of
-[the map index](feature-map/README.md); on a first run, the last first-parent
+TARGET, kept on the `Maintenance baseline: main@<sha> (<date>)` line of
+[the map index](feature-map/README.md) (`control-agent-server map baseline`
+reads it); on a first run, the last first-parent
 commit before the agreed cutoff
 (`git rev-list --first-parent -1 --before="$CUTOFF" "$TARGET"`). A pass that
-changes the map updates that line to its TARGET in its PR, so merging the PR
-accepts the new baseline.
+changes the map moves that line to its TARGET in its PR
+(`map baseline --set "$TARGET"`), so merging the PR accepts the new baseline.
 
 ```sh
 git merge-base --is-ancestor "$BASE" "$TARGET"
@@ -44,9 +45,9 @@ git diff --name-status "$BASE" "$TARGET"
 ```
 
 A daily pass may be a **delta pass**: source and live coverage only for the
-families whose paths or routes changed in BASE..TARGET (§3) and for rows that
-link an issue closed since BASE. It says "delta" in its report. A full pass is
-still needed now and then (weekly, or before a release), because dependency
+families whose paths or routes changed in BASE..TARGET (§2) and for rows that
+link an issue closed since BASE. [daily.md](daily.md) is that procedure. It
+says "delta" in its report. A full pass is still needed now and then (weekly, or before a release), because dependency
 bumps (LiteLLM, FastAPI, MCP) change behavior without touching a router.
 
 Use separate worktrees for BASE and TARGET and `control-agent-server launch

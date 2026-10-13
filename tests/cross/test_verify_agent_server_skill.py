@@ -810,6 +810,102 @@ def test_committed_feature_map_is_structurally_valid(capsys):
     assert code == 0, out
 
 
+def _index(feature_map, baseline_lines):
+    rows = "\n".join(
+        f"| F{n:02d} | [Family {n}](F{n:02d}-demo.md) | x | x | baseline | 0 |"
+        for n in range(1, 35)
+    )
+    (feature_map / "README.md").write_text(
+        "# Map\n\n" + "\n".join(baseline_lines) + "\n\n## Families\n\n" + rows + "\n"
+    )
+
+
+def test_map_baseline_reads_and_moves_the_index_line(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(cas, "FEATURE_MAP_DIR", tmp_path)
+    head = cas.git("rev-parse", "HEAD")
+    _index(tmp_path, ["Maintenance baseline: main@abc1234 (2026-10-01). Keep me."])
+    code, out = _run(capsys, "map", "baseline")
+    assert code == 0, out
+    assert json.loads(out)["sha"] == "abc1234"
+
+    code, out = _run(
+        capsys,
+        "map",
+        "baseline",
+        "--set",
+        head,
+        "--date",
+        "2026-10-12",
+        "--main",
+        "HEAD",
+    )
+    assert code == 0, out
+    text = (tmp_path / "README.md").read_text()
+    assert f"Maintenance baseline: main@{head} (2026-10-12). Keep me." in text
+    code, out = _run(capsys, "map", "baseline")
+    assert json.loads(out)["commits_since"] == 0
+
+
+@pytest.mark.parametrize(
+    "lines, problem",
+    [
+        ([], "no `Maintenance baseline"),
+        (
+            [
+                "Maintenance baseline: main@abc1234 (2026-10-01).",
+                "Maintenance baseline: main@def5678 (2026-10-02).",
+            ],
+            "2 `Maintenance baseline:` lines",
+        ),
+        (["Maintenance baseline: `abc1234` (first pass)."], "malformed"),
+    ],
+)
+def test_map_baseline_rejects_missing_duplicate_or_malformed_lines(
+    tmp_path, monkeypatch, capsys, lines, problem
+):
+    monkeypatch.setattr(cas, "FEATURE_MAP_DIR", tmp_path)
+    _index(tmp_path, lines)
+    code, out = _run(capsys, "map", "baseline")
+    assert code == 1
+    assert problem in out
+    assert any(
+        problem in p
+        for p in cas.baseline_problems((tmp_path / "README.md").read_text())
+    )
+
+
+def test_compare_ledgers_sorts_what_changed():
+    def row(feature, result):
+        return {"feature": feature, "result": result, "run": "r"}
+
+    before = [row("F01.a", "pass"), row("F01.b", "fail"), row("F01.c", "pass")]
+    before += [row("F01.d", "xfail"), row("F01.e", "pass")]
+    after = [row("F01.a", "fail"), row("F01.b", "pass"), row("F01.d", "xpass")]
+    after += [row("F01.e", "pass"), row("F01.f", "blocked")]
+    changes = cas.compare_ledgers(before, after)
+    assert [c["feature"] for c in changes["newly_failing"]] == ["F01.a", "F01.d"]
+    assert [c["feature"] for c in changes["newly_passing"]] == ["F01.b"]
+    assert [c["feature"] for c in changes["not_checked"]] == ["F01.c"]
+    assert [c["feature"] for c in changes["other"]] == ["F01.f"]
+    assert "Newly failing:" in "\n".join(cas.changes_markdown(changes))
+
+
+def test_compare_ledgers_takes_the_newest_attempt_whatever_the_order():
+    def row(result, at):
+        return {"feature": "F01.a", "result": result, "run": at, "at": at}
+
+    baseline = [row("pass", "2026-10-12T00:00:00+00:00")]
+    early = row("pass", "2026-10-13T01:00:00+00:00")
+    late = row("fail", "2026-10-13T02:00:00+00:00")
+    for current in ([late, early], [early, late]):
+        changes = cas.compare_ledgers(baseline, current)
+        assert [c["feature"] for c in changes["newly_failing"]] == ["F01.a"]
+        assert changes["conflicting"][0]["feature"] == "F01.a"
+        text = "\n".join(cas.changes_markdown(changes))
+        assert "No result changed" not in text
+        assert "Conflicting attempts" in text
+
+
 def test_every_command_documents_examples(capsys):
     parser = cas.build_parser()
     for name in (

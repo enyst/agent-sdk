@@ -3377,6 +3377,85 @@ def latest_rows(
     return latest
 
 
+FAILING = {"fail", "xpass"}
+
+
+def compare_ledgers(
+    before_rows: Iterable[dict[str, Any]], after_rows: Iterable[dict[str, Any]]
+) -> dict[str, list[dict[str, Any]]]:
+    """Latest result per sub-feature in each ledger, and what moved between them.
+
+    "Latest" is by each row's recorded time, never by the order the runs were
+    given in, so an older pass cannot hide a newer failure; attempts in the
+    current runs that disagree are listed under "conflicting".
+    """
+
+    def by_time(rows: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
+        return sorted(rows, key=lambda row: row.get("at") or "")
+
+    after_rows = by_time(after_rows)
+    before = {row["feature"]: row for row in by_time(before_rows)}
+    after = {row["feature"]: row for row in after_rows}
+    attempts: dict[str, list[dict[str, Any]]] = {}
+    for row in after_rows:
+        attempts.setdefault(row["feature"], []).append(
+            {"at": row.get("at"), "run": row.get("run"), "result": row["result"]}
+        )
+    changes: dict[str, list[dict[str, Any]]] = {
+        "newly_failing": [],
+        "newly_passing": [],
+        "other": [],
+        "not_checked": [],
+        "conflicting": [
+            {"feature": feature, "attempts": tries}
+            for feature, tries in sorted(attempts.items())
+            if len({t["result"] for t in tries}) > 1
+        ],
+    }
+    for feature in sorted(set(before) | set(after)):
+        old = before.get(feature, {}).get("result")
+        new = after.get(feature, {}).get("result")
+        if old == new:
+            continue
+        entry = {"feature": feature, "before": old, "after": new}
+        if new is None:
+            changes["not_checked"].append(entry)
+        elif new in FAILING and old not in FAILING:
+            changes["newly_failing"].append(entry)
+        elif new == "pass" and old is not None and old != "pass":
+            changes["newly_passing"].append(entry)
+        else:
+            changes["other"].append(entry)
+    return changes
+
+
+def changes_markdown(changes: dict[str, list[dict[str, Any]]]) -> list[str]:
+    lines = ["## Changes since baseline", ""]
+    titles = {
+        "newly_failing": "Newly failing",
+        "newly_passing": "Newly passing",
+        "other": "Other changes",
+        "not_checked": "Not checked this run",
+    }
+    for key, title in titles.items():
+        if changes[key]:
+            lines += [f"{title}:", ""]
+            lines += [
+                f"- {c['feature']}: {c['before'] or 'absent'} -> {c['after'] or 'absent'}"
+                for c in changes[key]
+            ]
+            lines.append("")
+    if not any(changes[key] for key in titles):
+        lines += ["No result changed against the baseline.", ""]
+    if changes["conflicting"]:
+        lines += ["Conflicting attempts in these runs:", ""]
+        for c in changes["conflicting"]:
+            steps = ", ".join(f"{t['result']} at {t['at']}" for t in c["attempts"])
+            lines.append(f"- {c['feature']}: {steps}")
+        lines.append("")
+    return lines
+
+
 def cmd_evidence_report(args: argparse.Namespace) -> dict[str, Any]:
     runs = (
         [resolve_run(r, require_alive=False) for r in args.runs]
@@ -3393,6 +3472,17 @@ def cmd_evidence_report(args: argparse.Namespace) -> dict[str, Any]:
     counts: dict[str, int] = {}
     for row in ordered:
         counts[row["result"]] = counts.get(row["result"], 0) + 1
+    changes = None
+    if args.baseline:
+        path = Path(args.baseline)
+        if (path / "evidence" / "ledger.jsonl").exists():
+            path = path / "evidence" / "ledger.jsonl"
+        if not path.is_file():
+            usage_error(f"no ledger at {path}")
+        before_rows = [
+            json.loads(line) for line in path.read_text().splitlines() if line.strip()
+        ]
+        changes = compare_ledgers(before_rows, rows)
     all_ids = [row["id"] for row in collect_ids()]
     features = {r["feature"] for r in ordered}
     missing = [i for i in all_ids if i not in features]
@@ -3418,6 +3508,8 @@ def cmd_evidence_report(args: argparse.Namespace) -> dict[str, Any]:
             + " | ".join(c.replace("|", "\\|").replace("\n", " ") for c in cells)
             + " |"
         )
+    if changes is not None:
+        lines = changes_markdown(changes) + ["", "## Checks", ""] + lines
     markdown = "\n".join(lines)
     if args.out:
         Path(args.out).write_text(REDACT.text(markdown) + "\n")
@@ -3427,6 +3519,7 @@ def cmd_evidence_report(args: argparse.Namespace) -> dict[str, Any]:
         "features_with_evidence": len(features),
         "attempts_with_evidence": len(ordered),
         "map_ids_without_evidence": len(missing),
+        "changes": changes,
         "missing_sample": missing[:50],
         "markdown": markdown if args.print_markdown else None,
         "out": args.out,
@@ -3892,6 +3985,11 @@ def cmd_map_check(args: argparse.Namespace) -> dict[str, Any]:
                     )
         if args.fix_counts:
             fix_index_total(len(all_ids))
+        if (FEATURE_MAP_DIR / "README.md").exists():
+            for problem in baseline_problems(
+                (FEATURE_MAP_DIR / "README.md").read_text()
+            ):
+                problems.setdefault("README.md", []).append(problem)
         total_line = re.search(
             r"\*\*(\d+) sub-features\*\*",
             (FEATURE_MAP_DIR / "README.md").read_text()
@@ -4749,11 +4847,21 @@ def source_prefixes(path: Path) -> list[str]:
 
 
 def cmd_map_owners(args: argparse.Namespace) -> dict[str, Any]:
-    if args.changed:
-        diff = git("diff", "--name-only", args.changed)
+    diff_range = args.changed
+    if not diff_range and not args.paths:
+        # Since the recorded baseline: the daily pass's changed families.
+        baseline = read_baseline()
+        if not baseline:
+            usage_error(
+                "no paths, no --changed and no baseline line in the map index",
+                example=f"{CLI} map owners --changed $BASE..$TARGET",
+            )
+        diff_range = f"{baseline['sha']}..{args.target or 'HEAD'}"
+    if diff_range:
+        diff = git("diff", "--name-only", diff_range)
         if diff == "unknown":
             usage_error(
-                f"git diff {args.changed} failed (shallow clone? fetch more history)"
+                f"git diff {diff_range} failed (shallow clone? fetch more history)"
             )
         paths = [p for p in diff.splitlines() if p]
     else:
@@ -4775,9 +4883,88 @@ def cmd_map_owners(args: argparse.Namespace) -> dict[str, Any]:
             unowned.append(changed)
     return {
         "ok": True,
+        "range": diff_range,
         "changed": len(paths),
+        "families": sorted({name for row in mapping for name in row["families"]}),
         "mapped": mapping,
         "unowned_product_paths": unowned,
+    }
+
+
+# The maintenance baseline recorded in the map index, on a line of the form
+#   Maintenance baseline: main@<sha> (<YYYY-MM-DD>). <prose>
+# A pass reads it as BASE; a pass that finished its changed families moves it
+# to its TARGET in its PR, and merging the PR accepts the new baseline.
+BASELINE_LINE_RE = re.compile(
+    r"^Maintenance baseline: main@([0-9a-f]{7,40}) \((\d{4}-\d{2}-\d{2})\)(.*)$",
+    re.M,
+)
+
+
+def baseline_lines(text: str) -> list[str]:
+    return re.findall(r"^Maintenance baseline:.*$", text, re.M)
+
+
+def read_baseline() -> dict[str, str] | None:
+    index = FEATURE_MAP_DIR / "README.md"
+    match = BASELINE_LINE_RE.search(index.read_text()) if index.exists() else None
+    return {"sha": match.group(1), "date": match.group(2)} if match else None
+
+
+def baseline_problems(text: str) -> list[str]:
+    lines = baseline_lines(text)
+    if not lines:
+        return ["no `Maintenance baseline: main@<sha> (<date>)` line"]
+    if len(lines) > 1:
+        return [f"{len(lines)} `Maintenance baseline:` lines; keep one"]
+    if not BASELINE_LINE_RE.search(text):
+        return [f"malformed baseline line: {lines[0]}"]
+    return []
+
+
+def cmd_map_baseline(args: argparse.Namespace) -> dict[str, Any]:
+    index = FEATURE_MAP_DIR / "README.md"
+    text = index.read_text()
+    problems = baseline_problems(text)
+    if args.set:
+        if problems and not baseline_lines(text):
+            usage_error(problems[0])
+        if len(baseline_lines(text)) > 1:
+            usage_error(problems[0])
+        sha = git("rev-parse", "--verify", f"{args.set}^{{commit}}")
+        if sha == "unknown":
+            usage_error(f"{args.set} is not a commit here (fetch it first)")
+        if git("merge-base", "--is-ancestor", sha, args.main) == "unknown":
+            usage_error(
+                f"{sha} is not on {args.main}; a baseline must be a commit on main",
+                example=f"{CLI} map baseline --set $(git rev-parse origin/main)",
+            )
+        date = args.date or datetime.now(UTC).strftime("%Y-%m-%d")
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date):
+            usage_error(f"--date must be YYYY-MM-DD, got {date}")
+        old = baseline_lines(text)[0]
+        match = BASELINE_LINE_RE.match(old)
+        rest = match.group(3) if match else ""
+        rest = rest or (
+            ". The next maintenance pass starts from this commit; a pass proposes"
+            " the next baseline in its PR, and merging that PR accepts it."
+        )
+        index.write_text(
+            text.replace(old, f"Maintenance baseline: main@{sha} ({date}){rest}", 1)
+        )
+        return {"ok": True, "previous": old, "sha": sha, "date": date}
+    if problems:
+        return {"ok": False, "problems": problems}
+    baseline = read_baseline()
+    assert baseline
+    behind = git("rev-list", "--count", f"{baseline['sha']}..HEAD")
+    return {
+        "ok": True,
+        **baseline,
+        "commits_since": None if behind == "unknown" else int(behind),
+        "hint": None
+        if behind != "unknown"
+        else "baseline not in this clone; deepen it (git fetch --deepen=...)",
     }
 
 
@@ -4815,7 +5002,7 @@ Driving:
 
 Proof and map:
   evidence      add | report: the append-only ledger under <run>/evidence/
-  map           run | check | coverage | ids | routes | diff | owners: an executable, checked map
+  map           run | check | coverage | ids | routes | diff | owners | baseline: an executable, checked map
 
 Which run: --run DIR, else ${RUN_ENV}, else the only live run.
 Run state lives under ${HOME_ENV} (default $TMPDIR/agent-server-verify).
@@ -5814,18 +6001,23 @@ as blocked while the rest of the family runs.""",
         help="latest result per sub-feature, fail/blocked first",
         formatter_class=Formatter,
         epilog=f"Examples:\n  {CLI} evidence report --out report.md --print-markdown\n"
-        f"  {CLI} evidence report --runs <runA> <runB>",
+        f"  {CLI} evidence report --runs <runA> <runB>\n"
+        f"  {CLI} evidence report --baseline <yesterday's run or ledger.jsonl>",
     )
     add_run_flag(er)
     er.set_defaults(func=cmd_evidence_report)
     er.add_argument("--runs", nargs="+", help="merge the ledgers of several runs")
+    er.add_argument(
+        "--baseline",
+        help="an earlier run directory or ledger.jsonl; list what changed since it first",
+    )
     er.add_argument("--out")
     er.add_argument("--print-markdown", action="store_true")
 
     mp = commands.add_parser(
         "map",
         help="feature map tooling",
-        description="Map: run | check | coverage | ids | routes | diff | owners",
+        description="Map: run | check | coverage | ids | routes | diff | owners | baseline",
         formatter_class=Formatter,
         epilog=f"""Examples:
   {CLI} map run --file F01 --record         # execute a family's recipes and record the ledger
@@ -5834,10 +6026,13 @@ as blocked while the rest of the family runs.""",
   {CLI} map coverage                        # routes no family owns or drives
   {CLI} map routes --module conversation_router
   {CLI} map diff --base ../agent-sdk-base       # routes added/removed/deprecated since BASE
-  {CLI} map owners --changed origin/main...HEAD""",
+  {CLI} map owners --changed origin/main...HEAD
+  {CLI} map owners                          # families changed since the maintenance baseline
+  {CLI} map baseline                        # the recorded baseline and how far HEAD is from it""",
     )
     mp_sub = mp.add_subparsers(
-        dest="map_command", metavar="<run|check|coverage|ids|routes|diff|owners>"
+        dest="map_command",
+        metavar="<run|check|coverage|ids|routes|diff|owners|baseline>",
     )
     mc = mp_sub.add_parser(
         "check",
@@ -5950,6 +6145,27 @@ reported and not executed. Transcripts are saved under <run>/evidence/map-run/."
     mo.set_defaults(func=cmd_map_owners)
     mo.add_argument("paths", nargs="*")
     mo.add_argument("--changed", metavar="BASE..TARGET")
+    mo.add_argument(
+        "--target",
+        help="with neither paths nor --changed: diff baseline..TARGET (default HEAD)",
+    )
+    mb = mp_sub.add_parser(
+        "baseline",
+        help="read or move the index's Maintenance baseline line",
+        formatter_class=Formatter,
+        epilog=f"""Examples:
+  {CLI} map baseline                                     # sha, date, commits since
+  {CLI} map baseline --set "$TARGET"                     # in the pass's PR; merging accepts it
+  {CLI} map baseline --set "$TARGET" --date 2026-10-12""",
+    )
+    mb.set_defaults(func=cmd_map_baseline)
+    mb.add_argument("--set", metavar="SHA", help="move the line to this commit")
+    mb.add_argument("--date", help="YYYY-MM-DD for --set (default: today, UTC)")
+    mb.add_argument(
+        "--main",
+        default="origin/main",
+        help="the branch a new baseline must be on (default origin/main)",
+    )
     return parser
 
 

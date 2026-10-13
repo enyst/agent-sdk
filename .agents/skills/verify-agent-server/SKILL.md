@@ -192,6 +192,15 @@ missing prerequisite; never substitute a mock and call it a pass.
   rows, and `control-agent-server map run --all --fresh --record` replays the
   whole map. Only failing bullets need judgment; `known bug` bullets report as
   expected failures until the bug is fixed.
+- **Run the daily pass**: follow [references/daily.md](references/daily.md):
+  static checks (`map check`, `map coverage`), the families changed since the
+  `Maintenance baseline` line of the map index (`map baseline`; `map owners`
+  with no arguments diffs from it), and nothing else: families nothing in
+  the range touched wait for the weekly pass, and a pass with no new commits
+  on `main` stops early. A pass that finished its changed families proposes
+  `TARGET` as the next baseline with `map baseline --set "$TARGET"` in its PR;
+  compare ledgers with `evidence report --baseline` when yesterday's is at
+  hand.
 - **Maintain the map (periodic or weekly)**: follow
   [references/maintenance.md](references/maintenance.md): a frozen BASE/TARGET,
   a route diff, a PR-intent ledger, a source wave, one live pass over every
