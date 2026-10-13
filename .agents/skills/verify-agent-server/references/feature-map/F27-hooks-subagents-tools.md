@@ -449,7 +449,7 @@ Preconditions:
     --json '{"role": "user", "content": [{"type": "text", "text": "hi"}], "run": false}' --expect 2xx \
     --save F27.subagents-bad-skill/send-control
   BCID=$(control-agent-server conversation start --workspace "$F/badskill" --no-run --tools terminal --no-autotitle --print-id)
-  control-agent-server api POST "/api/conversations/$BCID/events" --json '{"role": "user", "content": [{"type": "text", "text": "hi"}], "run": false}' --expect 2xx,4xx --save F27.subagents-bad-skill/send  # bug
+  control-agent-server api POST "/api/conversations/$BCID/events" --json '{"role": "user", "content": [{"type": "text", "text": "hi"}], "run": false}' --expect 2xx,4xx --save F27.subagents-bad-skill/send  # bug: status eq 500 && response.body.exception contains 'not found but was given to agent'
   ```
   The same message to a conversation in a workspace without project agents
   is accepted (the control). A broken sub-agent definition should cost only
@@ -741,9 +741,9 @@ Preconditions:
   W0=$(control-agent-server logs --grep 'Failed to import module' | jq -r .total_matching)
   control-agent-server restart --reset-config
   control-agent-server api GET "/api/conversations/$MCID" --expect 200 --check tool_module_qualnames.qa_f27_echo eq qa_f27_tools --quiet
-  control-agent-server api POST "/api/conversations/$MCID/events" --json '{"role": "user", "content": [{"type": "text", "text": "Reply with the single word ok."}], "run": false}' --expect 2xx,4xx --save F27.custom-tool-missing-on-resume/send  # bug
+  control-agent-server api POST "/api/conversations/$MCID/events" --json '{"role": "user", "content": [{"type": "text", "text": "Reply with the single word ok."}], "run": false}' --expect 2xx,4xx --save F27.custom-tool-missing-on-resume/send  # bug: status eq 500 && response.body.exception contains "Unknown kind 'QaF27EchoObservation'"
   control-agent-server logs --grep 'Failed to import module' --expect-min "$((W0 + 1))"
-  control-agent-server api GET "/api/conversations/$MCID/events/search" --expect 200 --check items len-ge 1 --quiet  # bug
+  control-agent-server api GET "/api/conversations/$MCID/events/search" --expect 200 --check items len-ge 1 --quiet  # bug: status eq 500
   ```
   `_prepare_persisted_runtime` logs `Failed to import module 'qa_f27_tools'
   ... Tool will not be available.` and promises to go on without the tool.
@@ -761,7 +761,7 @@ Preconditions:
     --check tools contains '{"name": "browser_tool_set", "user_selectable": true, "usable": false'
   control-agent-server restart --env PLAYWRIGHT_BROWSERS_PATH="$PW"
   control-agent-server api GET /api/tools/catalog --expect 200 --quiet --check tools contains '{"name": "terminal", "user_selectable": true, "usable": true'
-  control-agent-server api GET /api/tools/catalog --expect 200 --quiet --check tools contains '{"name": "browser_tool_set", "user_selectable": true, "usable": true' --save F27.browser-playwright-path/catalog  # bug
+  control-agent-server api GET /api/tools/catalog --expect 200 --check tools contains '{"name": "browser_tool_set", "user_selectable": true, "usable": true' --save F27.browser-playwright-path/catalog  # bug: status eq 200 && response.body.tools contains '{"name": "browser_tool_set", "user_selectable": true, "usable": false'
   ```
   The first check shows this server finds no Chromium on its own (no
   standard path, nothing in its private `~/.cache/ms-playwright`). Playwright
@@ -830,7 +830,7 @@ Preconditions:
   Compare `/server_info` with the catalog on the same server.
   ```sh
   control-agent-server api GET /api/tools/catalog --expect 200 --quiet --check tools contains '{"name": "browser_tool_set", "user_selectable": true, "usable": false'
-  control-agent-server api GET /server_info --auth none --expect 200 --check usable_tools contains terminal --check usable_tools not-contains browser_tool_set --save F27.server-info-browser-disabled/server-info  # bug
+  control-agent-server api GET /server_info --auth none --expect 200 --check usable_tools contains terminal --check usable_tools not-contains browser_tool_set --save F27.server-info-browser-disabled/server-info  # bug: status eq 200 && response.body.usable_tools contains browser_tool_set
   ```
   Conversations on this server never get the browser, and the catalog says
   so; `usable_tools` should agree. Today it still lists `browser_tool_set`:
@@ -840,7 +840,7 @@ Preconditions:
   List the built-ins on the same server.
   ```sh
   control-agent-server api GET /api/tools/catalog --expect 200 --quiet --check tools contains '{"name": "browser_tool_set", "user_selectable": true, "usable": false'
-  control-agent-server api POST /api/sub-agents --json '{"load_user": false, "load_project": false}' --expect 200 --check agents contains '"name": "bash-runner"' --check agents not-contains '"name": "web-researcher"' --save F27.subagents-browser-disabled/builtins  # bug
+  control-agent-server api POST /api/sub-agents --json '{"load_user": false, "load_project": false}' --expect 200 --check agents contains '"name": "bash-runner"' --check agents not-contains '"name": "web-researcher"' --save F27.subagents-browser-disabled/builtins  # bug: status eq 200 && response.body.agents contains '"name": "web-researcher"'
   ```
   `discover_builtin_agents(enable_browser=False)` drops `web-researcher`,
   whose only tool is `browser_tool_set`, but the route calls it with the

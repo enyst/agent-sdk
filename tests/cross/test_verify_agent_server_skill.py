@@ -9,6 +9,7 @@ launching an agent server.
 from __future__ import annotations
 
 import importlib.util
+import io
 import json
 import signal
 import subprocess
@@ -330,7 +331,7 @@ Preconditions:
   Requires: `F98.second`
   ```sh
   test "$VALUE" = carried
-  test "$VALUE" = fixed  # bug
+  test "$VALUE" = fixed  # bug: exit 1
   ```
 - **Offline (`F98.offline`), blocked: needs a GPU.** Not executed.
 
@@ -797,11 +798,229 @@ def test_map_check_requires_a_bug_marker_in_known_bug_bullets(
 ):
     feature_map = tmp_path / "map"
     feature_map.mkdir()
-    (feature_map / "F98-demo.md").write_text(FAMILY.replace("  # bug", ""))
+    (feature_map / "F98-demo.md").write_text(FAMILY.replace("  # bug: exit 1", ""))
     monkeypatch.setattr(cas, "FEATURE_MAP_DIR", feature_map)
     code, out = _run(capsys, "map", "check", "--file", "F98", "--no-routes")
     assert code == 1
     assert "# bug" in out
+
+
+@pytest.mark.parametrize(
+    "marker, problem",
+    [
+        ("# bug", "needs the documented failure"),
+        ("# bug: exit", "is not PATH OP"),
+        ("# bug: exit 0", "from 1 to 255"),
+        ("# bug: exit 1 && status eq 500", "stands alone"),
+        ("# bug: status is 500", "is not PATH OP"),
+        ("# bug: status eq", "takes one value"),
+        ("# bug: detail missing 500", "takes no value"),
+        ("# bug: detail missing", "needs a clause naming"),
+        ("# bug: detail contains 'unclosed", "cannot parse"),
+        ("# bug: status eq 500", "does not call control-agent-server"),
+    ],
+)
+def test_map_check_rejects_a_missing_or_malformed_bug_predicate(
+    write_verification_family, capsys, marker, problem
+):
+    write_verification_family(cas, FAMILY.replace("# bug: exit 1", marker))
+    code, out = _run(capsys, "map", "check", "--file", "F98", "--no-routes")
+    assert code == 1, out
+    assert problem in out
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        'if test "$VALUE" = carried; then false; fi  # bug: exit 1',
+        '! test "$VALUE" = carried  # bug: exit 1',
+        'test ! -e "$VALUE"  # bug: exit 1',
+    ],
+)
+def test_map_check_rejects_negative_bug_lines(write_verification_family, capsys, line):
+    write_verification_family(
+        cas, FAMILY.replace('test "$VALUE" = fixed  # bug: exit 1', line)
+    )
+    code, out = _run(capsys, "map", "check", "--file", "F98", "--no-routes")
+    assert code == 1, out
+    assert "positively" in out
+
+
+def test_assert_names_a_computed_value(tmp_path, capsys, monkeypatch):
+    code, out = _run(capsys, "assert", "--value", "1700", "--check", ".", "le", "1500")
+    result = json.loads(out)
+    assert code == 1
+    assert result["value"] == 1700
+    assert cas.bug_predicate_matches(
+        cas.parse_bug_predicate("value gt 1500"), 1, result
+    )
+    saved = tmp_path / "saved.json"
+    saved.write_text('{"status": 500}')
+    code, out = _run(
+        capsys, "assert", "--json", str(saved), "--check", "status", "eq", "409"
+    )
+    assert code == 1
+    assert json.loads(out)["checks"][0]["actual"] == "500"
+    monkeypatch.setattr("sys.stdin", io.StringIO("qa-text\n"))
+    code, out = _run(capsys, "assert", "--check", ".", "eq", "qa-text")
+    assert code == 0, out
+
+
+BUG_API = "control-agent-server api GET {path} --expect 200"
+DOCUMENTED = "  # bug: status eq 404 && response.body.detail eq 'Not Found'"
+
+
+@pytest.mark.parametrize(
+    "path, status",
+    [
+        # The documented failure: the marked command answers 404 Not Found.
+        ("/missing", "xfail"),
+        # An unrelated error at the same marked command is not the known bug.
+        ("/refused", "fail"),
+        # Correct behavior: the bug no longer reproduces.
+        ("/info", "xpass"),
+    ],
+)
+def test_known_bug_xfails_only_on_the_documented_failure(
+    run_dir, write_verification_family, capsys, path, status
+):
+    family = FAMILY.replace(
+        '  test "$VALUE" = fixed  # bug: exit 1',
+        "  " + BUG_API.format(path=path) + DOCUMENTED,
+    )
+    write_verification_family(cas, family)
+    code, out = _run(capsys, "map", "run", "--file", "F98", "--record")
+    result = json.loads(out)
+    bug = next(r for r in result["bullets"] if r.get("ids") == ["F98.bug"])
+    assert bug["status"] == status, out
+    assert code == (0 if status == "xfail" else 1)
+    if status == "fail":
+        assert bug["failed_status"] == 1
+        assert bug["observed"]["status"] == 503
+        assert "not with the documented failure" in bug["hint"]
+        ledger = [
+            json.loads(line)
+            for line in (run_dir / "evidence" / "ledger.jsonl").read_text().splitlines()
+        ]
+        assert {r["feature"]: r["result"] for r in ledger}["F98.bug"] == "fail"
+
+
+def test_known_bug_matches_the_failure_not_a_later_cleanup_call(
+    run_dir, write_verification_family, capsys
+):
+    # A recipe's EXIT cleanup calls the CLI after the marked command failed;
+    # the predicate still sees what the marked command observed.
+    family = FAMILY.replace(
+        '  test "$VALUE" = fixed  # bug: exit 1',
+        "  trap 'control-agent-server api GET /info >/dev/null' EXIT\n  "
+        + BUG_API.format(path="/missing")
+        + DOCUMENTED,
+    )
+    write_verification_family(cas, family)
+    code, out = _run(capsys, "map", "run", "--file", "F98")
+    bug = next(r for r in json.loads(out)["bullets"] if r.get("ids") == ["F98.bug"])
+    assert bug["status"] == "xfail", out
+
+
+def test_known_bug_pass_after_a_broken_arrange_is_not_a_fix(
+    run_dir, write_verification_family, capsys
+):
+    # With --keep-going, a recipe whose prerequisite failed can pass on empty
+    # variables; that is no evidence the bug is fixed.
+    family = FAMILY.replace(
+        "VALUE=$(echo carried)", "VALUE=$(echo carried)\n  false"
+    ).replace(
+        '  test "$VALUE" = carried\n  test "$VALUE" = fixed  # bug: exit 1',
+        "  true  # bug: exit 1",
+    )
+    write_verification_family(cas, family)
+    code, out = _run(capsys, "map", "run", "--file", "F98", "--keep-going")
+    bug = next(r for r in json.loads(out)["bullets"] if r.get("ids") == ["F98.bug"])
+    assert bug["status"] == "fail", out
+    assert "F98.second" in bug["hint"]
+
+
+def test_known_bug_pass_after_a_broken_indirect_arrange_is_not_a_fix(
+    run_dir, write_verification_family, capsys
+):
+    # F98.second passes on its own, but it needs F98.first, which failed; the
+    # known bug needs F98.second, so its pass is no evidence either.
+    family = (
+        FAMILY.replace("VALUE=$(echo carried)", "VALUE=$(echo carried)\n  false")
+        .replace(
+            '  test "$VALUE" = carried\n  control-agent-server api GET /info',
+            "  control-agent-server api GET /info",
+        )
+        .replace(
+            '  test "$VALUE" = carried\n  test "$VALUE" = fixed  # bug: exit 1',
+            "  true  # bug: exit 1",
+        )
+    )
+    write_verification_family(cas, family)
+    code, out = _run(capsys, "map", "run", "--file", "F98", "--keep-going")
+    rows = {tuple(r.get("ids") or []): r for r in json.loads(out)["bullets"]}
+    assert rows[("F98.second",)]["status"] == "pass", out
+    bug = rows[("F98.bug",)]
+    assert bug["status"] == "fail", out
+    assert "F98.first" in bug["hint"]
+
+
+@pytest.mark.parametrize(
+    "stored, status",
+    [
+        # The documented failure: the file is there and has no key.
+        ('{"agent": {"model": "m"}}', "xfail"),
+        # The file is missing: an error object has no `checks`, so the
+        # `eq null` clause must not read its absence as the bug.
+        (None, "fail"),
+    ],
+)
+def test_known_bug_predicate_needs_its_paths_present(
+    run_dir, write_verification_family, capsys, stored, status
+):
+    if stored is not None:
+        (run_dir / "state.json").write_text(stored)
+    family = FAMILY.replace(
+        '  test "$VALUE" = fixed  # bug: exit 1',
+        "  control-agent-server state cat state.json --check agent.key exists"
+        "  # bug: checks.0.actual eq null",
+    )
+    write_verification_family(cas, family)
+    code, out = _run(capsys, "map", "run", "--file", "F98")
+    bug = next(r for r in json.loads(out)["bullets"] if r.get("ids") == ["F98.bug"])
+    assert bug["status"] == status, out
+
+
+def test_known_bug_exit_predicate_tells_a_false_test_from_an_error(
+    run_dir, write_verification_family, capsys
+):
+    # `test` exits 1 when the comparison is false and 2 when it cannot run.
+    family = FAMILY.replace(
+        '  test "$VALUE" = fixed  # bug: exit 1',
+        '  test "$VALUE" -le 3  # bug: exit 1',
+    )
+    write_verification_family(cas, family)
+    code, out = _run(capsys, "map", "run", "--file", "F98")
+    bug = next(r for r in json.loads(out)["bullets"] if r.get("ids") == ["F98.bug"])
+    assert bug["status"] == "fail", out
+    assert bug["failed_status"] == 2
+
+
+def test_the_marked_call_replaces_an_earlier_observation(
+    run_dir, write_verification_family, capsys
+):
+    # The marked line's own call replaces what an earlier call observed, so an
+    # earlier 404 cannot stand in for the marked command's failure.
+    family = FAMILY.replace(
+        '  test "$VALUE" = fixed  # bug: exit 1',
+        "  control-agent-server api GET /missing --expect 404\n"
+        "  control-agent-server api GET /refused --expect 200" + DOCUMENTED,
+    )
+    write_verification_family(cas, family)
+    code, out = _run(capsys, "map", "run", "--file", "F98")
+    bug = next(r for r in json.loads(out)["bullets"] if r.get("ids") == ["F98.bug"])
+    assert bug["status"] == "fail", out
+    assert bug["observed"]["status"] == 503
 
 
 def test_committed_feature_map_is_structurally_valid(capsys):

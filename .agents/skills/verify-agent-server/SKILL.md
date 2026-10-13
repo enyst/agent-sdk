@@ -5,7 +5,7 @@ description: >
   WebSocket API like an agent would", "drive the agent-server", "check an API
   change against a real server", "create or update the agent-server feature
   map", or "run the weekly API audit". Ships control-agent-server (launch,
-  doctor, api, ws, llm, conversations, fixtures, exec, evidence, map) and the
+  doctor, api, ws, llm, conversations, fixtures, exec, assert, evidence, map) and the
   maintained map of every agent-facing feature.
 triggers:
 - /verify-agent-server
@@ -178,7 +178,10 @@ missing prerequisite; never substitute a mock and call it a pass.
   with the same flags and fixtures:
   `control-agent-server map run --file Fnn --only Fnn.x --fresh --repeat 2 --checkout <base worktree>`
   must report the bullet `xfail` in both attempts, and the same command
-  without `--checkout` (the fix) `xpass` in both. Then drop the marker in the
+  without `--checkout` (the fix) `xpass` in both. `xfail` means the marked
+  command failed with the failure its `# bug: PREDICATE` documents (see
+  [the marker contract](references/mapping.md)); any other failure on the
+  baseline is a `fail`, so the proof cannot rest on an unrelated error. Then drop the marker in the
   same PR. Baseline not reproducing twice means "inconclusive", never
   "fixed". `--only` rejects unknown IDs and also runs each selected recipe's
   transitive `Requires:` prerequisites in family order.
