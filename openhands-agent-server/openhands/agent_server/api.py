@@ -200,6 +200,9 @@ async def api_lifespan(api: FastAPI) -> AsyncIterator[None]:
     try:
         # Clean up stale tmux sessions from previous server runs
         _cleanup_stale_tmux_sessions()
+        backend_manager = getattr(api.state, "canvas_extension_backend_manager", None)
+        if backend_manager is not None:
+            await backend_manager.reap_orphans()
 
         config: Config = api.state.config
         deferred = config.deferred_init
