@@ -551,7 +551,7 @@ control-agent-server api POST /api/canvas-extensions/installed/qa-headers/backen
   The request carried the cookie, the run's `X-Session-API-Key`, a bearer
   token and three key-named query parameters; the backend saw none of them,
   but did see `X-QA-Custom`, `Origin`, `view` and the body.
-- **Request framing (`F29.proxy-request-framing`), known bug.** `qa-headers`
+- **Request framing (`F29.proxy-request-framing`).** `qa-headers`
   echoes the framing headers it receives; direct calls to its loopback port
   are the control.
   ```sh
@@ -566,21 +566,19 @@ control-agent-server api POST /api/canvas-extensions/installed/qa-headers/backen
   if grep -qi '"transfer-encoding"' <<<"$DIRECT_POST"; then false; fi
   control-agent-server api GET /app-backends/qa-headers/echo --auth none --cookie "oh_app_backend_session=$FR" --expect 200 \
     --check method eq GET --check body eq '' --check headers.transfer-encoding missing \
-    --save F29.proxy-request-framing/get  # bug: status eq 200 && response.body.headers.transfer-encoding eq chunked
+    --save F29.proxy-request-framing/get
   control-agent-server api POST /app-backends/qa-headers/echo --auth none --cookie "oh_app_backend_session=$FR" \
     --header "Origin: $S" --json '{"qa": "body"}' --expect 200 --check body eq '{"qa":"body"}' \
     --check headers.content-length eq 13 --check headers.transfer-encoding missing \
-    --save F29.proxy-request-framing/post  # bug: status eq 200 && response.body.headers.transfer-encoding eq chunked
+    --save F29.proxy-request-framing/post
   ```
   Directly, the backend sees no `Transfer-Encoding` on a GET and
-  `Content-Length: 13` on the POST. Expected: the same through the bridge.
-  Actual: both arrive with `Transfer-Encoding: chunked` and no
-  `Content-Length` (the GET with an empty chunked body), because `proxy_http`
-  (`docker_runtime/proxy.py`) drops `Content-Length` as hop-by-hop and
-  always streams the request body through an async generator. aiohttp and
-  uvicorn decode it, so the body still arrives here; a backend on a server
-  without chunked request support (one built on Python's `http.server`,
-  which reads `Content-Length`) sees an empty body.
+  `Content-Length: 13` on the POST; through the bridge it sees the same.
+  `proxy_http` (`docker_runtime/proxy.py`) sends no body when the client
+  sent neither `Content-Length` nor `Transfer-Encoding`, re-adds the
+  client's `Content-Length` while still streaming the body, and forwards a
+  chunked client body chunked, so backends on servers that read only
+  `Content-Length` (Python's `http.server`) get the body too.
 - **Response filter (`F29.proxy-response-filter`).** Direct calls to the
   backend's loopback port are the control.
 
@@ -1038,12 +1036,10 @@ control-agent-server api POST /api/canvas-extensions/installed/qa-headers/backen
   secure context and replays `Secure` cookies to it. `curl`'s own cookie jar
   may not. The jar matches paths by prefix, so it also replays the cookie to
   `/app-backends/<name>-other`; browsers do not.
-- The proxied request body always reaches the backend with
-  `Transfer-Encoding: chunked` and no `Content-Length` (even a GET), because
-  the proxy streams the body and drops `Content-Length` (the known bug
-  `F29.proxy-request-framing`). Backends on servers that ignore chunked
-  request bodies (Python's `http.server`) see empty POST bodies; aiohttp and
-  uvicorn decode them.
+- The proxied request keeps the client's body framing
+  (`F29.proxy-request-framing`): a bodiless request arrives without a body,
+  a fixed-length body with its `Content-Length`, and only a chunked client
+  body arrives chunked.
 - Upstream `Set-Cookie` is dropped and upstream redirects become 502, so an
   app backend can use neither; pages must use URLs relative to
   `ingress_url` (which ends with `/`, unlike the bare root route).
