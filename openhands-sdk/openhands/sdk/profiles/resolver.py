@@ -323,11 +323,7 @@ def _scope_sub_agents(
 ) -> list[Tool] | None:
     if tools is None:
         return None
-    scope = SubAgentScope(
-        tools=profile.tools is not None,
-        mcp_servers=profile.mcp_server_refs is not None,
-    )
-    return scope_delegation_tools(tools, scope)
+    return scope_delegation_tools(tools, SubAgentScope(tools=profile.tools is not None))
 
 
 def _unusable_tools(
