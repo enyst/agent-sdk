@@ -350,10 +350,10 @@ control-agent-server api POST /api/canvas-extensions/installed/qa-headers/backen
   `localhost:PORT` is the same server but not the ingress origin, so both
   routes answer 421, and `X-Forwarded-Host` naming the ingress does not help;
   the same cookie on the ingress host gets 200.
-- **Forwarded proto (`F29.session-forwarded-proto`), known bug.** With
-  `trust_forwarded_headers` off (the default), the request's own scheme should
-  decide the origin (`bridge.py` `_request_origin`, `config.py`), so a
-  client-supplied `X-Forwarded-Proto: https` must not change it.
+- **Forwarded proto (`F29.session-forwarded-proto`).** With
+  `trust_forwarded_headers` off (the default), the request's own scheme
+  decides the origin (`bridge.py` `_request_origin`, `config.py`), so a
+  client-supplied `X-Forwarded-Proto: https` does not change it.
   ```sh
   FP=$(control-agent-server api POST /app-backends/qa-backend/session --header 'Origin: http://localhost:3000' --expect 200 \
     --check ingress_url eq "$S/app-backends/qa-backend/" --print-header set-cookie | sed -n 's/^oh_app_backend_session=\([^;]*\);.*/\1/p')
@@ -362,21 +362,15 @@ control-agent-server api POST /api/canvas-extensions/installed/qa-headers/backen
     --check app eq qa-backend
   control-agent-server api POST /app-backends/qa-backend/session --header 'Origin: http://localhost:3000' \
     --header 'X-Forwarded-Proto: https' --expect 200 --check ingress_url eq "$S/app-backends/qa-backend/" \
-    --save F29.session-forwarded-proto/session  # bug: status eq 421 && response.body.detail contains 'must use the configured ingress origin'
+    --save F29.session-forwarded-proto/session
   control-agent-server api GET /app-backends/qa-backend/echo --auth none --cookie "oh_app_backend_session=$FP" \
-    --header 'X-Forwarded-Proto: https' --expect 200 --check app eq qa-backend --save F29.session-forwarded-proto/proxy  # bug: status eq 421 && response.body.detail contains 'must use the configured ingress origin'
+    --header 'X-Forwarded-Proto: https' --expect 200 --check app eq qa-backend --save F29.session-forwarded-proto/proxy
   ```
-  The same bootstrap and proxied GET without the header answer 200 first.
-  Expected: 200 for both with the header too. Actual: 421 `Canvas App
-  request must use the configured ingress origin`, because uvicorn's
-  `proxy_headers` (on by
-  default for loopback peers, `FORWARDED_ALLOW_IPS`) rewrites the scheme
-  before the bridge looks at it. The same header lets a loopback client
-  claim `https` against an HTTPS ingress. A run launched with
-  `--env FORWARDED_ALLOW_IPS=192.0.2.1` (uvicorn then trusts no loopback
-  peer) lets the same bootstrap past the host check, which pins the cause on
-  the server's uvicorn configuration (`__main__.py`), not on the client.
-  Only peers uvicorn trusts (loopback by default) can do this.
+  The same bootstrap and proxied GET without the header answer 200 first,
+  and both still answer 200 with the header: the server starts uvicorn with
+  `proxy_headers` only when `trust_forwarded_headers` is on (`__main__.py`),
+  so uvicorn does not rewrite the scheme from `X-Forwarded-Proto` for a
+  loopback peer (`FORWARDED_ALLOW_IPS`) behind the setting's back.
 - **Origin rules (`F29.session-origin-rules`).** Only a control origin may
   bootstrap, and it must differ from the ingress origin.
   ```sh
@@ -1061,10 +1055,11 @@ control-agent-server api POST /api/canvas-extensions/installed/qa-headers/backen
 - HTTP clients normalize literal `.` and `..` segments before sending
   (`/app-backends/<name>/./x` arrives as `/x`), so traversal recipes use
   percent-encoded forms; the bridge decodes until the value stops changing.
-- uvicorn trusts `X-Forwarded-Proto` (and `X-Forwarded-For`) from loopback
-  peers by default (`FORWARDED_ALLOW_IPS`), independently of
-  `trust_forwarded_headers`, which is why `F29.session-forwarded-proto`
-  fails; `X-Forwarded-Host` is honored only with `trust_forwarded_headers`.
+- uvicorn's `proxy_headers` (which trusts `X-Forwarded-Proto` and
+  `X-Forwarded-For` from `FORWARDED_ALLOW_IPS` peers, loopback by default)
+  is on only when `trust_forwarded_headers` is; with it off, neither header
+  changes the request scheme or client address, and `X-Forwarded-Host` is
+  never honored either.
 - Control origins from `allow_cors_origins` must match the listed origin
   exactly after normalization (scheme, host and port; a default port may be
   omitted), `allow_cors_origin_regex` must match the whole `Origin` value,
