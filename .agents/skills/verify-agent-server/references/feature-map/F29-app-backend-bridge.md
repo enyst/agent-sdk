@@ -821,7 +821,7 @@ control-agent-server api POST /api/canvas-extensions/installed/qa-headers/backen
   backend's port, and a new session works. What the bridge answers between
   the crash and that poll is `F29.backend-crash-detected`. The backend ends
   enabled and ready.
-- **Crash seen by the bridge (`F29.backend-crash-detected`), known bug.**
+- **Crash seen by the bridge (`F29.backend-crash-detected`).**
   The same crash, but nobody polls the backend's status before the next
   proxied request.
   ```sh
@@ -832,21 +832,19 @@ control-agent-server api POST /api/canvas-extensions/installed/qa-headers/backen
   CRASH_PID=$(control-agent-server api GET /api/canvas-extensions/installed/qa-backend/backend --expect 200 --check state eq ready --field pid)
   kill -TERM "$CRASH_PID"
   control-agent-server api GET /app-backends/qa-backend/echo --auth none --cookie "oh_app_backend_session=$CC" --until-ok 15 \
-    --expect 503 --check exception eq '503: Canvas App backend is not ready' --save F29.backend-crash-detected/crashed  # bug: status eq 502 && response.body.exception contains 'Conversation container unreachable'
+    --expect 503 --check exception eq '503: Canvas App backend is not ready' --save F29.backend-crash-detected/crashed
   control-agent-server api GET /api/canvas-extensions/installed/qa-backend/backend --expect 200 --check state ne ready
   control-agent-server api POST /api/canvas-extensions/installed/qa-backend/backend/start --json "{\"revision\": \"$REV\"}" \
     --expect 200 --check state eq ready
   ```
-  The cookie works until the kill. Expected: within a few seconds of the
-  process exiting, the bridge answers 503 `Canvas App backend is not ready`,
-  as for any backend that is not running. Actual: for the whole 15 s it
-  answers 502 `Conversation container unreachable` (the shared Docker
-  runtime proxy's message, which names a conversation container that does
-  not exist here), because `ready_endpoint` (`canvas_extensions/backend.py`)
-  trusts the stored `ready` state and only a call to the F28 status route
-  notices the exit (`F29.backend-lifecycle-revokes`). While the bug lasts,
-  the bullet stops there and leaves the dead backend marked `ready`; the
-  next bullet's server restart clears it.
+  The cookie works until the kill. Within a few seconds of the process
+  exiting, the bridge answers 503 `Canvas App backend is not ready`, as for
+  any backend that is not running: `ready_endpoint`
+  (`canvas_extensions/backend.py`) checks that the process is still alive,
+  not only the stored `ready` state. The stored state stays `ready` until the
+  next F28 status poll reports `unhealthy` and reaps the process group
+  (`F29.backend-lifecycle-revokes`); the bullet then starts the backend
+  again, so it ends enabled and ready.
 - **Configured control origins (`F29.session-configured-control-origin`).**
   A hosted Canvas runs on its own origin, which the operator lists in
   `allow_cors_origins` or matches with `allow_cors_origin_regex`; a Canvas in
@@ -1028,12 +1026,11 @@ control-agent-server api POST /api/canvas-extensions/installed/qa-headers/backen
   (`503: Canvas App backend is not ready`). Assert on `exception`.
 - An unknown app and an installed app whose backend is stopped, starting or
   unhealthy look the same (503 not ready); the bridge never reveals which
-  apps exist. Only `state == ready` counts, and that state changes only when
-  someone calls the F28 status, stop or start routes, so a backend that
-  crashed while ready is still dialed and the bridge answers 502 (worded
-  `Conversation container unreachable`, the shared Docker-runtime proxy's
-  message) until a status poll notices: the known bug
-  `F29.backend-crash-detected`.
+  apps exist. Only `state == ready` with a live process counts. The stored
+  state changes only when someone calls the F28 status, stop or start
+  routes, but a backend that crashed while ready is not dialed in between
+  (503, `F29.backend-crash-detected`). A live backend that refuses the
+  connection answers 502 `Canvas App backend unreachable`.
 - The session is bound to the app name and to the backend's current
   loopback port: any backend restart (new port) invalidates every cookie, as
   do stop, disable, uninstall, `DELETE .../session` and a server restart
