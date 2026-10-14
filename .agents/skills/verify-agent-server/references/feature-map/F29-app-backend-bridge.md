@@ -516,9 +516,9 @@ control-agent-server api POST /api/canvas-extensions/installed/qa-headers/backen
   All five methods reach `/`; the same `Origin` and cookie rules apply. On
   `/app-backends/qa-backend/` (the form `ingress_url` uses) a `path` query
   parameter is an ordinary parameter of the backend's `/`.
-- **Root `path` parameter (`F29.proxy-root-path-query`), known bug.** The
-  root routes declare `path: str = ""` without a `{path}` segment, so FastAPI
-  binds a `path` query parameter to it.
+- **Root `path` parameter (`F29.proxy-root-path-query`).** The bare root
+  routes have no `{path}` segment and take no `path` argument, so a `path`
+  query parameter is an ordinary parameter of the backend's `/`.
   ```sh
   RP=$(control-agent-server api POST /app-backends/qa-backend/session --header 'Origin: http://localhost:3000' --expect 200 --print-header set-cookie | sed -n 's/^oh_app_backend_session=\([^;]*\);.*/\1/p')
   test -n "$RP"
@@ -528,23 +528,18 @@ control-agent-server api POST /api/canvas-extensions/installed/qa-headers/backen
     --cookie "oh_app_backend_session=$RP" --expect 200 --check path eq / --check query.path eq echo
   control-agent-server api GET /app-backends/qa-backend --query path=echo --auth none \
     --cookie "oh_app_backend_session=$RP" --expect 200 --check path eq / --check query.path eq echo \
-    --save F29.proxy-root-path-query/get  # bug: status eq 200 && response.body.path eq /echo
+    --save F29.proxy-root-path-query/get
   control-agent-server api GET /app-backends/qa-backend --query 'path=..' --auth none \
-    --cookie "oh_app_backend_session=$RP" --expect 200 --check path eq / --check query.path eq ..  # bug: status eq 400 && response.body.detail eq 'Invalid backend path'
+    --cookie "oh_app_backend_session=$RP" --expect 200 --check path eq / --check query.path eq ..
   control-agent-server ws listen /app-backends/qa-backend --query path=ws --auth none --header "Origin: $S" \
-    --header "Cookie: oh_app_backend_session=$RP" --send qa-f29-root --duration 5 --expect-close 1011 --expect-frames 0  # bug: first_frames.0.frame contains qa-f29-root
+    --header "Cookie: oh_app_backend_session=$RP" --send qa-f29-root --duration 5 --expect-close 1011 --expect-frames 0
   ```
   The controls first: the bare root with another query parameter, and the
   trailing-slash root with `?path=echo`, both reach `/` with the query
-  intact. Expected: the backend's `/` with `?path=echo` (and `?path=..`),
-  and the root WebSocket closed with 1011 and no frame, like any root
-  WebSocket (`F29.ws-bridge`). Actual: `?path=echo` is proxied to `/echo`
-  (with `?path=echo` still in the query),
-  `?path=..` is refused with 400 `Invalid backend path`, and `?path=ws`
-  bridges to the backend's `/ws` echo. Only the bare root (no trailing slash)
-  is affected: `ingress_url` ends with `/`, where `?path=` is an ordinary
-  parameter (`F29.proxy-root`), and the bound value still goes through the
-  traversal check, so the impact is limited to links that drop the slash.
+  intact. The bare root does the same: `?path=echo` and `?path=..` reach the
+  backend's `/` with the parameter in the query, and a root WebSocket with
+  `?path=ws` targets `/`, so it is closed with 1011 and no frame, like any
+  root WebSocket (`F29.ws-bridge`), instead of reaching the backend's `/ws`.
 - **Credentials stripped (`F29.proxy-credentials-stripped`).** `qa-headers`
   echoes every header it receives.
 
