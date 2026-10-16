@@ -1472,11 +1472,11 @@ Preconditions:
   `state.refresh()` when waiting for a status.
 - `executeCommand` always reports `timeout_occurred: false`; a command killed
   by its own timeout shows exit `-1` (the server sends no timeout marker), and
-  `exit_code` defaults to 0 when the server sends none. The HTTP request
+  `exit_code` is -1 when the server sends none. The HTTP request
   waits `timeout + 10` seconds.
-- `executeCommand` returns only the last `BashOutput` chunk; output beyond
-  1 MiB is split into several chunks server-side, and only `bash.searchEvents`
-  sees all of them.
+- `executeCommand` returns the server's joined output: output beyond 1 MiB
+  is stored as several chunks server-side (`bash.searchEvents` lists them),
+  and `execute_bash_command` concatenates them (`F13.execute-large-output`).
 - `RemoteWorkspace.fileDownload`, `downloadAsBlob` and `downloadAsText`
   decode the body as text (`F34.workspace-binary-download`); use
   `FileClient.downloadFile` for bytes.

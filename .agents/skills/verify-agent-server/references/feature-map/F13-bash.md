@@ -85,7 +85,7 @@ Routes: `GET /api/conversations/{runtime_conversation_id}/bash/bash_events/searc
   `stopCommand`, scoped through `conversationId`), `BashWebSocketClient`
   (query-parameter key, `resendMode: 'all'`), and
   `RemoteWorkspace.executeCommand`, which calls `execute_bash_command` and
-  so inherits `F13.execute-large-output`.
+  so gets the joined output of `F13.execute-large-output`.
 - Config: `bash_events_dir` (`OH_BASH_EVENTS_DIR`) and
   `bash_events_retention_seconds` (`OH_BASH_EVENTS_RETENTION_SECONDS`);
   `conversation_idle_ttl_seconds` closes a conversation's scoped service.
@@ -486,22 +486,21 @@ Preconditions:
   poll returns the next 100 chunks after the highest order it has seen. An
   end-to-end check (`yes a | head -c 106000000; echo QA_F13_HUGE_TAIL`)
   writes 100 MiB of event files, so it is not a recipe here.
-- **Large output through execute (`F13.execute-large-output`), known bug.**
+- **Large output through execute (`F13.execute-large-output`).**
   The synchronous route must return everything the command printed.
   ```sh
   control-agent-server api POST /api/bash/execute_bash_command \
     --json '{"command": "yes a | head -c 1100000; echo QA_F13_TAIL", "timeout": 60}' --expect 200 \
-    --check exit_code eq 0 --check stdout len-eq 1100012 --quiet --save F13.execute-large-output/execute  # bug: status eq 200 && checks.0.ok eq true && response.headers.content-length lt 1100012
+    --check exit_code eq 0 --check stdout len-eq 1100012 --quiet --save F13.execute-large-output/execute
   ```
-  Expected: `stdout` holds all 1,100,012 characters (`exit_code` 0 holds
-  either way; the length check is the one that fails). Today the response is
-  only the last chunk (`order` 1, 51,436 characters): the handler returns
-  `page.items[-1]` (`bash_router.py` `execute_bash_command`), so the TS
-  client's `RemoteWorkspace.executeCommand` and `BashClient.executeCommand`
-  silently lose the first MiB. Past 100 chunks it is worse: `items[-1]` of
-  the default 100-item page is chunk 99, so a command that printed 101 MiB
-  and ran `exit 7` comes back with `exit_code` null, which the TS
-  `RemoteWorkspace.executeCommand` turns into 0.
+  Expected: `stdout` holds all 1,100,012 characters and `exit_code` is 0.
+  The handler (`bash_router.py` `execute_bash_command`) reads every page of
+  the command's `BashOutput` events, joins stdout and stderr separately in
+  `order`, and returns the final chunk (here `order` 1) with the joined
+  text, so the TS client's `RemoteWorkspace.executeCommand` and
+  `BashClient.executeCommand` get the whole output. Past 100 chunks the
+  exit code is still the final chunk's (`exit 7` after 101 MiB reports 7),
+  never null.
 - **Timeout (`F13.timeout`).** A 30 s sleep with a 2 s timeout. The sleep
   is not the shell's last command, so `/bin/sh` forks it as a child; its
   unique duration makes that child findable with `pgrep`, which proves the
