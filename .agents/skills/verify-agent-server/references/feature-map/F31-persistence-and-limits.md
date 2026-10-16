@@ -65,8 +65,8 @@ Routes: none
   overridden by `OH_*` variables): `lease_ttl_seconds` /
   `OH_LEASE_TTL_SECONDS` (45; 0 disables leasing),
   `conversation_idle_ttl_seconds` / `OH_CONVERSATION_IDLE_TTL_SECONDS` (1200;
-  `null`, or `OH_CONVERSATION_IDLE_TTL_SECONDS_IS_NONE=1` when the file does
-  not set it, disables eviction),
+  `null`, or `OH_CONVERSATION_IDLE_TTL_SECONDS_IS_NONE=1`, disables
+  eviction),
   `max_concurrent_runs` / `OH_MAX_CONCURRENT_RUNS` (10), `OH_SECRET_KEY` (the
   cipher for secrets at rest), `TMUX_TMPDIR`, and with the Docker runtime
   only `conversation_storage_retention_days` and
@@ -574,7 +574,7 @@ Preconditions:
   ```
   With only the file, a new lease expires about 30 s ahead; with the file
   still saying 30 and the variable saying 90, about 90 s ahead.
-- **Null from the environment (`F31.config-null-override`), known bug.**
+- **Null from the environment (`F31.config-null-override`).**
   The file sets `app_backend_public_url` (reported by `/server_info` as
   `app_backend_ingress_url`, an instant view of a nullable field); a
   non-null variable replaces it, then `_IS_NONE=1` should clear it.
@@ -588,19 +588,18 @@ Preconditions:
     --env OH_APP_BACKEND_PUBLIC_URL_IS_NONE=1
   control-agent-server config | jq -e '.config_file.app_backend_public_url == "http://qa-f31-file.invalid:9" and .server_env.OH_APP_BACKEND_PUBLIC_URL_IS_NONE == "1"'
   control-agent-server api GET /server_info --auth none --check app_backend_ingress_url missing \
-    --check capabilities not-contains canvas_app_backend_bridge_v1 --save F31.config-null-override/server-info  # bug: status eq 200 && response.body.app_backend_ingress_url eq http://qa-f31-file.invalid:9
+    --check capabilities not-contains canvas_app_backend_bridge_v1 --save F31.config-null-override/server-info
   ```
   The file value is served, and a non-null variable replaces it (the
   positive controls); the config shows the file value and the `_IS_NONE`
-  variable both reached the server before the `# bug` read. Expected:
-  with `OH_APP_BACKEND_PUBLIC_URL_IS_NONE=1` the field is null and the
-  bridge capability is gone. Today the file value is still served:
-  `load_config` merges the environment over the file with
-  `env_parser.merge`, which keeps the earlier value whenever the later one
-  is `None`, so an explicit null from the environment cannot clear a file
-  value. The same applies to `conversation_idle_ttl_seconds`: with a TTL in
-  the file, `OH_CONVERSATION_IDLE_TTL_SECONDS_IS_NONE=1` does not disable
-  eviction. The next bullet resets the config.
+  variable both reached the server before the last read. With
+  `OH_APP_BACKEND_PUBLIC_URL_IS_NONE=1` the field is null and the bridge
+  capability is gone: `load_config` merges the environment over the file
+  with `merge(..., none_overrides=True)`, so an explicit null from the
+  environment clears a file value. The same applies to
+  `conversation_idle_ttl_seconds`: with a TTL in the file,
+  `OH_CONVERSATION_IDLE_TTL_SECONDS_IS_NONE=1` disables eviction. The next
+  bullet resets the config.
 - **Invalid limits stop startup (`F31.config-invalid-fails-fast`).** A
   non-numeric variable, then a limit below its minimum in the file; then the
   run is restored to its defaults.
@@ -758,9 +757,8 @@ Preconditions:
   (`max(60, ttl/2)`), and the first pass runs about 60 s after startup.
   `OH_CONVERSATION_IDLE_TTL_SECONDS=null` stops startup (`float('null')`);
   disable eviction with `null` in the file, or with
-  `OH_CONVERSATION_IDLE_TTL_SECONDS_IS_NONE=1` only when the file does not
-  set the TTL (an environment null never overrides a file value,
-  `F31.config-null-override`).
+  `OH_CONVERSATION_IDLE_TTL_SECONDS_IS_NONE=1`, which also overrides a TTL
+  the file sets (`F31.config-null-override`).
 - Creating a conversation needs a run slot, like `/run` (`F05.run-capacity`):
   with `max_concurrent_runs` slots busy, create every conversation a recipe
   needs before the first run starts.
