@@ -1394,6 +1394,14 @@ class EventService:
                     )
                     self._conversation._on_event(error_event)
 
+        # Likewise, no goal loop survives a reload: a last goal status that is
+        # still active was left by a shutdown or crash mid-loop (close() skips
+        # the status on purpose). Record it as interrupted so it reads as
+        # stopped and stays resumable.
+        await asyncio.get_running_loop().run_in_executor(
+            None, self._reconcile_stale_goal_status
+        )
+
         # Publish initial state update
         await self._publish_state_update()
 
@@ -1907,13 +1915,39 @@ class EventService:
         if conversation is None:
             return None
         with conversation._state:
-            for event in reversed(list(conversation._state.events)):
+            events = conversation._state.events
+            # Walk back lazily: the latest goal status is usually near the end,
+            # so this avoids reading the whole log from disk.
+            for i in range(len(events) - 1, -1, -1):
+                event = events[i]
                 if (
                     isinstance(event, ConversationStateUpdateEvent)
                     and event.key == "goal"
                 ):
                     return event.value if isinstance(event.value, dict) else None
         return None
+
+    def _reconcile_stale_goal_status(self) -> None:
+        """Mark a goal status persisted as active, but with no loop, interrupted."""
+        conversation = self._conversation
+        try:
+            last = self._last_goal_loop_status()
+            if conversation is None or last is None or not last.get("active"):
+                return
+            stale = GoalStatus.model_validate(last)
+        except Exception:
+            # Best effort: an unreadable log must not keep the conversation
+            # from loading.
+            logger.warning("Could not check the last goal status", exc_info=True)
+            return
+        event = ConversationStateUpdateEvent(
+            key="goal",
+            value=stale.model_copy(
+                update={"active": False, "status": "interrupted", "verdict": None}
+            ).model_dump(),
+        )
+        with conversation._state:
+            conversation._on_event(event)
 
     async def resume_goal_loop(
         self, *, judge_llm: LLM | None = None, max_iterations: int | None = None
