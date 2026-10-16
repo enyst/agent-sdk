@@ -1,5 +1,6 @@
 import asyncio
 import time
+import traceback
 from collections.abc import Mapping
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext, suppress
@@ -1566,7 +1567,14 @@ class EventService:
                         worker.add_done_callback(settle)
                         await asyncio.shield(worker)
                 except Exception as exc:
-                    logger.exception("Error during conversation run")
+                    # Log the traceback as plain text, not via exc_info: the
+                    # default Rich console handler takes seconds to render a
+                    # chained LLM error on this loop, stalling every request,
+                    # socket and run meanwhile (#5633).
+                    logger.error(
+                        "Error during conversation run\n%s",
+                        "".join(traceback.format_exception(exc)).rstrip(),
+                    )
                     # Backstop: a run that raised before reaching its own error
                     # handling (e.g. an ACP cold-start failure in init_state,
                     # which runs outside run()/arun()'s try-block) can leave the
