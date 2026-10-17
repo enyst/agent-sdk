@@ -382,10 +382,10 @@ Preconditions:
   control-agent-server api GET /api/file/search_subdirs --expect 422
   ```
   The statuses are 404, 400, 400 and 422.
-- **Paging past a case-only twin (`F14.subdirs-case-pagination`), known bug.**
-  `Foo` and `foo` with one entry per page. Which twin sorts first depends on
-  the directory's order on disk, so the recipe reads page one and expects the
-  other twin on page two.
+- **Paging past a case-only twin (`F14.subdirs-case-pagination`).**
+  `Foo` and `foo` with one entry per page. Ties sort by the exact name, so
+  `Foo` comes first; the recipe still reads page one and expects the other
+  twin on page two.
   ```sh
   CASE_DIR="$F/case"
   mkdir -p "$CASE_DIR/Foo" "$CASE_DIR/foo"
@@ -397,13 +397,12 @@ Preconditions:
   test "$CASE_FIRST" = Foo -o "$CASE_FIRST" = foo
   control-agent-server api GET /api/file/search_subdirs --query path="$CASE_DIR" --query limit=1 --query page_id="$CASE_NEXT" \
     --expect 200 --check items len-eq 1 --check items.0.name eq "$CASE_OTHER" --check next_page_id missing \
-    --save F14.subdirs-case-pagination/page-2  # bug: status eq 200 && response.body.next_page_id eq foo && checks.1.ok eq false
+    --save F14.subdirs-case-pagination/page-2
   ```
-  Page one holds one twin and a cursor. Expected: page two holds exactly the
-  other twin and no cursor. Actual: the cursor is `foo`, the lowercase name,
-  and resuming picks the first entry whose lowercase name matches, which is
-  the first page's entry again, with `next_page_id` `foo` again. A client
-  that follows the cursor loops forever.
+  Page one holds one twin and a cursor. Page two holds exactly the other twin
+  and no cursor: ties in the case-insensitive order break by the exact name,
+  and the cursor is the exact name of the next entry, so it tells the twins
+  apart.
 - **tar.gz archive (`F14.archive-tar`).** Archive the fixture repo, then a
   plain tree whose symlinks point inside and outside it.
 
@@ -875,8 +874,9 @@ Preconditions:
 - Scoped path checks happen in a router dependency: relative and outside paths
   are 422 there, while the same relative path on a global route is 400.
   `home` and `search_subdirs` have no scoped variant.
-- `search_subdirs`' cursor is the lowercase name of the next entry; an unknown
-  `page_id` silently restarts at the first page, and case-only twins loop
+- `search_subdirs`' cursor is the exact name of the next entry (a lowercase
+  cursor still resumes case-insensitively); an unknown `page_id` silently
+  restarts at the first page. Case-only twins page apart
   (`F14.subdirs-case-pagination`). `home` lists at most 50 favorites, with no
   pagination. 403 (`Permission denied`) cannot be reproduced as root.
 - `F14.home` counts favorites exactly: it relies on the launcher's private
