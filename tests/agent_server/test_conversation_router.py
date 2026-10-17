@@ -3075,6 +3075,38 @@ def test_start_conversation_client_tool_registration_error_returns_422(
         client.app.dependency_overrides.clear()
 
 
+def test_start_conversation_unavailable_agent_tool_returns_422(
+    client, mock_conversation_service
+):
+    """An agent tool whose module the server cannot import yields 422, not 500."""
+    from openhands.agent_server.conversation_service import UnavailableAgentTool
+
+    mock_conversation_service.start_conversation.side_effect = UnavailableAgentTool(
+        "The agent uses tools whose modules the agent server cannot import: "
+        "'qa_ghost_tool' (qa_ghost: No module named 'qa_ghost')"
+    )
+    client.app.dependency_overrides[get_conversation_service] = lambda: (
+        mock_conversation_service
+    )
+    request = StartConversationRequest(
+        agent=Agent(
+            llm=LLM(model="gpt-4o", api_key=SecretStr("test-key"), usage_id="t"),
+            tools=[],
+        ),
+        workspace=LocalWorkspace(working_dir="/tmp/test"),
+    )
+
+    try:
+        response = client.post(
+            "/api/conversations", json=request.model_dump(mode="json")
+        )
+
+        assert response.status_code == 422
+        assert "'qa_ghost_tool'" in response.json()["detail"]
+    finally:
+        client.app.dependency_overrides.clear()
+
+
 @pytest.mark.parametrize("method,suffix", [("get", ""), ("post", "/reprovision")])
 def test_runtime_requires_existing_conversation(
     client, mock_conversation_service, method, suffix

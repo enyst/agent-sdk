@@ -26,6 +26,7 @@ from openhands.agent_server.conversation_registry import ConversationRegistry
 from openhands.agent_server.conversation_service import (
     ConversationService,
     InvalidParentConversation,
+    UnavailableAgentTool,
 )
 from openhands.agent_server.dependencies import get_conversation_service
 from openhands.agent_server.launch import launch_http_exception
@@ -345,7 +346,7 @@ async def start_conversation(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
         ) from e
-    except InvalidParentConversation as e:
+    except (InvalidParentConversation, UnavailableAgentTool) as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
         ) from e
