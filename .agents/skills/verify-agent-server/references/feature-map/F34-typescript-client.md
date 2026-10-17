@@ -474,14 +474,12 @@ Preconditions:
   fixture's own path, outside the conversation workspace). Both methods wrap a refusal in a plain `Error` (`Failed to get git changes:
   ...`) whose `cause` is the `HttpError`: 422 for a path outside the
   conversation workspace, 401 without a key. REST agrees.
-- **Git status type (`F34.workspace-git-types`), known bug.** The exported
-  `GitChange` type declares `status: 'added' | 'modified' | 'deleted' |
-  'renamed'` (`clients/typescript/src/models/workspace.ts:31`), while the
-  server and the client's own generated contract (`GitChangeStatus`) use
-  `'MOVED' | 'ADDED' | 'DELETED' | 'UPDATED'`, so a TypeScript consumer's
-  `change.status === 'modified'` compiles and never matches. The program
-  writes what `gitChanges` returned into three tiny `.mts` files and the
-  client's own `tsc` type-checks them: the statuses against the generated
+- **Git status type (`F34.workspace-git-types`).** The exported `GitChange`
+  types `status` as the generated contract's `GitChangeStatus`
+  (`'MOVED' | 'ADDED' | 'DELETED' | 'UPDATED'`), the values the server
+  sends, so a TypeScript consumer compares against the wire values. The
+  program writes what `gitChanges` returned into three tiny `.mts` files and
+  the client's own `tsc` type-checks them: the statuses against the generated
   contract and the paths against the exported `GitChange` (positive
   controls: the same compiler, flags and import resolve), then the statuses
   against the exported `GitChange`.
@@ -507,11 +505,10 @@ Preconditions:
   TSC="node clients/typescript/node_modules/typescript/bin/tsc --noEmit --strict --skipLibCheck --module nodenext --moduleResolution nodenext --target es2022"
   $TSC "$F34/git-contract.mts"
   $TSC "$F34/git-paths.mts"
-  $TSC "$F34/git-types.mts" | control-agent-server assert --check . eq ''  # bug: value matches 'TS2322: Type ..UPDATED.. is not assignable'
+  $TSC "$F34/git-types.mts" | control-agent-server assert --check . eq ''
   ```
-  Expected: both files type-check. Today the contract file compiles and
-  the exported type fails with `Type '"UPDATED"' is not assignable to type
-  '"added" | "modified" | "deleted" | "renamed"'`.
+  Expected: all three files type-check, the statuses against both the
+  generated contract and the exported `GitChange`.
 - **Bash client (`F34.bash-client`).** Background command, lookups, stop and
   clear, with the socket and the REST history as second views.
   ```sh
@@ -1480,10 +1477,9 @@ Preconditions:
 - `RemoteWorkspace.fileDownload`, `downloadAsBlob` and `downloadAsText`
   decode the body as text (`F34.workspace-binary-download`); use
   `FileClient.downloadFile` for bytes.
-- `GitChange` (main entry) types `status` as lowercase
-  `added|modified|deleted|renamed`, but the server sends
-  `UPDATED|ADDED|DELETED|MOVED` (`F34.workspace-git-types`); compare against
-  the server's values, typed with the generated `GitChangeStatus`.
+- `GitChange['status']` (main entry, also exported as `GitChangeStatus`) is
+  the server's `UPDATED|ADDED|DELETED|MOVED`, not lowercase words
+  (`F34.workspace-git-types`).
   `gitChanges` and `gitDiff` wrap every refusal in a plain `Error`, so read
   the status from `isHttpError(e.cause)`, not from `e`.
 - The `kind` filter of `RemoteEventsList.search` and `count` needs the
