@@ -284,13 +284,12 @@ async def get_conversation_agent_final_response(
 @conversation_router.get("")
 async def batch_get_conversations(
     request: Request,
-    ids: Annotated[list[UUID], Query()],
+    ids: Annotated[list[UUID], Query(max_length=99)],
     include_skills: Annotated[bool, Query(title=INCLUDE_SKILLS_PARAM_TITLE)] = False,
     conversation_service: ConversationService = Depends(get_conversation_service),
 ) -> list[ConversationInfo | None]:
-    """Get a batch of conversations given their ids, returning null for
-    any missing item"""
-    assert len(ids) < 100
+    """Get a batch of up to 99 conversations given their ids, returning null
+    for any missing item"""
     conversations = await conversation_service.batch_get_conversations(ids)
     conversations = [
         _with_runtime_info(request, conversation) if conversation is not None else None

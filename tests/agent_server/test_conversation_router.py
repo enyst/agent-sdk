@@ -492,18 +492,28 @@ def test_batch_get_conversations_too_many_ids(client, mock_conversation_service)
     )
 
     try:
-        # The assertion is len(ids) < 100, so 100 should fail with AssertionError
+        # 100 ids exceed the 99-id limit: a 422 naming the limit, not a 500
         many_ids = [str(uuid4()) for _ in range(100)]
-        with pytest.raises(AssertionError):
-            response = client.get("/api/conversations", params={"ids": many_ids})
+        response = client.get("/api/conversations", params={"ids": many_ids})
+        assert response.status_code == 422
+        assert "at most 99 items" in response.text
+        mock_conversation_service.batch_get_conversations.assert_not_called()
 
         # Test with 99 IDs (should work)
         mock_conversation_service.batch_get_conversations.return_value = [None] * 99
         valid_ids = [str(uuid4()) for _ in range(99)]
         response = client.get("/api/conversations", params={"ids": valid_ids})
         assert response.status_code == 200
+        assert response.json() == [None] * 99
     finally:
         client.app.dependency_overrides.clear()
+
+
+def test_batch_get_conversations_openapi_declares_id_limit(client):
+    """The 99-id limit is part of the published schema, not only enforced."""
+    operation = client.app.openapi()["paths"]["/api/conversations"]["get"]
+    ids_param = next(p for p in operation["parameters"] if p["name"] == "ids")
+    assert ids_param["schema"]["maxItems"] == 99
 
 
 def test_batch_get_conversations_invalid_uuid(client, mock_conversation_service):
