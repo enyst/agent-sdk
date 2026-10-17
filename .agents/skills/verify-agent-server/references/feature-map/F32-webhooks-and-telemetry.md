@@ -49,7 +49,7 @@ Routes: none
 - `F32.telemetry-conversation`: a run emits `conversation_created` and `conversation_finished` under the request's `user_id`, with a pseudonymous `conversation_ref` and without the prompt or the conversation id.
 - `F32.telemetry-request-failed`: an unhandled 500 emits `request_failed` with the route template (never the concrete path), the exception class and the response's `error_id`, attributed to `X-OpenHands-Telemetry-Distinct-Id`, without the exception message.
 - `F32.telemetry-conversation-failed`: a run that ends in `error` emits `conversation_failed` (`terminal_status` `error`) and `conversation_error` with the error code as `error_class`, without the error's detail text.
-- `F32.telemetry-usage-buckets`: `conversation_finished` reports token and cost buckets from the run's real usage (reproduces a real gap; see Gotchas).
+- `F32.telemetry-usage-buckets`: `conversation_finished` reports token and cost buckets from the run's real usage.
 - `F32.telemetry-consent-settings`: granting or denying consent with `PATCH /api/settings` `misc_settings_diff` starts or stops delivery immediately, and persisted consent enables telemetry after a restart.
 - `F32.telemetry-env-override`: `OH_TELEMETRY_CONSENT=denied` with `OH_TELEMETRY_CONSENT_MODE=override` beats a granted setting.
 - `F32.telemetry-kill-switch`: `DO_NOT_TRACK=1` beats every consent source.
@@ -444,6 +444,8 @@ Preconditions:
   The next bullet is the positive control on the same endpoint.
 - **Server lifecycle events (`F32.telemetry-lifecycle`).** Seed consent from
   the environment and add a token.
+
+  Requires: `F32.telemetry-off-by-default`
   ```sh
   control-agent-server restart --env OH_TELEMETRY_CONSENT=granted --env OH_TELEMETRY_HTTP_TOKEN=qa-f32-token
   control-agent-server logs --grep 'enabled=True \(env_seed\)' --expect-min 1
@@ -459,6 +461,8 @@ Preconditions:
   own `server_started`.
 - **Conversation telemetry is sanitized (`F32.telemetry-conversation`).** A
   real run with a `user_id`, an automation tag and a marker in the prompt.
+
+  Requires: `F32.telemetry-lifecycle`
   ```sh
   UCID=$(control-agent-server conversation start --tools none --no-autotitle --prompt 'Reply with exactly: ok QA_F32_PRIVATE' --body-json '{"user_id": "qa-f32-user"}' --tag automationid=qa-f32 --wait --print-id)
   control-agent-server sink read --name qa-f32-telemetry --contains '"event": "agent_server.conversation_finished", "distinct_id": "qa-f32-user"' --expect-min 1 --expect-max 1 --wait 15 --save F32.telemetry-conversation/finished
@@ -501,18 +505,17 @@ Preconditions:
   `ValueError`; neither the conversation id nor the exception text (which
   the server log shows) reached the endpoint. If the condense route stops answering 500, find another
   unhandled exception: an `HTTPException` 5xx is not reported.
-- **Token and cost buckets from real usage (`F32.telemetry-usage-buckets`), known bug.**
+- **Token and cost buckets from real usage (`F32.telemetry-usage-buckets`).**
   The run above used tokens; its outcome event should say so.
 
   Requires: `F32.telemetry-conversation`
   ```sh
   control-agent-server api GET "/api/conversations/$UCID" --check stats.usage_to_metrics.default.accumulated_token_usage.prompt_tokens gt 0
   control-agent-server sink read --name qa-f32-telemetry --contains '"total_tokens_bucket": "' --expect-min 1
-  control-agent-server sink read --name qa-f32-telemetry --contains '"total_tokens_bucket": "unknown"' --expect-max 0 --save F32.telemetry-usage-buckets/outcome  # bug: requests ge 1
+  control-agent-server sink read --name qa-f32-telemetry --contains '"total_tokens_bucket": "unknown"' --expect-max 0 --save F32.telemetry-usage-buckets/outcome
   ```
-  Expected: a token bucket such as `1000-10000`. Actual: `unknown` (and
-  `cost_bucket` `unknown`), although the conversation's stats hold the
-  tokens. See Gotchas.
+  The outcome carries a token bucket such as `1000-10000` and a
+  `cost_bucket` other than `unknown`, from the conversation's stats.
 - **Failed runs (`F32.telemetry-conversation-failed`).** The same
   unreachable model, this time with a run, so the conversation ends in
   `error` without a model call. The stored `ConversationErrorEvent` is the
@@ -796,12 +799,11 @@ Preconditions:
   emitted start. The anonymous `distinct_id` (`anon:<hex>`) is per process;
   a request's `user_id` passes through verbatim.
 - **Usage buckets (`F32.telemetry-usage-buckets`).** The subscriber emits
-  the outcome on the first terminal status it sees. A live run publishes
-  the `execution_status` update (a bare string) before its final
-  `full_state` snapshot, so `_capture_usage` never sees `stats` and
-  `total_tokens_bucket` and `cost_bucket` are always `unknown`.
-  `test_outcome_reports_real_bucketed_usage` only feeds `full_state`
-  snapshots, so it passes. Low severity (analytics quality).
+  the outcome on the first terminal status it sees, which in a live run is
+  the bare-string `execution_status` update, published before the final
+  `full_state` snapshot. Usage therefore comes from the `stats` updates
+  `EventService` publishes after each LLM call (and from any `full_state`
+  snapshot); the outcome buckets the latest totals.
 - **`deferred_init` label (`F32.deferred-init-flag`).**
   `_build_initialized_config` sets `deferred_init=False` and `/api/init`
   builds the telemetry sink, runtime properties included, from that merged
