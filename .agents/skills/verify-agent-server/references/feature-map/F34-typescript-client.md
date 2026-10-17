@@ -973,12 +973,12 @@ Preconditions:
   input order with `null` for the unknown id, the loaded conversation carries
   its server working directory, and the created conversation is gone after
   the delete (404, count back to `COUNT`).
-- **Update result (`F34.manager-update-result`), known bug.** `PATCH
+- **Update result (`F34.manager-update-result`).** `PATCH
   /api/conversations/{id}` answers `Success` (`{"success": true}`, also in
-  the client's generated contract), but `ConversationManager.updateConversation`
-  and `ConversationClient.updateConversation` are typed to resolve with the
-  updated `ConversationInfo` (`clients/typescript/src/conversation/conversation-manager.ts:384`,
-  `clients/typescript/src/client/conversation-client.ts:430`).
+  the client's generated contract), so `ConversationManager.updateConversation`
+  and `ConversationClient.updateConversation` read the conversation back
+  after the PATCH and resolve with the updated `ConversationInfo` they are
+  typed to return.
   The program checks that the title was stored (positive control, also
   through REST) and records what the call resolved with.
   ```sh
@@ -995,11 +995,10 @@ Preconditions:
   control-agent-server exec --timeout 60 --expect-output QA_F34_UPDATE_READ --save F34.manager-update-result/program -- node "$F34/update.mjs" "$SCID"
   control-agent-server api GET "/api/conversations/$SCID" --max-chars 300 --check title eq qa-f34-renamed
   cat "$F34/update.json"
-  control-agent-server assert --json "$F34/update.json" --check id eq "$SCID" --check title eq qa-f34-renamed  # bug: value.success eq true && value.id missing
+  control-agent-server assert --json "$F34/update.json" --check id eq "$SCID" --check title eq qa-f34-renamed
   ```
   Expected: the stored title and a `ConversationInfo` with the conversation's
-  `id` and new title. Today the title is stored but the promise resolves with
-  `{success: true}`, so `result.id` and `result.title` are `undefined`.
+  `id` and new title.
 - **Create options (`F34.manager-create-options`), known bug.**
   `ConversationManager.createConversation` hands `maxIterations` and
   `stuckDetection` to the `RemoteConversation` constructor, which ignores
@@ -1491,9 +1490,9 @@ Preconditions:
   agent field) can be passed directly; without `tools` the server agent has
   none. `RemoteConversation.start()` sends `max_iterations` 500 and
   `stuck_detection: true` unless told otherwise.
-- `updateConversation` resolves with `{success: true}`, not the conversation
-  (`F34.manager-update-result`); read the conversation back with
-  `getConversation`.
+- `PATCH /api/conversations/{id}` answers only `{success: true}`;
+  `updateConversation` reads the conversation back with a second `GET`
+  (`F34.manager-update-result`).
 - The version gate only reads `version` from `/server_info`; a server
   reporting `unknown` (a build without package metadata) fails every gated
   call. `F34.version-gate-old` needs PyPI (or a cached `uvx` environment) for
