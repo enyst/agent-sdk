@@ -2587,15 +2587,20 @@ class WebhookSubscriber(Subscriber):
         default_factory=lambda: asyncio.sleep, init=False
     )
 
+    def _buffer_full(self) -> bool:
+        return (
+            len(self.queue) >= self.spec.event_buffer_size
+            or self._queue_bytes >= self.spec.max_batch_bytes
+        )
+
     async def __call__(self, event: Event):
         """Add event to queue and post to webhook when buffer size is reached."""
         self._enqueue(event)
 
-        if (
-            len(self.queue) >= self.spec.event_buffer_size
-            or self._queue_bytes >= self.spec.max_batch_bytes
-        ):
+        if self._buffer_full():
             if self._post_lock.locked():
+                # The in-flight _post_events re-checks the buffer when it is
+                # done; the timer covers a failed post.
                 self._start_flush_timer()
                 return
             # Cancel timer since we're flushing due to buffer size
@@ -2625,6 +2630,12 @@ class WebhookSubscriber(Subscriber):
                     self._requeue(events_to_post)
                     return
                 events_remaining -= len(events_to_post)
+                if not events_remaining and self._buffer_full():
+                    # Events published during the POST filled the buffer again.
+                    events_remaining = len(self.queue)
+            # A timer started during the POST has nothing left to flush.
+            if not self.queue and self._flush_timer is not asyncio.current_task():
+                self._cancel_flush_timer()
 
     async def _post_batch(self, event_data: list[dict[str, Any]]) -> bool:
         """Post one serialized batch with retry logic."""

@@ -35,7 +35,7 @@ Routes: none
 - `F32.conversation-lifecycle`: pausing, interrupting, updating and deleting a conversation each POST its info again (`paused`, `paused`, the new title, `deleting`).
 - `F32.custom-headers`: a webhook's `headers` and a `base_url` path prefix apply to both event and conversation posts.
 - `F32.buffer-size`: once `event_buffer_size` events are queued they are posted at once, without waiting for `flush_delay`.
-- `F32.buffer-stranded`: events that arrive while a batch is in flight are posted as soon as the buffer is full again, not held until `flush_delay` (reproduces a real delay; see Gotchas).
+- `F32.buffer-stranded`: events that arrive while a batch is in flight are posted as soon as the buffer is full again, not held until `flush_delay` (see Gotchas).
 - `F32.flush-delay`: a partial buffer is posted `flush_delay` seconds after its first event; later events do not restart the timer.
 - `F32.webhook-spec-docs`: the `WebhookSpec` field descriptions published in the OpenAPI schema (the item type of `POST /api/init`'s `webhooks`) state the real event path and flush timer (reproduces a documentation bug; see Gotchas).
 - `F32.flush-on-close`: deleting a conversation posts its queued events before the `DELETE` returns, and a graceful server stop posts every conversation's queue.
@@ -234,30 +234,26 @@ Preconditions:
   `SystemPromptEvent`) was posted within seconds although the timer is
   600 s. Both the event batch and the conversation post went under
   `/qa-f32-b/` with `X-QA-F32` (plus the session key).
-- **Events stranded behind an in-flight batch (`F32.buffer-stranded`), known bug.**
+- **Events published during an in-flight batch (`F32.buffer-stranded`).**
   Same conversation: the message and its `last_user_message_id` update were
   published while that first batch was being posted, so the buffer (2) is
-  full again and they should be posted at once. The stored events come
-  first, so the bullet can only fail on the delivery.
+  full again and they are posted as soon as that POST returns. The stored
+  events come first, so the bullet can only fail on the delivery.
 
   Requires: `F32.custom-headers`
   ```sh
   control-agent-server conversation events "$BID" --kinds MessageEvent --contains QA_F32_BUFFER --expect-count 1
   control-agent-server conversation events "$BID" --key last_user_message_id --expect-count 1
-  control-agent-server sink read --path "/qa-f32-b/events/${BID//-/}" --expect-min 1 --expect-max 1
-  control-agent-server sink read --path "/qa-f32-b/events/${BID//-/}" --contains QA_F32_BUFFER --expect-min 1 --wait 10 --save F32.buffer-stranded/after-wait  # bug: requests eq 0
+  control-agent-server sink read --path "/qa-f32-b/events/${BID//-/}" --contains QA_F32_BUFFER --expect-min 1 --wait 10 --save F32.buffer-stranded/after-wait
   ```
-  The message and its update are stored, and only the first batch was
-  posted. Expected: the user message reaches the sink within 10 s. Actual:
-  it stays queued until the 600 s timer, the next burst of events, or the
-  conversation's close (the restart in `F32.flush-on-close` delivers it).
-  See Gotchas.
+  The message and its update are stored, and the user message reached the
+  sink within 10 s in a second batch, without waiting for the 600 s timer,
+  the next burst of events, or the conversation's close. See Gotchas.
 - **Flush on delete and on shutdown (`F32.flush-on-close`).**
   Restart with `event_buffer_size` 100 and a 600 s timer, so nothing is
   posted unless the conversation closes. The `sleep` gives a wrongly short
   timer the chance to fire (the server's timer is under test). Both restarts
-  are shutdowns under test: the first one's graceful stop delivers the
-  previous bullet's stranded message (late, not lost).
+  are shutdowns under test.
 
   Requires: `F32.custom-headers`
   ```sh
@@ -274,7 +270,8 @@ Preconditions:
   control-agent-server sink read --path "/qa-f32-c/events/${ZID//-/}" --contains QA_F32_SHUTDOWN --expect-min 1 --save F32.flush-on-close/after-restart
   control-agent-server api GET "/api/conversations/$ZID" --expect 200
   ```
-  The first restart delivered `QA_F32_BUFFER` to `/qa-f32-b/`. Nothing was
+  `QA_F32_BUFFER` is at `/qa-f32-b/` after the first restart (already
+  posted by `F32.buffer-stranded`, or by that graceful stop). Nothing was
   posted for either new conversation after 2 s; the `DELETE` returned only
   after the queued events (snapshot, system prompt, message and its
   `last_user_message_id` update) were posted in one batch, and the graceful
@@ -716,19 +713,17 @@ Preconditions:
   while mapping this family, a `last_user_message_id` update was posted
   before the `MessageEvent` it names, although the event store (and
   `timestamp`) has the message first.
-- **Stranded events (`F32.buffer-stranded`).** When the buffer fills, the
-  batch is posted inline while `_post_lock` is held; an event published
-  during that POST only starts the flush timer (`if
-  self._post_lock.locked(): self._start_flush_timer(); return`), and
-  `_post_events` only drains what was queued when it started. So events
-  that arrive during an in-flight POST wait for `flush_delay` (30 s by
-  default), the next burst, or the conversation's close, although the
-  buffer is full. They are late, not lost. It happens on every
-  conversation's first message: the `SystemPromptEvent` fills a buffer of
-  2 and the message and its `last_user_message_id` update are published
-  during that POST. The unit test
-  `test_concurrent_event_delivery_has_one_request_in_flight` calls
-  `close()` before counting, which hides it. Low severity (latency).
+- **Events during an in-flight POST (`F32.buffer-stranded`).** When the
+  buffer fills, the batch is posted inline while `_post_lock` is held; an
+  event published during that POST only starts the flush timer and returns.
+  `_post_events` re-checks the buffer after it has drained what was queued
+  when it started, and keeps posting while it is full again, so those events
+  go out right after the in-flight POST instead of after `flush_delay`. The
+  timer still covers a failed POST and a buffer that is not full, and is
+  cancelled when the queue drains. It shows
+  on every conversation's first message: the `SystemPromptEvent` fills a
+  buffer of 2 and the message and its `last_user_message_id` update are
+  published during that POST.
 - **Slow receiver (`F32.slow-receiver`).** With a full buffer the POST runs
   inside the fan-out of that event, so its publish future stays pending
   while the receiver is slow (httpx timeout 30 s per attempt, plus
