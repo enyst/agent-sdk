@@ -2257,15 +2257,17 @@ class EventService:
         )
 
     def _get_agent_final_response_sync(self) -> str:
-        """Extract the agent's final response from the conversation events.
+        """Extract the agent's final response from the active branch.
 
+        Only the active branch counts: after ``navigate`` moves HEAD back, an
+        answer on the abandoned branch is not the conversation's response.
         Reads directly from the EventLog without acquiring the state lock.
         EventLog reads are safe without the FIFOLock because events are
         append-only and immutable once written.
         """
         if not self._conversation:
             raise ValueError("inactive_service")
-        return get_agent_final_response(self._conversation._state.events)
+        return get_agent_final_response(self._conversation._state.active_branch())
 
     async def get_agent_final_response(self) -> str:
         """Extract the agent's final response from the conversation events.
