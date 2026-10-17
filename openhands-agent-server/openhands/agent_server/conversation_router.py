@@ -760,7 +760,7 @@ async def ask_agent(
     """Ask the agent a simple question without affecting conversation state."""
     response = await conversation_service.ask_agent(conversation_id, request.question)
     if response is None:
-        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR)
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Conversation not found")
     return AskAgentResponse(response=response)
 
 

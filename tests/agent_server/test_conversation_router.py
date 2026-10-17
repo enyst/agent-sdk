@@ -3012,6 +3012,28 @@ def test_navigate_conversation_success(
         client.app.dependency_overrides.clear()
 
 
+def test_ask_agent_unknown_conversation_returns_404(
+    client, mock_conversation_service, sample_conversation_id
+):
+    """ask_agent returns 404, not 500, when the conversation does not exist."""
+    mock_conversation_service.ask_agent.return_value = None
+
+    client.app.dependency_overrides[get_conversation_service] = lambda: (
+        mock_conversation_service
+    )
+
+    try:
+        response = client.post(
+            f"/api/conversations/{sample_conversation_id}/ask_agent",
+            json={"question": "hi"},
+        )
+
+        assert response.status_code == 404
+        assert response.json()["detail"] == "Conversation not found"
+    finally:
+        client.app.dependency_overrides.clear()
+
+
 @pytest.mark.parametrize("failure_mode", ["missing_conversation", "unknown_event"])
 def test_navigate_conversation_returns_404(
     client, mock_conversation_service, sample_conversation_id, failure_mode
