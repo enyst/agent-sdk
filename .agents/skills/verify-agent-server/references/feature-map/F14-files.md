@@ -32,7 +32,7 @@ Routes: `GET /api/file/home`, `GET /api/file/search_subdirs`,
 - `F14.upload-download`: a multipart upload creates missing parent directories, a download returns byte-identical bytes as an `application/octet-stream` attachment named after the basename, and a second upload to the same path replaces the content.
 - `F14.upload-errors`: an upload without the `file` part or without `path` is 422, and a relative `path` is 400 `Path must be absolute`.
 - `F14.upload-onto-directory`: uploading onto an existing directory, or to a path whose parent is a file, is a client error (400), as `create_directory` answers for the same collisions.
-- `F14.upload-size`: the SDK's `RemoteWorkspace.file_upload` and the TypeScript `RemoteWorkspace.fileUpload` report the uploaded `file_size`, as `LocalWorkspace.file_upload` does; today the server sends only `{"success": true}` and both report no size.
+- `F14.upload-size`: the SDK's `RemoteWorkspace.file_upload` and the TypeScript `RemoteWorkspace.fileUpload` report the uploaded `file_size`, as `LocalWorkspace.file_upload` does; the upload response carries it as `{"success": true, "file_size": N}`.
 - `F14.upload-atomic`: an overwrite that fails mid-write leaves the previous file intact; today the target is truncated before streaming and keeps a partial file.
 - `F14.download-errors`: downloading a missing file is 404 `File not found`, a directory 400 `Path is not a file`, a relative path 400.
 - `F14.mkdir`: `create_directory` creates missing parents, is idempotent and keeps existing contents, the new directory is listed by `search_subdirs`, and a path that is or runs through a file is 400.
@@ -202,7 +202,7 @@ Preconditions:
   Uploading onto an existing directory is 400 `Path is a directory`, and a path
   whose parent is a file (`$F/v2.txt/child`) is 400 `A parent of the path is
   not a directory`; neither touches what is already there.
-- **Upload size in the consumers' result (`F14.upload-size`), known bug.**
+- **Upload size in the consumers' result (`F14.upload-size`).**
   The same 70 kB blob through `LocalWorkspace.file_upload` (the contract the
   remote workspaces mirror), the SDK's `RemoteWorkspace.file_upload` and the
   TypeScript client's `RemoteWorkspace.fileUpload`; each program checks the
@@ -251,16 +251,15 @@ Preconditions:
   control-agent-server exec --expect-output SDK_UPLOAD_OK --save F14.upload-size/sdk -- .venv/bin/python "$F/sdk_size.py" "$F"
   control-agent-server exec --expect-output TS_UPLOAD_OK --save F14.upload-size/ts -- node "$F/ts_size.mjs" "$F"
   control-agent-server api POST /api/file/upload --query path="$F/size/rest.bin" --file file="$F/blob.bin" --expect 200 \
-    --check success eq true --save F14.upload-size/rest
-  control-agent-server assert --value "$(cat "$F/sdk-size.txt")" --check . eq 70000  # bug: value eq None
-  control-agent-server assert --value "$(cat "$F/ts-size.txt")" --check . eq 70000  # bug: value eq undefined
+    --check success eq true --check file_size eq 70000 --save F14.upload-size/rest
+  control-agent-server assert --value "$(cat "$F/sdk-size.txt")" --check . eq 70000
+  control-agent-server assert --value "$(cat "$F/ts-size.txt")" --check . eq 70000
   ```
-  Expected: both remote workspaces report `file_size` 70000, as
-  `LocalWorkspace` does. Actual: every upload lands intact, but the server
-  answers only `{"success": true}` and both clients copy a `file_size` that is
-  never sent: the SDK reports `None`, the TypeScript client `undefined` (its
-  `write_file` tool then says `Successfully wrote undefined bytes`). Either
-  fix (the server sends the size, or the clients compute it) passes.
+  Expected: every upload lands intact, the server answers
+  `{"success": true, "file_size": 70000}` (the bytes it wrote), and both
+  remote workspaces copy that `file_size` into their result, as
+  `LocalWorkspace` reports it (the TypeScript `write_file` tool then says
+  `Successfully wrote 70000 bytes`).
 - **Failed overwrite (`F14.upload-atomic`), known bug.** A second server
   (stopped by the trap) has its file-size limit lowered to 500 kB with
   `prlimit`, the way a full disk or a quota fails a write mid-stream, while a
@@ -861,9 +860,9 @@ Preconditions:
 ## Gotchas
 
 - The upload destination is the `path` query parameter, not a form field, and
-  the multipart field must be named `file`. The response is only
-  `{"success": true}`; the SDK and TypeScript consumers read a `file_size`
-  that is never sent (`F14.upload-size`).
+  the multipart field must be named `file`. The response is
+  `{"success": true, "file_size": N}`, the bytes written; the SDK and
+  TypeScript consumers report that `file_size` (`F14.upload-size`).
 - Upload truncates the target before streaming, so a failed upload can leave
   a partial file; it is not atomic (`F14.upload-atomic`). That recipe lowers
   the second server's `RLIMIT_FSIZE` with `prlimit` (util-linux, Linux only);
