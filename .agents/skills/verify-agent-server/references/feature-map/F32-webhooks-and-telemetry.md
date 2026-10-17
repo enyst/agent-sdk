@@ -54,7 +54,7 @@ Routes: none
 - `F32.telemetry-env-override`: `OH_TELEMETRY_CONSENT=denied` with `OH_TELEMETRY_CONSENT_MODE=override` beats a granted setting.
 - `F32.telemetry-kill-switch`: `DO_NOT_TRACK=1` beats every consent source.
 - `F32.telemetry-salt-and-kind`: without a salt `conversation_ref` is keyed by `OH_SECRET_KEY` (the same ref across restarts); `OH_TELEMETRY_SALT` re-keys it (again the same across restarts), and `OH_TELEMETRY_DEPLOYMENT_KIND` tags every event.
-- `F32.telemetry-salt-docs`: the `TelemetrySpec.salt` description published in the OpenAPI schema states the real fallback key (reproduces a documentation bug; see Gotchas).
+- `F32.telemetry-salt-docs`: the `TelemetrySpec.salt` description published in the OpenAPI schema states the real fallback key (the secret key).
 - `F32.deferred-init`: a dormant pod sends nothing until `POST /api/init` delivers `telemetry` and `webhooks`; then `server_started`, conversation telemetry and webhooks flow.
 - `F32.deferred-init-flag`: events from an initialized deferred pod report `deferred_init: true` (reproduces a real mislabel; see Gotchas).
 
@@ -637,22 +637,20 @@ Preconditions:
   on, every event is `remote` (both `server_started` events and the
   `server_stopped` between them, and the conversation errors) and no new
   `local` one arrived. The variables stay set for the rest of the run.
-- **Salt description (`F32.telemetry-salt-docs`), known bug.** The
+- **Salt description (`F32.telemetry-salt-docs`).** The
   `TelemetrySpec` schema (the type of `POST /api/init`'s `telemetry`)
-  should describe the fallback the previous bullet proved: without a salt
+  describes the fallback the previous bullet proved: without a salt
   the server keys pseudonyms with its secret key.
   ```sh
   control-agent-server api GET /openapi.json --auth none --quiet --check 'components.schemas.InitRequest.properties.telemetry.anyOf.0.$ref' eq '#/components/schemas/TelemetrySpec' --check components.schemas.TelemetrySpec.properties.salt.description exists
-  control-agent-server api GET /openapi.json --auth none --quiet --check components.schemas.TelemetrySpec.properties.salt.description matches '(?i)secret'  # bug: status eq 200 && checks.0.actual contains 'per-process random salt'
+  control-agent-server api GET /openapi.json --auth none --quiet --check components.schemas.TelemetrySpec.properties.salt.description matches '(?i)secret'
   ```
-  Expected: the description names the secret-key fallback. Actual: "Falls
-  back to a per-process random salt, which keeps pseudonyms stable within a
-  run but unlinkable across runs", while `build_telemetry_sink` falls back
-  to `OH_SECRET_KEY` first (a random salt only when there is no secret key
-  either), so refs are linkable across restarts. If the code changes to
-  match the description instead, the secret-key ref check of
-  `F32.telemetry-salt-and-kind` fails and both bullets need updating. See
-  Gotchas.
+  The description names the secret-key fallback (`OH_SECRET_KEY`, which
+  defaults to the first session API key) and says the refs are then
+  linkable across restarts; a random per-process key is only the last
+  resort, when there is no secret key either. If the code ever changes to
+  the random fallback, the secret-key ref check of
+  `F32.telemetry-salt-and-kind` fails and both bullets need updating.
 - **Deferred pod gets telemetry and webhooks from `/api/init` (`F32.deferred-init`).**
   A second, dormant server boots with telemetry already configured (to
   `/boot` on a sink of this run) and receives a different endpoint
@@ -786,9 +784,8 @@ Preconditions:
   and no explicit secret key uses the first session key as its secret key,
   so the random fallback only happens with neither. The refs are therefore
   stable across restarts and change with `restart --rotate-secret-key`. The
-  `salt` description (also in the OpenAPI schema) promises the random
-  fallback and "unlinkable across runs". Documentation bug, trivial
-  severity; operators who rely on the description get linkable refs.
+  `salt` description (also in the OpenAPI schema) says so; set a salt to
+  re-key them.
 - A conversation reports one terminal outcome per subscriber: after a
   restart, a conversation whose stored status is already terminal is
   seeded as reported, so rerunning it emits `conversation_error` events but
