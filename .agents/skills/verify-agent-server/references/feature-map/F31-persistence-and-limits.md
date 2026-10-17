@@ -422,9 +422,9 @@ Preconditions:
   alive, so there is no early takeover) `B` takes `F` over as generation 2.
   Resumed, the old owner still has `F` loaded, but its message is refused:
   nothing of it reaches disk or the old owner's own event count, while
-  `B`'s write lands. Any error status passes here; which one it should be
-  is `F31.fenced-write-no-trace`. `B`'s stop releases the lease.
-- **Refused write leaves no trace (`F31.fenced-write-no-trace`), known bug.**
+  `B`'s write lands. Any error status passes here; the status itself (409)
+  is checked by `F31.fenced-write-no-trace`. `B`'s stop releases the lease.
+- **Refused write leaves no trace (`F31.fenced-write-no-trace`).**
   The old owner from the previous bullet tries to rename `F`.
 
   Requires: `F31.lease-expiry-fencing`
@@ -432,23 +432,21 @@ Preconditions:
   PS=$(control-agent-server api PATCH "/api/conversations/$F" --json '{"title": "QA F31 stale owner"}' --expect 4xx,5xx \
     --save F31.fenced-write-no-trace/patch | jq .status)
   control-agent-server state cat meta.json --conversation "$F" --check title eq 'QA F31 new owner'
-  control-agent-server api GET "/api/conversations/$F" --check title ne 'QA F31 stale owner' --save F31.fenced-write-no-trace/get  # bug: status eq 200 && response.body.title eq 'QA F31 stale owner'
+  control-agent-server api GET "/api/conversations/$F" --check title ne 'QA F31 stale owner' --save F31.fenced-write-no-trace/get
   echo "refused PATCH answered $PS"
-  control-agent-server assert --value "$PS" --check . lt 500  # bug: value eq 500
+  control-agent-server assert --value "$PS" --check . eq 409
   ```
-  Expected: a client error that says the conversation is owned elsewhere,
-  and no visible change. The refusal itself (any error status) and
-  `meta.json` keeping `QA F31 new owner` are the positive controls: the
-  guarded save did refuse the write. Today the stale owner's own GET reports
-  `QA F31 stale owner` (the first `# bug` assertion fails there): the title
-  was set in memory before the guarded save failed. The PATCH status, kept
-  in `PS` and checked last, is 500 `Internal Server Error` with `exception`
-  `conversation ownership was lost before the write completed` (the server
-  maps `ConversationOwnershipLostError` to nothing; the saved exchange shows
-  it). The stale owner keeps the conversation loaded and refuses every
-  write the same way until it is evicted or restarted, even after the new
-  owner stops and the lease file is gone, and meanwhile serves its stale
-  in-memory events (its count stays put while the new owner appends).
+  The PATCH answers 409 with `detail` `Conversation is owned by another
+  agent server instance; the write was refused`, and nothing changes: the
+  stale owner's own GET keeps its previous title, because metadata becomes
+  current in memory only after the guarded save succeeds. The refusal itself
+  (any error status) and `meta.json` keeping `QA F31 new owner` are the
+  positive controls: the guarded save did refuse the write. The PATCH
+  status, kept in `PS`, is checked last. The stale owner keeps the
+  conversation loaded and refuses every write the same way until it is
+  evicted or restarted, even after the new owner stops and the lease file
+  is gone, and meanwhile serves its stale in-memory events (its count stays
+  put while the new owner appends).
 - **Leasing disabled (`F31.lease-disabled`).** Both servers run with
   `lease_ttl_seconds` 0.
   ```sh
@@ -745,7 +743,7 @@ Preconditions:
   over only after `expires_at`. A TTL below the 15 s renewal interval expires
   between renewals.
 - An owner that lost its lease keeps the conversation loaded and answers
-  every write with 500 until idle eviction or a restart closes it, and its
+  every write with 409 until idle eviction or a restart closes it, and its
   reads serve the stale in-memory state; each attempt counts as activity,
   so retries postpone the eviction. Its renewal loop only logs `Conversation
   lease lost while renewing` every 15 s.
