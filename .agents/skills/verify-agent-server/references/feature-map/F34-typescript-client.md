@@ -795,15 +795,12 @@ Preconditions:
   reject with a 500 `HttpError` whose `response.exception` is
   `'Unknown event_id: 00000000-0000-0000-0000-000000000000'`, so one missing
   id fails the whole `getEventsById`.
-- **Short event kinds (`F34.events-search-kind`), known bug.** The same
-  server bug as `F06.search-kind-short`, reached through the client: the
-  service compares `kind` with `<module>.<ClassName>`
-  (`openhands-agent-server/openhands/agent_server/event_service.py:555`)
-  while the route and `EventSearchOptions.kind`
-  (`clients/typescript/src/events/remote-events-list.ts:23`) document
-  `ActionEvent, MessageEvent`. Runs on `SCID`'s queued user message; the
-  fully-qualified kind finds it first (positive control); the bug is the
-  same for every kind (`F06.search-kind-short` shows it on the REST route).
+- **Short event kinds (`F34.events-search-kind`).** `F06.search-kind-short`
+  reached through the client: the route and `EventSearchOptions.kind`
+  (`clients/typescript/src/events/remote-events-list.ts`) document
+  `ActionEvent, MessageEvent`, and the server accepts that bare class name as
+  well as `<module>.<ClassName>`. Runs on `SCID`'s queued user message; the
+  fully-qualified kind finds it first (positive control).
   ```sh
   cat > "$F34/kind.mjs" <<'JS'
   import { writeFileSync } from 'node:fs';
@@ -820,10 +817,9 @@ Preconditions:
   JS
   control-agent-server exec --timeout 60 --expect-output QA_F34_KIND_READ --save F34.events-search-kind/program -- node "$F34/kind.mjs" "$SCID"
   cat "$F34/kind.json"
-  control-agent-server assert --json "$F34/kind.json" --check short len-eq 1 --check short.0 eq "$(jq -r '.full[0]' "$F34/kind.json")" --check short_count eq 1  # bug: value.short len-eq 0 && value.short_count eq 0
+  control-agent-server assert --json "$F34/kind.json" --check short len-eq 1 --check short.0 eq "$(jq -r '.full[0]' "$F34/kind.json")" --check short_count eq 1
   ```
-  Expected: the short name finds the same message. Today it returns no items
-  and a count of 0.
+  The short name finds the same message and counts `1`.
 - **Event stream on Node's WebSocket (`F34.event-stream`).** Replay, a turn
   sent over the socket, and a wrong key.
 
@@ -1481,8 +1477,9 @@ Preconditions:
   (`F34.workspace-git-types`).
   `gitChanges` and `gitDiff` wrap every refusal in a plain `Error`, so read
   the status from `isHttpError(e.cause)`, not from `e`.
-- The `kind` filter of `RemoteEventsList.search` and `count` needs the
-  fully-qualified class path (`F34.events-search-kind`, `F06.search-kind-short`).
+- The `kind` filter of `RemoteEventsList.search` and `count` takes the bare
+  class name or the fully-qualified class path (`F34.events-search-kind`,
+  `F06.search-kind-short`).
 - A `RemoteWorkspace` with `conversationId` checks `/server_info` once per
   transport and only then picks the conversation-scoped routes; it refuses a
   path with a query string or `..` and a `cid` parameter client-side.

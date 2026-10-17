@@ -1991,9 +1991,9 @@ Preconditions:
   sends on connect and after each run are never persisted, so
   `len(conversation.state.events)` is not the server's event count; compare
   kinds other than state updates, as the recipes do. Count kinds with
-  `conversation events --kinds`, not `events/count?kind=ActionEvent`: the
-  server only matches the full `<module>.<Class>` name there (the
-  `F06.search-kind-short` known bug), so a short name always counts `0`.
+  `conversation events --kinds` or `events/count?kind=ActionEvent` (the
+  server accepts the short name or the full `<module>.<Class>` name, see
+  `F06.search-kind-short`).
 - A live `RemoteConversation` reconnects its events socket with exponential
   backoff (1 s doubling to 30 s) after a server restart or a dropped
   connection; events emitted before it reconnects reach `state.events`
