@@ -995,14 +995,12 @@ Preconditions:
   ```
   Expected: the stored title and a `ConversationInfo` with the conversation's
   `id` and new title.
-- **Create options (`F34.manager-create-options`), known bug.**
-  `ConversationManager.createConversation` hands `maxIterations` and
-  `stuckDetection` to the `RemoteConversation` constructor, which ignores
-  them, and calls `start()` without them, so the server always gets
-  `max_iterations` 500 and `stuck_detection: true`
-  (`clients/typescript/src/conversation/conversation-manager.ts:221`).
-  `RemoteConversation.start({maxIterations, stuckDetection})` does forward
-  both, as the program shows first (positive control). It records what the
+- **Create options (`F34.manager-create-options`).**
+  `ConversationManager.createConversation` forwards `maxIterations` and
+  `stuckDetection` to `start()`, so the server stores the caller's
+  `max_iterations` and `stuck_detection`, the same as
+  `RemoteConversation.start({maxIterations, stuckDetection})`, which the
+  program checks first (positive control). It records what the
   server stored for the manager's conversation, deletes both conversations,
   and REST confirms they are gone.
   ```sh
@@ -1026,12 +1024,10 @@ Preconditions:
   control-agent-server exec --timeout 60 --expect-output QA_F34_CREATE_OPTIONS_READ --save F34.manager-create-options/program -- node "$F34/create-options.mjs"
   for ID in $(jq -r '.ids[]' "$F34/create-options.json"); do control-agent-server api GET "/api/conversations/$ID" --expect 404; done
   cat "$F34/create-options.json"
-  control-agent-server assert --json "$F34/create-options.json" --check max_iterations eq 7 --check stuck_detection eq false  # bug: value.max_iterations eq 500 && value.stuck_detection eq true
+  control-agent-server assert --json "$F34/create-options.json" --check max_iterations eq 7 --check stuck_detection eq false
   ```
   Expected: `max_iterations` 7 and `stuck_detection: false`, as the
-  direct `start()` gets. Today the manager's conversation has
-  `{"max_iterations":500,"stuck_detection":true}`. Both conversations are
-  deleted either way.
+  direct `start()` gets. Both conversations are deleted.
 - **ACP conversations (`F34.manager-acp`).** `ConversationManager.acp` with
   the inline ACP Codex agent F12 uses; the ACP subprocess only starts on
   the first run, so nothing runs and no Codex binary is needed.
