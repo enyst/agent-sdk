@@ -763,23 +763,20 @@ Preconditions:
   `/server_info` uptime keeps growing (no restart happened); the scoped
   command written at the same time is still there. The last restart
   switches retention off again.
-- **Malformed conversation id (`F13.scoped-bad-id`), known bug.** A non-UUID
+- **Malformed conversation id (`F13.scoped-bad-id`).** A non-UUID
   conversation id must be a validation error.
   ```sh
   control-agent-server api GET "/api/conversations/$CID/bash/bash_events/search" --expect 200
   control-agent-server api GET /api/conversations/not-a-uuid/bash/bash_events/search --expect 422 \
-    --save F13.scoped-bad-id/search  # bug: status eq 500 && response.body.exception contains runtime_event_service
+    --save F13.scoped-bad-id/search
   control-agent-server api POST /api/conversations/not-a-uuid/bash/execute_bash_command \
-    --json '{"command": "echo QA_F13_BADID"}' --expect 422  # bug: status eq 500 && response.body.exception contains runtime_event_service
+    --json '{"command": "echo QA_F13_BADID"}' --expect 422
   ```
   The same search on a real conversation id answers 200 (the positive
-  control). Expected: 422 for `not-a-uuid`. Today every scoped bash route answers 500
-  `'State' object has no attribute 'runtime_event_service'` and logs a
-  traceback: FastAPI still calls `get_bash_event_service` after the
-  router dependency `bind_local_conversation_runtime` failed validation, and
-  it reads `request.state.runtime_event_service`, which was never set.
-  Nothing runs. Run `doctor` before this bullet, not after (it fails on the
-  logged tracebacks).
+  control). Every scoped bash route answers 422 for `not-a-uuid`, with the
+  standard validation error at `["path", "runtime_conversation_id"]`, like
+  the scoped file, git and vscode routes, and logs no traceback. Nothing
+  runs.
 - **Idle eviction kills a running command (`F13.scoped-idle-eviction`), known bug.**
   A second run with a 5 s idle TTL and two never-run conversations:
   `EV_CID` with a running scoped command, then `EV_IDLE` with nothing, the
