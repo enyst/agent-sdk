@@ -1,4 +1,5 @@
 import asyncio
+import gzip
 import hashlib
 import io
 import json
@@ -328,6 +329,76 @@ async def test_prepare_rejects_revision_checksum_and_unsafe_archive(tmp_path: Pa
     with pytest.raises(ValueError, match="unsafe archive"):
         await unsafe_manager.prepare("my-extension", unsafe_revision)
     assert not (tmp_path / "escape").exists()
+
+
+def _install_with_artifact_bytes(
+    tmp_path: Path, payload: bytes
+) -> tuple[CanvasExtensionBackendManager, str]:
+    """Install a backend app whose artifact is ``payload``, with a matching sha256."""
+    source = _write_backend_extension(tmp_path / "source" / "my-extension")
+    (source / "backend-linux-amd64.tar.gz").write_bytes(payload)
+    manifest_path = source / MANIFEST_FILENAME
+    manifest = json.loads(manifest_path.read_text())
+    checksum = hashlib.sha256(payload).hexdigest()
+    for artifact in manifest["backend"]["artifacts"].values():
+        artifact["sha256"] = checksum
+    manifest_path.write_text(json.dumps(manifest))
+    installed_dir = tmp_path / "installed"
+    install_canvas_extension(str(source), installed_dir=installed_dir)
+    manager = CanvasExtensionBackendManager(installed_dir, tmp_path / "state")
+    revision = manager.revision("my-extension")
+    assert revision is not None
+    return manager, revision
+
+
+def _truncated_gzip_tarball() -> bytes:
+    buffer = io.BytesIO()
+    with tarfile.open(fileobj=buffer, mode="w:gz") as tar:
+        data = os.urandom(200_000)
+        info = tarfile.TarInfo("server.py")
+        info.size = len(data)
+        tar.addfile(info, io.BytesIO(data))
+    return buffer.getvalue()[:-1000]
+
+
+@requires_linux_backend
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "payload",
+    [
+        pytest.param(b"not a tarball\n", id="not-gzip"),
+        pytest.param(gzip.compress(b"not a tarball\n"), id="gzip-not-tar"),
+        pytest.param(_truncated_gzip_tarball(), id="truncated-gzip"),
+    ],
+)
+async def test_prepare_rejects_artifact_that_is_not_a_gzip_tarball(
+    tmp_path: Path, payload: bytes
+):
+    manager, revision = _install_with_artifact_bytes(tmp_path, payload)
+
+    with pytest.raises(ValueError, match="not a valid gzip tar archive"):
+        await manager.prepare("my-extension", revision)
+
+    status = await manager.status("my-extension")
+    assert status.prepared_revision is None
+    assert list((manager.artifacts_dir / "my-extension").iterdir()) == []
+
+
+@requires_linux_backend
+def test_prepare_endpoint_refuses_non_gzip_artifact_with_409(tmp_path: Path):
+    manager, revision = _install_with_artifact_bytes(tmp_path, b"not a tarball\n")
+    app = FastAPI()
+    app.state.canvas_extension_backend_manager = manager
+    app.include_router(canvas_extensions_router)
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/canvas-extensions/installed/my-extension/backend/prepare",
+            json={"revision": revision},
+        )
+
+    assert response.status_code == 409
+    assert "not a valid gzip tar archive" in response.json()["detail"]
 
 
 @requires_linux_backend
