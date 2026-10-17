@@ -428,7 +428,7 @@ describe('Auxiliary API clients', () => {
         llm_profile_resolved: true,
         llm_api_key_set: true,
         mcp_server_refs: null,
-        resolved_mcp_servers: [],
+        resolved_mcp_config_keys: [],
         dangling_mcp_server_refs: [],
         acp_api_key_secret_name: null,
         acp_base_url_secret_name: null,
