@@ -2652,12 +2652,18 @@ def _generate_title_traced(
     llm: LLM | None,
     max_length: int,
     on_error: Callable[[Exception], None] | None = None,
+    prompt: str | None = None,
 ) -> str:
     call_context = (
         conversation.get_llm_call_context() if conversation else LLMCallContext()
     )
     return generate_title_from_message(
-        message, llm, max_length, call_context=call_context, on_error=on_error
+        message,
+        llm,
+        max_length,
+        call_context=call_context,
+        on_error=on_error,
+        prompt=prompt,
     )
 
 
@@ -2704,6 +2710,7 @@ class AutoTitleSubscriber(Subscriber):
                     title_llm,
                     50,
                     _on_title_error,
+                    self.service.stored.prompt,
                 )
                 if title and self.service.stored.title is None:
                     await self.service.save_meta(
