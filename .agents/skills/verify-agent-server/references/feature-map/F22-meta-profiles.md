@@ -213,28 +213,24 @@ Preconditions:
   ```
   Each body is 422 with the validator's message or the missing field's
   location, and `qa-bad` was never created.
-- **Router with no route (`F22.empty-router`), known bug.** Save a body with
-  only a `classifier_model`. The save is the bug assertion; an `EXIT` trap
-  deletes `qa-empty` whether it was stored or not, so later list counts hold.
+- **Router with no route (`F22.empty-router`).** Save a body with only a
+  `classifier_model`. An `EXIT` trap deletes `qa-empty` whether it was stored
+  or not, so later list counts hold.
   ```sh
   drop_empty() { control-agent-server api DELETE /api/meta-profiles/qa-empty --expect 200 > /dev/null; }
   trap drop_empty EXIT
   control-agent-server api GET /api/meta-profiles/qa-empty --expect 404
   control-agent-server api POST /api/meta-profiles/qa-empty --json '{"classifier_model": "deepseek-flash"}' --expect 422 \
-    --save F22.empty-router/save  # bug: status eq 201 && response.body.name eq qa-empty
+    --save F22.empty-router/save
   control-agent-server api GET /api/meta-profiles/qa-empty --expect 404
-  control-agent-server api GET /api/meta-profiles --check meta_profiles len-eq 2
+  control-agent-server api GET /api/meta-profiles --check meta_profiles not-contains '"name": "qa-empty"'
   ```
-  Expected 422: the model's validator is documented as "Require either
-  structured classes or a direct prompt, not both", and with no classes and
-  no template the router can never pick a profile (the classifier is called
-  with zero categories and every routing attempt ends in an error
-  observation). Today the save is 201 and `qa-empty` is stored
-  (`MetaProfile.validate_routing_mode` returns early whenever
-  `prompt_template` is unset). The SDK's store tests build classless
-  `MetaProfile(classifier_model=...)` objects as fixtures, so a fix may
-  belong in the HTTP route rather than in the model. The bullet deletes
-  `qa-empty` either way.
+  The save is 422 (`loc: ["body"]`, "A meta-profile needs either classes or
+  a prompt_template to route.") and nothing is stored: with no classes and no
+  template the router could never pick a profile. The check lives in the
+  save route, not in `MetaProfile`, so meta-profiles saved in that state
+  before the check (store files, the inline copy in `settings.json`) still
+  load, list and activate.
 - **Overwrite (`F22.overwrite`).** Save `qa-swap` in classes mode, then
   overwrite it in direct mode.
   ```sh
