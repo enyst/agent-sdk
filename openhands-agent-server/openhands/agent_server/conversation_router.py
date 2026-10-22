@@ -373,7 +373,7 @@ async def pause_conversation(
     """Pause a conversation, allowing it to be resumed later."""
     paused = await conversation_service.pause_conversation(conversation_id)
     if not paused:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST)
+        raise HTTPException(status.HTTP_404_NOT_FOUND)
     return Success()
 
 
@@ -393,7 +393,7 @@ async def interrupt_conversation(
     """
     interrupted = await conversation_service.interrupt_conversation(conversation_id)
     if not interrupted:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST)
+        raise HTTPException(status.HTTP_404_NOT_FOUND)
     return Success()
 
 
@@ -407,7 +407,7 @@ async def delete_conversation(
     """Permanently delete a conversation."""
     deleted = await conversation_service.delete_conversation(conversation_id)
     if not deleted:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST)
+        raise HTTPException(status.HTTP_404_NOT_FOUND)
     return Success()
 
 
@@ -751,7 +751,7 @@ async def update_conversation(
     """
     updated = await conversation_service.update_conversation(conversation_id, request)
     if not updated:
-        return Success(success=False)
+        raise HTTPException(status.HTTP_404_NOT_FOUND)
     return Success()
 
 
