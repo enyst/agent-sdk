@@ -222,7 +222,7 @@ def _plan_conversation_worktree(
 
     start_ref = _get_worktree_start_point(repo_root)
     try:
-        start_point = run_git_command(
+        run_git_command(
             ["git", "rev-parse", "--verify", "--quiet", f"{start_ref}^{{commit}}"],
             repo_root,
             expected_failure=True,
@@ -239,7 +239,8 @@ def _plan_conversation_worktree(
         worktree_root=worktree_root,
         workspace_dir=worktree_root / source_workspace.relative_to(repo_root),
         branch=f"openhands/{conversation_id}",
-        start_point=start_point,
+        # Keep the ref so Git preserves remote branch tracking configuration.
+        start_point=start_ref,
     )
 
 
