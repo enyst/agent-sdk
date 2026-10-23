@@ -739,9 +739,9 @@ Preconditions:
   ... not found`, and PATCH refuses an unknown `active_profile` with 404.
   Expected: PATCH refuses the unknown agent profile id the same way. Today it
   answers 200 and stores the pointer (only the UUID format is checked); a
-  dangling `active_agent_profile_id` also suppresses the lazy default-profile
-  seed (`GET /api/agent-profiles` then returns `profiles: []` with that id as
-  active). The trap clears the pointer.
+  later `GET /api/agent-profiles` repairs a dangling active pointer by
+  activating `default` (#5983), but the PATCH itself still stores the
+  nonexistent id. The trap clears the pointer.
 - **Dangling meta-profile pointer (`F18.dangling-pointers`), known bug.** The
   same for `active_meta_profile`.
   ```sh
