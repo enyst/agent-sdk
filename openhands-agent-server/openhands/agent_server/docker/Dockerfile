@@ -49,7 +49,11 @@ FROM node:24.21.0-trixie-slim AS node-runtime
 # bom.cdx.json stay consistent; the source archive is used because the sdist
 # omits tools/vendoring/patches. Drop this stage once pip ships the fixes;
 # tests/agent_server/docker_runtime/test_pip_revendoring_retirement.py flags it.
-FROM python:3.13.15-trixie AS pip-revendored
+# 3.13.17 bundles pip 26.2.2, whose vendored certifi already distrusts the
+# compromised eMudhra roots. 3.13.15 bundles pip 26.2.1, which still trusts
+# emSign ECC Root CA - G3, and this stage's `venv` + `pip install vendoring`
+# fetches from PyPI before the re-vendored wheel exists (GHSA-6q48-6c7w-9gw2).
+FROM python:3.13.17-trixie AS pip-revendored
 ADD --checksum=sha256:b505949bb27827b32f54c9f1f5ca660a6fae3fde61cbe0a971975a3ed34a7ee1 \
     https://github.com/pypa/pip/archive/refs/tags/26.2.2.tar.gz /tmp/pip.tar.gz
 RUN set -eux; \
@@ -72,7 +76,10 @@ RUN set -eux; \
 
 FROM debian:trixie-slim AS python-node-runtime
 ARG NPM_VERSION
-ARG DEBIAN_SNAPSHOT=20261019T000000Z
+# 20261021 is the oldest snapshot whose ca-certificates (20250419+deb13u1,
+# trixie-security) drops emSign ECC Root CA - G3; 20261019 still ships
+# 20250419, which trusts the compromised root (GHSA-6q48-6c7w-9gw2).
+ARG DEBIAN_SNAPSHOT=20261021T000000Z
 
 COPY --from=python-runtime /usr/local /usr/local
 COPY --from=node-runtime /usr/local/bin/node /usr/local/bin/node
