@@ -1,0 +1,63 @@
+Budget API live verification — 2026-10-25
+
+Base revision: d2ee0cdea60825608c2f8906eb54e1d4d264fb42
+Environment: macOS, Python 3.13.11, pytest 9.0.3; real uvicorn server,
+loopback HTTP and WebSocket sockets, real persistence and conversation run loop.
+The test replaces LiteLLM transport and its price calculator. Each completed
+provider response costs $0.01, with gates before responses two and three.
+No provider credentials or external LLM calls are used.
+
+Reproduction entry point:
+tests/cross/test_remote_conversation_live_server.py::test_budget_and_live_cost_with_live_server
+
+BEFORE — missing budget response
+A clean git archive of the base revision was extracted to a temporary directory.
+The new regression test was copied into it and run in its own uv environment:
+
+  uv run --frozen pytest tests/cross/test_remote_conversation_live_server.py \
+    -k 'budget_and_live_cost and 0.015' -q --tb=short
+
+POST /api/conversations with "max_budget_per_run": 0.015 returned HTTP 201,
+but the response did not include max_budget_per_run:
+
+  assert created.json()["max_budget_per_run"] == budget
+  KeyError: 'max_budget_per_run'
+  1 failed, 36 deselected in 4.24s
+
+BEFORE — live accumulated cost already works on current main
+In the isolated base copy, remove only the two cap assertions and run:
+
+  uv run --frozen pytest tests/cross/test_remote_conversation_live_server.py \
+    -k 'budget_and_live_cost and None' -q --tb=short --show-capture=no
+
+  1 passed, 36 deselected in 2.36s
+
+Both completed-step samples are visible before the run finishes:
+  GET /api/conversations/{id}: running, accumulated_cost $0.01 then $0.02
+  base_state.json: accumulated_cost $0.01 then $0.02
+  WebSocket stats update: accumulated_cost $0.01 then $0.02
+
+This does not reproduce the older issue's stale-running-cost symptom on the
+ordinary Agent path. No production stats-publication change is required here.
+
+AFTER — proposed implementation
+
+  uv run pytest tests/cross/test_remote_conversation_live_server.py \
+    -k budget_and_live_cost -q
+
+  3 passed, 34 deselected in 5.29s
+
+Scenarios:
+  No budget: cap is null; live $0.01/$0.02 samples; finishes at $0.03.
+  $0.015 budget: cap returned by create/GET; live $0.01 sample; second call
+    is allowed to overshoot to $0.02; run stops with MaxBudgetReached, no
+    third call is issued.
+  $0.10 budget: cap returned by create/GET; live $0.01/$0.02 samples;
+    finishes at $0.03.
+
+  uv run pre-commit run --files tests/cross/test_remote_conversation_live_server.py
+  All applicable hooks passed, including pyright.
+
+Limitations: this verifies the real server transport and persistence with
+deterministic provider responses, not provider billing accuracy or a published
+Docker image. UI rendering belongs to a later OpenHands change.
