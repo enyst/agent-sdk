@@ -299,6 +299,28 @@ await conversation.updateSecrets({
 });
 ```
 
+### Displaying a Conversation Budget
+
+Set `maxBudgetPerRun` when creating a remote conversation, using an Agent Server
+that supports `max_budget_per_run`. Omit it or pass `null` for no limit.
+
+```typescript
+const conversation = await manager.createConversation(agent, { maxBudgetPerRun: 5 });
+const info = await manager.getConversation(conversation.id);
+const spent = Object.values(info.stats?.usage_to_metrics ?? {}).reduce(
+  (total, metrics) => total + (metrics.accumulated_cost ?? 0),
+  0
+);
+console.log({ spent, limit: info.max_budget_per_run });
+```
+
+Both amounts are in USD. Despite its legacy name, the limit applies to the
+conversation's accumulated cost, including earlier runs. The server checks the
+limit after each completed agent step, so a step may overshoot it. The same
+`stats.usage_to_metrics` costs arrive in WebSocket state updates while running;
+use those updates to refresh a live display. The configured limit remains
+available from the conversation's REST response after reconnecting.
+
 ## API Reference
 
 ### Conversation

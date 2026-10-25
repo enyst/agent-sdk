@@ -4,6 +4,7 @@ This validates RemoteConversation against actual REST + WebSocket endpoints,
 while keeping the LLM deterministic via monkeypatching.
 """
 
+import asyncio
 import json
 import os
 import shutil
@@ -15,7 +16,7 @@ import time
 from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 from unittest.mock import patch
 from uuid import UUID
 
@@ -1626,6 +1627,141 @@ def test_conversation_stats_with_live_server(
     assert stats_from_field, "Expected non-empty stats in the 'stats' field after run()"
 
     conv.close()
+
+
+@pytest.mark.parametrize("budget", [None, 0.015, 0.1])
+def test_budget_and_live_cost_with_live_server(
+    server_env, monkeypatch: pytest.MonkeyPatch, budget: float | None
+):
+    """REST, persisted state and WebSocket report spend before the run ends."""
+    calls_started = [threading.Event() for _ in range(3)]
+    release_calls = [threading.Event() for _ in range(3)]
+    release_calls[0].set()
+    call_count = 0
+
+    async def completion(**_kwargs: Any) -> ModelResponse:
+        nonlocal call_count
+        index = call_count
+        call_count += 1
+        calls_started[index].set()
+        assert await asyncio.to_thread(release_calls[index].wait, 15)
+        if index < 2:
+            message = {
+                "role": "assistant",
+                "tool_calls": [
+                    {
+                        "id": f"think-{index}",
+                        "type": "function",
+                        "function": {
+                            "name": "think",
+                            "arguments": json.dumps({"thought": f"Step {index}"}),
+                        },
+                    }
+                ],
+            }
+        else:
+            message = {"role": "assistant", "content": "Done"}
+        return ModelResponse(
+            id=f"budget-response-{index}",
+            model="gpt-4o-mini",
+            choices=[{"index": 0, "message": message, "finish_reason": "stop"}],
+            usage={"prompt_tokens": 100, "completion_tokens": 10},
+        )
+
+    monkeypatch.setattr("openhands.sdk.llm.llm.litellm_acompletion", completion)
+    monkeypatch.setattr(
+        "openhands.sdk.llm.utils.telemetry.Telemetry._compute_cost",
+        lambda *args, **kwargs: 0.01,
+    )
+    host = server_env["host"]
+    with httpx.Client(base_url=host, timeout=10, trust_env=False) as client:
+        created = client.post(
+            "/api/conversations",
+            json={
+                "agent": {
+                    "llm": {"model": "gpt-4o-mini", "api_key": "test"},
+                    "tools": [],
+                },
+                "workspace": {"working_dir": str(server_env["workspace_path"])},
+                "max_budget_per_run": budget,
+            },
+        )
+        assert created.status_code == 201, created.text
+        assert created.json()["max_budget_per_run"] == budget
+        conversation_id = created.json()["id"]
+        route = f"/api/conversations/{conversation_id}"
+        state_path = (
+            server_env["workspace_path"].parent
+            / "conversations"
+            / UUID(conversation_id).hex
+            / "base_state.json"
+        )
+        socket_url = (
+            f"{host.replace('http://', 'ws://')}/sockets/events/{conversation_id}"
+        )
+        try:
+            with connect(socket_url) as socket:
+                socket.recv(timeout=5)
+                sent = client.post(
+                    f"{route}/events",
+                    json={"content": [{"type": "text", "text": "Think twice"}]},
+                )
+                assert sent.status_code == 200, sent.text
+                assert client.post(f"{route}/run").status_code == 200
+
+                samples = 1 if budget == 0.015 else 2
+                for index in range(1, samples + 1):
+                    assert calls_started[index].wait(10)
+                    expected_cost = index * 0.01
+                    info = client.get(route).json()
+                    assert info["execution_status"] == "running"
+                    assert info["max_budget_per_run"] == budget
+                    for snapshot in (info, json.loads(state_path.read_text())):
+                        cost = sum(
+                            metrics["accumulated_cost"]
+                            for metrics in snapshot["stats"][
+                                "usage_to_metrics"
+                            ].values()
+                        )
+                        assert cost == pytest.approx(expected_cost)
+                    while True:
+                        event = json.loads(socket.recv(timeout=5))
+                        if event.get("key") == "stats":
+                            cost = sum(
+                                metrics["accumulated_cost"]
+                                for metrics in event["value"][
+                                    "usage_to_metrics"
+                                ].values()
+                            )
+                            if cost >= expected_cost:
+                                break
+                    release_calls[index].set()
+
+                info = client.get(route).json()
+                deadline = time.monotonic() + 10
+                while time.monotonic() < deadline:
+                    info = client.get(route).json()
+                    if info["execution_status"] in ("error", "finished"):
+                        break
+                    time.sleep(0.01)
+                if budget == 0.015:
+                    assert info["execution_status"] == "error"
+                    assert call_count == 2
+                    events = client.get(f"{route}/events/search").json()["items"]
+                    assert any(
+                        event.get("code") == "MaxBudgetReached" for event in events
+                    )
+                else:
+                    assert info["execution_status"] == "finished"
+                    assert call_count == 3
+                assert sum(
+                    metrics["accumulated_cost"]
+                    for metrics in info["stats"]["usage_to_metrics"].values()
+                ) == pytest.approx(call_count * 0.01)
+        finally:
+            for release in release_calls:
+                release.set()
+            client.delete(route)
 
 
 def test_events_not_lost_during_client_disconnection(

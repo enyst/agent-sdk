@@ -79,12 +79,14 @@ def test_conversation_factory_forwards_local_parameters(agent):
     conversation = Conversation(
         agent=agent,
         max_iteration_per_run=100,
+        max_budget_per_run=1.5,
         stuck_detection=False,
         visualizer=None,
     )
 
     assert isinstance(conversation, LocalConversation)
     assert conversation.max_iteration_per_run == 100
+    assert conversation.max_budget_per_run == 1.5
     conversation.close()
 
 
@@ -123,11 +125,13 @@ def test_conversation_factory_forwards_remote_parameters(
         agent=agent,
         workspace=remote_workspace,
         max_iteration_per_run=200,
+        max_budget_per_run=2.5,
         stuck_detection=True,
     )
 
     assert isinstance(conversation, RemoteConversation)
     assert conversation.max_iteration_per_run == 200
+    assert conversation.max_budget_per_run == 2.5
 
 
 @patch("openhands.sdk.conversation.impl.remote_conversation.WebSocketCallbackClient")

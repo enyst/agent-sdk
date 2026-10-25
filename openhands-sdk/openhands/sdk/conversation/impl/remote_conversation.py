@@ -756,6 +756,7 @@ class RemoteConversation(BaseConversation):
     agent: AgentBase
     _callbacks: list[ConversationCallbackType]
     max_iteration_per_run: int
+    max_budget_per_run: float | None
     workspace: RemoteWorkspace
     _client: httpx.Client
     _cleanup_initiated: bool
@@ -789,6 +790,7 @@ class RemoteConversation(BaseConversation):
         observability_span_name: str = "conversation",
         observability_parent_span_context: str | None = None,
         token_callbacks: list[ConversationTokenCallbackType] | None = None,
+        max_budget_per_run: float | None = None,
         **_: object,
     ) -> None:
         """Remote conversation proxy that talks to an agent server.
@@ -801,6 +803,9 @@ class RemoteConversation(BaseConversation):
             conversation_id: Optional existing conversation id to attach to
             callbacks: Optional callbacks to receive events (not yet streamed)
             max_iteration_per_run: Max iterations configured on server
+            max_budget_per_run: USD limit on accumulated conversation LLM cost.
+                      Checked after each agent step, which may overshoot the limit.
+                      None means unbounded; cost does not reset between runs.
             stuck_detection: Whether to enable stuck detection on server
             stuck_detection_thresholds: Optional configuration for stuck detection
                       thresholds. Can be a StuckDetectionThresholds instance or
@@ -863,6 +868,7 @@ class RemoteConversation(BaseConversation):
                 should_create = True
             else:
                 info = resp.json()
+                max_budget_per_run = info.get("max_budget_per_run")
                 agent_payload = info.get("agent")
                 if agent_payload is not None:
                     remote_agent = _validate_remote_agent(agent_payload)
@@ -894,6 +900,7 @@ class RemoteConversation(BaseConversation):
                 ),
                 "initial_message": None,
                 "max_iterations": max_iteration_per_run,
+                "max_budget_per_run": max_budget_per_run,
                 "stuck_detection": stuck_detection,
                 # We need to convert RemoteWorkspace to LocalWorkspace for the server
                 "workspace": LocalWorkspace(
@@ -968,6 +975,7 @@ class RemoteConversation(BaseConversation):
             callbacks=callbacks,
             token_callbacks=token_callbacks,
             max_iteration_per_run=max_iteration_per_run,
+            max_budget_per_run=max_budget_per_run,
             client_tools=[*(client_tools or []), *attached_client_tools],
             visualizer=visualizer,
         )
@@ -1087,6 +1095,7 @@ class RemoteConversation(BaseConversation):
             conversation_id=uuid.UUID(info["id"]),
             callbacks=callbacks,
             max_iteration_per_run=info["max_iterations"],
+            max_budget_per_run=info.get("max_budget_per_run"),
             client_tools=[
                 ClientToolSpec.model_validate(spec)
                 for spec in info.get("client_tools") or []
@@ -1103,6 +1112,7 @@ class RemoteConversation(BaseConversation):
         conversation_id: ConversationID,
         callbacks: list[ConversationCallbackType] | None,
         max_iteration_per_run: int,
+        max_budget_per_run: float | None,
         client_tools: list[ClientToolSpec],
         visualizer: (
             type[ConversationVisualizerBase] | ConversationVisualizerBase | None
@@ -1115,6 +1125,7 @@ class RemoteConversation(BaseConversation):
         if token_callbacks:
             self._callbacks.append(_token_delta_callback(token_callbacks))
         self.max_iteration_per_run = max_iteration_per_run
+        self.max_budget_per_run = max_budget_per_run
         self.workspace = workspace
         self._client = workspace.client
         self._cleanup_initiated = False

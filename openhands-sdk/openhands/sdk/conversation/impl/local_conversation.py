@@ -513,7 +513,6 @@ class LocalConversation(BaseConversation):
         )
 
         self.max_iteration_per_run = max_iteration_per_run
-        # Hard cost ceiling (USD) for a run; None disables the budget check.
         self.max_budget_per_run = max_budget_per_run
 
         # Initialize stuck detector
@@ -741,10 +740,10 @@ class LocalConversation(BaseConversation):
         return acp_prompt_messages[-1].id if acp_prompt_messages else None
 
     def _budget_exceeded_detail(self) -> str | None:
-        """Error detail if the run has hit its cost budget, else None.
+        """Error detail if accumulated conversation cost has hit the limit.
 
-        Bounds total spend across all of the run's LLMs (agent, condenser, ...),
-        complementing the iteration cap which only bounds step count.
+        Checked after each step across all tracked LLMs (agent, condenser, ...).
+        A step may overshoot; resuming a run does not reset accumulated cost.
         """
         if self.max_budget_per_run is None:
             return None
@@ -906,6 +905,7 @@ class LocalConversation(BaseConversation):
                 persistence_dir=fork_persistence,
                 conversation_id=fork_id,
                 max_iteration_per_run=self.max_iteration_per_run,
+                max_budget_per_run=self.max_budget_per_run,
                 stuck_detection=self._stuck_detector is not None,
                 visualizer=type(self._visualizer) if self._visualizer else None,
                 delete_on_close=self.delete_on_close,

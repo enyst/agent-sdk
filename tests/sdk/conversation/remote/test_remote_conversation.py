@@ -193,6 +193,7 @@ class TestRemoteConversation:
             if method == "GET" and url == f"/api/conversations/{cid}":
                 response.json.return_value["agent"] = expected.model_dump(mode="json")
                 response.json.return_value["max_iterations"] = 500
+                response.json.return_value["max_budget_per_run"] = 2.5
             return response
 
         client.request.side_effect = respond
@@ -208,6 +209,7 @@ class TestRemoteConversation:
             assert isinstance(expected, ACPAgent)
             assert conversation.agent.acp_command == expected.acp_command
         assert conversation.id == cid
+        assert conversation.max_budget_per_run == 2.5
         conversation.close()
         assert all(call.args[0] == "GET" for call in client.request.call_args_list)
         client.close.assert_not_called()  # The caller still owns the workspace.
@@ -343,6 +345,7 @@ class TestRemoteConversation:
                 parsed = StartConversationRequest.model_validate(payload)
                 assert parsed.agent_profile_id == profile_id
                 assert payload["max_iterations"] == 17
+                assert payload["max_budget_per_run"] == 2.5
                 assert payload["tags"] == {"automationrun": "run-one"}
                 assert payload["stuck_detection"] is False
                 assert parsed.hook_config == hooks
@@ -352,6 +355,7 @@ class TestRemoteConversation:
                 assert payload["user_id"] == "operator"
                 response.json.return_value["agent"] = self.agent.model_dump(mode="json")
                 response.json.return_value["max_iterations"] = 17
+                response.json.return_value["max_budget_per_run"] = 2.5
                 created = True
             return response
 
@@ -363,6 +367,7 @@ class TestRemoteConversation:
                 conversation_id=cid,
                 agent_profile_id=profile_id,
                 max_iterations=17,
+                max_budget_per_run=2.5,
                 tags={"automationrun": "run-one"},
                 stuck_detection=False,
                 hook_config=hooks,
@@ -375,6 +380,7 @@ class TestRemoteConversation:
         )
         assert client.request.call_args_list[0].args == ("POST", "/api/conversations")
         assert conversation.max_iteration_per_run == 17
+        assert conversation.max_budget_per_run == 2.5
         assert conversation.id == cid
         assert conversation.agent.llm.model == self.agent.llm.model
         conversation.set_title("Scheduled run")
@@ -432,6 +438,7 @@ class TestRemoteConversation:
             agent=self.agent,
             workspace=self.workspace,
             max_iteration_per_run=100,
+            max_budget_per_run=2.5,
             stuck_detection=True,
         )
 
@@ -443,6 +450,7 @@ class TestRemoteConversation:
         assert conversation.id == uuid.UUID(conversation_id)
         assert conversation.workspace.host == self.host
         assert conversation.max_iteration_per_run == 100
+        assert conversation.max_budget_per_run == 2.5
 
         # Verify POST was called to create the conversation
         post_calls = [
@@ -453,6 +461,7 @@ class TestRemoteConversation:
         assert len(post_calls) == 1, (
             "Should have made exactly one POST call to create conversation"
         )
+        assert post_calls[0].kwargs["json"]["max_budget_per_run"] == 2.5
 
         # Verify GET was called to fetch events (RemoteEventsList initialization)
         # This happens in RemoteEventsList._do_full_sync() which is called
