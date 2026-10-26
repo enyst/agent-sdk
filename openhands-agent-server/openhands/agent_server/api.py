@@ -50,8 +50,8 @@ from openhands.agent_server.conversation_router import (
     conversation_router,
 )
 from openhands.agent_server.conversation_service import (
+    ConversationService,
     CredentialBindingActivationRequired,
-    get_default_conversation_service,
 )
 from openhands.agent_server.credential_binding import (
     router as credential_binding_router,
@@ -78,6 +78,7 @@ from openhands.agent_server.openai.router import (
     check_openai_api_key,
     openai_router,
 )
+from openhands.agent_server.persistence import reencrypt_stale_stores
 from openhands.agent_server.plugins_router import plugins_router
 from openhands.agent_server.profiles_router import profiles_router
 from openhands.agent_server.provider_connections_router import (
@@ -375,11 +376,14 @@ async def api_lifespan(api: FastAPI) -> AsyncIterator[None]:
 
         # Non-deferred (legacy) path: build and enter the conversation
         # service as part of the lifespan, exactly as before.
+        await asyncio.to_thread(reencrypt_stale_stores, config)
         #
         # A key that came from the config file is visible only in ``config``;
         # in-process callers of this server read it from the environment.
         export_session_api_key(config)
-        service = get_default_conversation_service()
+        # Not get_default_conversation_service(): it rebuilds config from OH_*
+        # env, ignoring the config passed to create_app().
+        service = ConversationService.get_instance(config)
         mark_initialization_complete()
         logger.info("Server initialization complete - ready to serve requests")
 
@@ -888,6 +892,12 @@ def create_app(config: Config | None = None) -> FastAPI:
 
     _add_api_routes(app)
     _setup_static_files(app, config)
+    if config.conversation_runtime_selectable:
+        from openhands.agent_server.docker_runtime.hybrid import (
+            RuntimeDispatchMiddleware,
+        )
+
+        app.add_middleware(RuntimeDispatchMiddleware)
     app.add_middleware(
         CORSDispatcher,
         allow_origins=config.allow_cors_origins,
