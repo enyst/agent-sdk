@@ -41,7 +41,6 @@ from openhands.sdk.credential import CredentialBindingError
 from openhands.sdk.event import (
     ActionEvent,
     AgentErrorEvent,
-    Condensation,
     CondensationRequest,
     Event,
     EventID,
@@ -3170,7 +3169,8 @@ class LocalConversation(BaseConversation):
     def condense(self) -> None:
         """Synchronously force condense the conversation history.
 
-        This does not advance the agent or execute pending actions.
+        If the agent is currently running, `condense()` will wait for the
+        ongoing step to finish before proceeding.
 
         Raises ValueError if no compatible condenser exists.
         """
@@ -3208,15 +3208,15 @@ class LocalConversation(BaseConversation):
                 ")"
             )
 
+        # Add a condensation request event
+        condensation_request = CondensationRequest()
+        self._on_event(condensation_request)
+
+        # Force the agent to take a single step to process the condensation request
+        # This will trigger the condenser if it handles condensation requests
         with self._state:
-            self._on_event(CondensationRequest())
-            # Agent.step also executes pending tools, including unconfirmed ones.
-            # Explicit compaction must only invoke the condenser.
-            condenser = self.agent.condenser
-            assert condenser is not None
-            result = condenser.condense(self._state.view, agent_llm=self.agent.llm)
-            if isinstance(result, Condensation):
-                self._on_event(result)
+            # Take a single step to process the condensation request
+            self.agent.step(self, on_event=self._on_event, on_token=self._on_token)
 
         logger.info("Condensation request processed")
 

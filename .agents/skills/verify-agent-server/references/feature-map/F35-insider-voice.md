@@ -298,8 +298,7 @@ EVENTS_BEFORE=$(control-agent-server api GET "/api/conversations/$CAT/events/cou
   access, delegation fidelity, navigation continuity or mobile Safari. Keep
   each result scoped to the entry point actually exercised. The browser and
   API evidence can share feature IDs without pretending one proves the other.
-- Explicit condensation must not advance the agent or execute pending tools
-  (F10). End an active Voice call before condensing, then start a fresh call
+- End an active Voice call before condensing (F10), then start a fresh call
   to obtain the new bounded saved-context snapshot.
 - Call ownership is process-local and ephemeral; conversation history is
   durable. After a server restart, reestablish Voice on the saved controller,
