@@ -162,7 +162,13 @@ def _read(
         assert request.url.path == f"/api/conversations/{cid.hex}/events/search"
         kind = request.url.params["kind"]
         items = [e for e in events if e["kind"] == kind]
-        return httpx.Response(200, json={"items": items, "next_page_id": None})
+        next_page = None
+        if kind == "MessageEditEvent":
+            offset = int(request.url.params.get("page_id") or 0)
+            size = int(request.url.params["limit"])
+            next_page = str(offset + size) if offset + size < len(items) else None
+            items = items[offset : offset + size]
+        return httpx.Response(200, json={"items": items, "next_page_id": next_page})
 
     executor = ReadConversationExecutor(
         server_url=SERVER, transport=httpx.MockTransport(handler)
@@ -211,6 +217,7 @@ def test_read_shows_the_agents_messages_as_edited():
     events.append(answer := _finish("Using port 8080."))
     events.append(_message("user", "8080 is taken, use 9090"))
     events.append(edit(answer, "~~Using port 8080.~~ [Edit: 9090.]"))
+    events.extend(edit(answer, f"Port revision {i}.") for i in range(100))
     events.append(edit(answer, "~~Using port 8080.~~ [Edit: 9090, 8080 is taken.]"))
     executor, cid, _ = _read("Port", list(reversed(events)))
 

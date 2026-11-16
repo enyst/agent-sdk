@@ -231,14 +231,27 @@ def _messages(client: httpx.Client, hex_id: str, limit: int) -> list[str]:
             limit=100,
         )["items"],
     ]
-    # The agent may have edited its messages since (``message_edits``): the
-    # latest edit of each is its text. Edits come after their messages, so
-    # the newest page of edits covers the messages read here.
+    if not events:
+        return []
+    # Only edits since the oldest candidate can affect this transcript.
+    # One message can have enough edits to fill several pages.
     edits: dict[str, str] = {}
-    for edit in _get(
-        client, path, kind="MessageEditEvent", sort_order="TIMESTAMP_DESC", limit=100
-    )["items"]:
-        edits.setdefault(edit["target_event_id"], edit["text"])
+    page_id = None
+    while True:
+        page = _get(
+            client,
+            path,
+            kind="MessageEditEvent",
+            sort_order="TIMESTAMP_DESC",
+            timestamp__gte=min(event["timestamp"] for event in events),
+            limit=100,
+            page_id=page_id,
+        )
+        for edit in page["items"]:
+            edits.setdefault(edit["target_event_id"], edit["text"])
+        page_id = page.get("next_page_id")
+        if page_id is None:
+            break
     lines = [
         (event["timestamp"], line)
         for event in events
